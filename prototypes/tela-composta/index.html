@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTÓTIPO — Tela composta (agregados + potes)</title>
+<!--
+  PROTÓTIPO DESCARTÁVEL — issue #10
+  Segunda rodada. A primeira (issue #3) decidiu painel-ao-vivo × tabela-no-servidor.
+  Painel ganhou, então as três variantes aqui são TODAS painel ao vivo.
+
+  O eixo agora é outro: quatro agregados sem limite e sem veredito passaram a dividir
+  a tela com seis potes que têm os dois. Eles são contexto ou conteúdo?
+
+    D — Faixa de contexto : agregados viram tipografia, não cards. Só pote é card.
+    E — Dois andares      : agregados são cards de outra espécie, separados por seção.
+    F — Saldo em foco     : um agregado herói, potes rebaixados a grade compacta.
+
+  Compartilhado pelas três (não é o que está em disputa): o feed com entradas e gastos,
+  o seletor de eixo (pote / tipo de pagamento / tag) e o painel de detalhe.
+-->
+<style>
+  :root {
+    --bg:#f6f6f4; --surface:#fff; --ink:#16181d; --ink-2:#5b6270; --ink-3:#8b93a1;
+    --line:#e2e4e9; --line-2:#c9cdd6; --accent:#2f5bd7;
+    --ok:#1c7a4a; --ok-bg:#e7f5ee; --bad:#c0392b; --bad-bg:#fdecea;
+    --warn:#8a6100; --warn-bg:#fdf4e0; --in:#0d7a5f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--ink);padding-bottom:92px}
+  h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em}
+  .num{font-variant-numeric:tabular-nums}
+  .muted{color:var(--ink-2)} .dim{color:var(--ink-3)}
+  button{font:inherit}
+
+  .proto-banner{background:#1c1f26;color:#e8eaee;padding:8px 16px;display:flex;gap:10px;
+    align-items:center;flex-wrap:wrap;font-size:12.5px}
+  .proto-banner strong{color:#ffd166;letter-spacing:.04em}
+  .proto-banner button{background:#333843;color:#e8eaee;border:1px solid #4a505d;
+    border-radius:5px;padding:3px 9px;cursor:pointer;font-size:12px}
+  .proto-banner button:hover{background:#414855}
+  .proto-banner .spacer{flex:1}
+
+  .switcher{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16181d;
+    color:#fff;border-radius:999px;display:flex;align-items:center;gap:4px;padding:5px;
+    box-shadow:0 8px 28px rgba(0,0,0,.28);z-index:200;font-size:13px}
+  .switcher button{background:transparent;border:0;color:#fff;cursor:pointer;width:30px;height:30px;
+    border-radius:999px;font-size:15px}
+  .switcher button:hover{background:rgba(255,255,255,.16)}
+  .switcher .label{padding:0 12px;white-space:nowrap;font-weight:500}
+  .switcher .hint{color:#8b93a1;font-size:11px;padding-right:10px}
+
+  .wrap{max-width:1140px;margin:0 auto;padding:24px 20px}
+  .monthnav{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .monthnav button{width:28px;height:28px;border:1px solid var(--line-2);background:var(--surface);
+    border-radius:6px;cursor:pointer;color:var(--ink-2)}
+  .pill-ok{color:var(--ok);background:var(--ok-bg);border:1px solid #c3e6d3;padding:2px 8px;
+    border-radius:999px;font-size:12px;white-space:nowrap}
+  .pill-bad{color:var(--bad);background:var(--bad-bg);border:1px solid #f4c7c1;padding:2px 8px;
+    border-radius:999px;font-size:12px;white-space:nowrap}
+  .pill-none{color:var(--ink-3);background:#f2f3f5;border:1px solid var(--line);padding:2px 8px;
+    border-radius:999px;font-size:12px;white-space:nowrap}
+  .tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:999px;
+    border:1px solid var(--line-2);color:var(--ink-2);background:#fafafa;white-space:nowrap}
+  .tag-rec{background:#eef2fd;border-color:#ccd8f7;color:#2f4fa8}
+  .tag-par{background:#f2eefd;border-color:#ddd2f7;color:#5a3fa8}
+  .tag-tag{background:#fdf3e8;border-color:#f3ddc0;color:#8a5a12}
+
+  /* ---- seletor de eixo + grade de cards (compartilhado) ---- */
+  .axis{display:flex;gap:2px;background:#e8eaee;border-radius:8px;padding:3px;font-size:13px}
+  .axis button{border:0;background:transparent;padding:5px 13px;border-radius:6px;cursor:pointer;
+    color:var(--ink-2)}
+  .axis button.on{background:var(--surface);color:var(--ink);font-weight:500;
+    box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .axis-note{font-size:12.5px;color:var(--warn);background:var(--warn-bg);border:1px solid #f0dcae;
+    padding:6px 11px;border-radius:6px}
+
+  .grid{display:grid;gap:12px}
+  .grid-3{grid-template-columns:repeat(auto-fit,minmax(310px,1fr))}
+  .grid-compact{grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+  .pcard{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:15px 16px;
+    text-align:left;cursor:pointer;width:100%;display:block}
+  .pcard:hover{border-color:var(--line-2);box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  .pcard.over{border-color:#f0b7b0;box-shadow:inset 3px 0 0 var(--bad)}
+  .pcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .bar{height:8px;background:#eceef2;border-radius:999px;overflow:hidden;display:flex;margin-top:12px}
+  .bar i{display:block;height:100%}
+  .bar .c{background:#8fa6dd} .bar .m{background:#2f5bd7}
+  .bar.over .c{background:#e0a19a} .bar.over .m{background:var(--bad)}
+  .slider{width:100%;margin:11px 0 2px;accent-color:var(--accent)}
+
+  /* ---- agregados: três tratamentos ---- */
+  /* D: faixa tipográfica */
+  .d-strip{display:flex;gap:34px;flex-wrap:wrap;align-items:baseline;padding:4px 2px 20px;
+    border-bottom:1px solid var(--line);margin-bottom:22px}
+  .d-strip div{display:flex;flex-direction:column;gap:1px}
+  .d-strip .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+  .d-strip .v{font-size:17px;font-weight:600}
+  .d-strip .sep{width:1px;align-self:stretch;background:var(--line)}
+
+  /* E: cards de outra espécie */
+  .e-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:8px}
+  .e-tile{background:#eef0f4;border:1px solid #e0e3e9;border-radius:9px;padding:12px 14px}
+  .e-tile .k{font-size:11.5px;color:var(--ink-2)}
+  .e-tile .v{font-size:21px;font-weight:600;margin-top:2px}
+  .section-h{display:flex;align-items:baseline;gap:10px;margin:26px 0 12px}
+  .section-h h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3)}
+  .section-h .rule{flex:1;height:1px;background:var(--line)}
+
+  /* F: herói */
+  .f-hero{background:var(--surface);border:1px solid var(--line);border-radius:13px;
+    padding:24px;display:flex;gap:32px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+  .f-hero .big{font-size:42px;font-weight:600;letter-spacing:-.02em}
+  .f-sats{display:flex;gap:28px;flex-wrap:wrap}
+  .f-sats .k{font-size:11.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+  .f-sats .v{font-size:17px;font-weight:600}
+
+  /* ---- feed ---- */
+  .feed{margin-top:26px;background:var(--surface);border:1px solid var(--line);border-radius:11px}
+  .feed > summary{padding:13px 17px;cursor:pointer;font-weight:500}
+  .frow{display:grid;grid-template-columns:52px 1fr auto;gap:13px;align-items:center;
+    padding:10px 17px;border-top:1px solid var(--line)}
+  .frow:hover{background:#fafbfc}
+  .fmeta{font-size:12.5px;color:var(--ink-2);margin-top:2px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .fval{font-weight:500}
+  .fval.in{color:var(--in)}
+  .addbtns{display:flex;gap:8px;padding:12px 17px;border-top:1px solid var(--line)}
+  .addbtns button{border:1px dashed var(--line-2);background:transparent;border-radius:7px;
+    padding:7px 13px;cursor:pointer;color:var(--ink-2)}
+  .addbtns button:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* ---- painel de detalhe ---- */
+  .scrim{position:fixed;inset:0;background:rgba(20,22,28,.34);z-index:150}
+  .panel{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);
+    z-index:160;box-shadow:-8px 0 30px rgba(0,0,0,.16);display:flex;flex-direction:column}
+  .panel header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  .panel .body{overflow:auto;padding:6px 0}
+  .panel .close{position:absolute;top:15px;right:18px;border:0;background:#eef0f4;width:28px;
+    height:28px;border-radius:999px;cursor:pointer;color:var(--ink-2)}
+  .drow{display:grid;grid-template-columns:50px 1fr auto;gap:12px;padding:11px 22px;
+    border-bottom:1px solid var(--line)}
+  .lanc-note{font-size:12px;color:var(--ink-3);margin-top:3px}
+  @media(max-width:760px){.f-hero{gap:18px}}
+</style>
+</head>
+<body>
+
+<div class="proto-banner">
+  <strong>PROTÓTIPO</strong><span>issue #10 — três composições de agregados × potes</span>
+  <span class="spacer"></span>
+  <button id="add-in">+ Entrada de R$ 1.000</button>
+  <button id="rm-in">− Última entrada</button>
+  <button id="reset">Restaurar</button>
+</div>
+
+<div id="app"></div>
+<div id="overlay"></div>
+
+<div class="switcher">
+  <button id="prev" title="Anterior (←)">‹</button>
+  <span class="label" id="vlabel"></span>
+  <button id="next" title="Próxima (→)">›</button>
+  <span class="hint">← →</span>
+</div>
+
+<script>
+/* ===========================================================================
+   Dados. Setembro/2026. A receita NÃO é mais um escalar: é a soma das entradas.
+   As tags foram escolhidas para cruzar potes de propósito — "transporte" cai em
+   Custos Fixos e em Conforto, "investimento" em Liberdade Financeira e em Metas.
+   É esse cruzamento que justifica tag existir ao lado de pote.
+   =========================================================================== */
+
+const POTES = [
+  {id:'fixos',        nome:'Custos Fixos',         pct:30, cor:'#2f5bd7'},
+  {id:'liberdade',    nome:'Liberdade Financeira', pct:25, cor:'#1c7a4a'},
+  {id:'conforto',     nome:'Conforto',             pct:15, cor:'#c47f1b'},
+  {id:'metas',        nome:'Metas',                pct:15, cor:'#8b5cf6'},
+  {id:'conhecimento', nome:'Conhecimento',         pct:10, cor:'#0d9aa8'},
+  {id:'prazeres',     nome:'Prazeres',             pct: 5, cor:'#d4568c'},
+];
+
+const ENTRADAS_0 = [
+  {dia:5,  desc:'Salário',           pgto:'Transferência', valor:7200, origem:'recorrente', tag:'salário'},
+  {dia:12, desc:'Freela de design',  pgto:'PIX',           valor: 900, origem:'avista',     tag:'freela'},
+  {dia:20, desc:'Reembolso viagem',  pgto:'PIX',           valor: 400, origem:'avista',     tag:'reembolso'},
+];
+
+// total = valor da parcela; totalCompra só existe para expor a ambiguidade do drill-down
+const GASTOS = [
+  {dia:5,  desc:'Aluguel',                     pote:'fixos',        pgto:'Débito Automático', valor:1850.00, origem:'recorrente', tag:'moradia'},
+  {dia:10, desc:'Plano de saúde',              pote:'fixos',        pgto:'Boleto',            valor: 412.00, origem:'recorrente', tag:'saúde'},
+  {dia:12, desc:'Internet fibra',              pote:'fixos',        pgto:'Débito Automático', valor: 129.90, origem:'recorrente', tag:'moradia'},
+  {dia:5,  desc:'Aporte Tesouro Direto',       pote:'liberdade',    pgto:'Transferência',     valor:1200.00, origem:'recorrente', tag:'investimento'},
+  {dia:15, desc:'Curso de inglês',             pote:'conhecimento', pgto:'Débito Automático', valor: 340.00, origem:'recorrente', tag:'educação'},
+  {dia:20, desc:'Netflix + Spotify',           pote:'prazeres',     pgto:'Cartão de Crédito', valor:  94.80, origem:'recorrente', tag:'assinaturas'},
+  {dia:18, desc:'Notebook Dell',               pote:'conforto',     pgto:'Cartão de Crédito', valor: 389.90, origem:'parcela', n:4, de:10, totalCompra:3899.00, tag:'eletrônicos'},
+  {dia:18, desc:'Sofá retrátil',               pote:'conforto',     pgto:'Cartão de Crédito', valor: 316.50, origem:'parcela', n:2, de: 6, totalCompra:1899.00, tag:'casa'},
+  {dia:1,  desc:'Aporte reserva de emergência',pote:'metas',        pgto:'Transferência',     valor: 500.00, origem:'avista', tag:'investimento'},
+  {dia:2,  desc:'Supermercado Assaí',          pote:'fixos',        pgto:'Cartão de Débito',  valor: 642.30, origem:'avista', tag:'supermercado'},
+  {dia:3,  desc:'Uber até o aeroporto',        pote:'conforto',     pgto:'PIX',               valor:  78.50, origem:'avista', tag:'transporte'},
+  {dia:4,  desc:'Livro de modelagem',          pote:'conhecimento', pgto:'Cartão de Crédito', valor: 189.00, origem:'avista', tag:'livros'},
+  {dia:5,  desc:'Jantar no Outback',           pote:'prazeres',     pgto:'Cartão de Crédito', valor: 312.40, origem:'avista', tag:'restaurante'},
+  {dia:6,  desc:'Cinema',                      pote:'prazeres',     pgto:'Dinheiro',          valor:  96.00, origem:'avista', tag:'lazer'},
+  {dia:6,  desc:'Farmácia',                    pote:'fixos',        pgto:'PIX',               valor:  87.60, origem:'avista', tag:'saúde'},
+  {dia:7,  desc:'Gasolina',                    pote:'fixos',        pgto:'Cartão de Débito',  valor: 250.00, origem:'avista', tag:'transporte'},
+];
+
+let entradas, potes, eixo, detalhe;
+function reset(){
+  entradas = ENTRADAS_0.map(e=>({...e}));
+  potes = POTES.map(p=>({...p}));
+  eixo = 'pote';
+  detalhe = null;
+}
+reset();
+
+/* ------------------------------- derivações ------------------------------- */
+const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const receita  = () => entradas.reduce((s,e)=>s+e.valor,0);
+const despesas = () => GASTOS.reduce((s,g)=>s+g.valor,0);
+const noCartao = () => GASTOS.filter(g=>g.pgto==='Cartão de Crédito').reduce((s,g)=>s+g.valor,0);
+const semReceita = () => receita() <= 0;
+
+function agregados(){
+  const r = receita(), d = despesas(), c = noCartao();
+  return [
+    {k:'Receitas',      v:r,       hint:`${entradas.length} ${entradas.length===1?'entrada':'entradas'}`},
+    {k:'Despesas',      v:d,       hint:'cartão incluído'},
+    {k:'Saldo do mês',  v:r-d,     hint:'tudo que entrou − tudo que saiu', sign:true},
+    {k:'Saldo em conta',v:r-(d-c), hint:`sem cartão (${brl(c)})`, sign:true, aprox:true},
+  ];
+}
+
+// Um mecanismo, três eixos. Só 'pote' tem limite e veredito — é o ponto.
+const EIXOS = {
+  pote:  {rotulo:'Pote',              temLimite:true},
+  pgto:  {rotulo:'Tipo de pagamento', temLimite:false},
+  tag:   {rotulo:'Tag',               temLimite:false},
+};
+const chaveDe = (g,e) => e==='pote' ? g.pote : e==='pgto' ? g.pgto : g.tag;
+
+function grupos(e){
+  if (e==='pote'){
+    return potes.map(p=>{
+      const gs = GASTOS.filter(g=>g.pote===p.id);
+      const comp = gs.filter(g=>g.origem!=='avista').reduce((s,g)=>s+g.valor,0);
+      const man  = gs.filter(g=>g.origem==='avista').reduce((s,g)=>s+g.valor,0);
+      const gasto = comp+man;
+      const limite = semReceita()? null : receita()*p.pct/100;
+      return {chave:p.id, nome:p.nome, cor:p.cor, pct:p.pct, gs, comprometido:comp, manual:man,
+        gasto, limite, saldo:limite===null?null:limite-gasto,
+        estouro:limite===null?null:Math.max(0,gasto-limite),
+        uso:limite?gasto/limite:null};
+    });
+  }
+  const mapa = new Map();
+  for (const g of GASTOS){
+    const k = chaveDe(g,e);
+    if (!mapa.has(k)) mapa.set(k,{chave:k, nome:k, gs:[], gasto:0, limite:null, estouro:null, uso:null,
+      comprometido:0, manual:0});
+    const o = mapa.get(k);
+    o.gs.push(g); o.gasto += g.valor;
+    if (g.origem==='avista') o.manual += g.valor; else o.comprometido += g.valor;
+  }
+  return [...mapa.values()].sort((a,b)=>b.gasto-a.gasto);
+}
+
+const tagOrigem = g => g.origem==='recorrente' ? `<span class="tag tag-rec">recorrente</span>`
+  : g.origem==='parcela' ? `<span class="tag tag-par">parcela ${g.n}/${g.de}</span>`
+  : `<span class="tag">à vista</span>`;
+
+/* ------------------------- blocos compartilhados ------------------------- */
+
+function seletorEixo(){
+  return `
+  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:13px">
+    <div class="axis">
+      ${Object.entries(EIXOS).map(([k,v])=>
+        `<button class="${eixo===k?'on':''}" data-eixo="${k}">${v.rotulo}</button>`).join('')}
+    </div>
+    ${!EIXOS[eixo].temLimite
+      ? `<span class="axis-note">Sem limite e sem veredito: só <strong>pote</strong> tem
+         percentual da receita. Aqui os cards só somam.</span>`
+      : `<span class="dim" style="font-size:12.5px">Clique num card para abrir o detalhe.</span>`}
+  </div>`;
+}
+
+function card(g, compacto){
+  const over = g.estouro > 0;
+  const temL = g.limite !== null;
+  const den = g.limite || g.gasto || 1;
+  const wc = Math.min(100, g.comprometido/den*100);
+  const wm = Math.min(100-wc, g.manual/den*100);
+  return `
+  <button class="pcard ${over?'over':''}" data-drill="${encodeURIComponent(g.chave)}">
+    <div class="pcard-top">
+      <div>
+        <div style="font-weight:600;font-size:${compacto?'13.5px':'15px'}">${g.nome}</div>
+        <div class="dim" style="font-size:12px;margin-top:2px">
+          ${temL ? `${g.pct}% · limite ${brl(g.limite)}`
+                 : `${g.gs.length} ${g.gs.length===1?'ocorrência':'ocorrências'}`}
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="num" style="font-size:${compacto?'16px':'19px'};font-weight:600">${brl(g.gasto)}</div>
+        ${temL ? `<div style="margin-top:4px">${over
+            ? `<span class="pill-bad">+${brl(g.estouro)}</span>`
+            : `<span class="pill-ok">${brl(g.saldo)} livres</span>`}</div>`
+          : (eixo==='pote' ? `<div style="margin-top:4px"><span class="pill-none">sem limite</span></div>` : '')}
+      </div>
+    </div>
+    ${temL && !compacto ? `<input class="slider" type="range" min="0" max="60" value="${g.pct}"
+        data-slider="${g.chave}" onclick="event.stopPropagation()">` : ''}
+    <div class="bar ${over?'over':''}"><i class="c" style="width:${wc}%"></i><i class="m" style="width:${wm}%"></i></div>
+    <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:12px" class="muted">
+      <span>Comprometido ${brl(g.comprometido)}</span><span>Manual ${brl(g.manual)}</span>
+    </div>
+  </button>`;
+}
+
+function gradeCards(compacto){
+  const gs = grupos(eixo);
+  return `<div class="grid ${compacto?'grid-compact':'grid-3'}">${gs.map(g=>card(g,compacto)).join('')}</div>`;
+}
+
+function feed(){
+  const linhas = [
+    ...entradas.map(e=>({...e, tipo:'in'})),
+    ...GASTOS.map(g=>({...g, tipo:'out'})),
+  ].sort((a,b)=>a.dia-b.dia);
+  return `
+  <details class="feed" open>
+    <summary>Lançamentos do mês — ${entradas.length} entradas, ${GASTOS.length} gastos</summary>
+    ${linhas.map(l=>`
+      <div class="frow">
+        <div class="dim num" style="font-size:12px">${String(l.dia).padStart(2,'0')}/09</div>
+        <div>
+          <div>${l.desc}</div>
+          <div class="fmeta">
+            ${l.tipo==='in'
+              ? `<span style="color:var(--in)">● entrada</span>`
+              : `<span style="color:${POTES.find(p=>p.id===l.pote).cor}">● ${POTES.find(p=>p.id===l.pote).nome}</span>`}
+            <span>·</span><span>${l.pgto}</span>
+            ${tagOrigem(l)}
+            ${l.tag?`<span class="tag tag-tag">#${l.tag}</span>`:''}
+          </div>
+        </div>
+        <div class="fval num ${l.tipo==='in'?'in':''}">${l.tipo==='in'?'+':'−'} ${brl(l.valor)}</div>
+      </div>`).join('')}
+    <div class="addbtns">
+      <button id="f-in">+ Nova entrada</button>
+      <button id="f-out">+ Novo gasto</button>
+    </div>
+  </details>`;
+}
+
+function painelDetalhe(){
+  if (!detalhe) return '';
+  const g = grupos(eixo).find(x=>String(x.chave)===String(detalhe));
+  if (!g) return '';
+  return `
+  <div class="scrim" data-fechar></div>
+  <aside class="panel">
+    <header>
+      <button class="close" data-fechar>✕</button>
+      <div class="dim" style="font-size:11.5px;text-transform:uppercase;letter-spacing:.06em">
+        ${EIXOS[eixo].rotulo}</div>
+      <h2 style="font-size:20px;margin-top:3px">${g.nome}</h2>
+      <div style="margin-top:9px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <span class="num" style="font-size:17px;font-weight:600">${brl(g.gasto)}</span>
+        ${g.limite!==null
+          ? (g.estouro>0 ? `<span class="pill-bad">estourou ${brl(g.estouro)}</span>`
+                         : `<span class="pill-ok">sobra ${brl(g.saldo)}</span>`)
+          : `<span class="pill-none">sem limite neste eixo</span>`}
+        <span class="dim" style="font-size:12.5px">${g.gs.length} ocorrências</span>
+      </div>
+    </header>
+    <div class="body">
+      ${g.gs.sort((a,b)=>a.dia-b.dia).map(o=>`
+        <div class="drow">
+          <div class="dim num" style="font-size:12px">${String(o.dia).padStart(2,'0')}/09</div>
+          <div>
+            <div>${o.desc}</div>
+            <div class="fmeta">
+              ${eixo!=='pote'?`<span style="color:${POTES.find(p=>p.id===o.pote).cor}">● ${POTES.find(p=>p.id===o.pote).nome}</span><span>·</span>`:''}
+              ${eixo!=='pgto'?`<span>${o.pgto}</span>`:''}
+              ${tagOrigem(o)}
+              ${eixo!=='tag'?`<span class="tag tag-tag">#${o.tag}</span>`:''}
+            </div>
+            ${o.origem==='parcela'
+              ? `<div class="lanc-note">⤷ ocorrência de uma compra de
+                 <strong>${brl(o.totalCompra)}</strong> em ${o.de}× — o detalhe mostra a parcela,
+                 não o lançamento inteiro</div>` : ''}
+          </div>
+          <div class="num" style="font-weight:500">${brl(o.valor)}</div>
+        </div>`).join('')}
+    </div>
+  </aside>`;
+}
+
+const cabecalho = () => `
+  <div class="monthnav">
+    <button>‹</button><h1>Setembro de 2026</h1><button>›</button>
+    <span class="dim" style="margin-left:6px">mês em curso</span>
+  </div>`;
+
+const avisoSemReceita = () => semReceita() ? `
+  <div class="axis-note" style="display:block;margin-bottom:18px">
+    <strong>Nenhuma entrada lançada.</strong> A receita do mês é a soma das entradas, então sem
+    entrada não existe limite nem veredito em nenhum pote. Os gastos continuam somando.
+  </div>` : '';
+
+/* ============================ D — Faixa de contexto ============================
+   Agregados não são cards: são uma linha tipográfica acima de uma régua. A tese é
+   que eles são contexto, e que card é um vocabulário reservado a quem tem veredito. */
+function renderD(){
+  const ag = agregados();
+  return `<div class="wrap">
+    ${cabecalho()}
+    <div class="d-strip">
+      ${ag.map((a,i)=>`
+        ${i?'<div class="sep"></div>':''}
+        <div>
+          <span class="k">${a.k}</span>
+          <span class="v num" style="${a.sign&&a.v<0?'color:var(--bad)':a.k==='Receitas'?'color:var(--in)':''}">
+            ${brl(a.v)}</span>
+          <span class="dim" style="font-size:11.5px">${a.hint}${a.aprox?' · aproximado':''}</span>
+        </div>`).join('')}
+    </div>
+    ${avisoSemReceita()}
+    ${seletorEixo()}
+    ${gradeCards(false)}
+    ${feed()}
+  </div>`;
+}
+
+/* ============================== E — Dois andares ==============================
+   Agregados são cards, mas de outra espécie: cinza, achatados, sem barra e sem
+   veredito, sob um rótulo de seção. A tese é que a diferença deve ser gritada. */
+function renderE(){
+  const ag = agregados();
+  return `<div class="wrap">
+    ${cabecalho()}
+    <div class="section-h" style="margin-top:0"><h2>O mês</h2><span class="rule"></span></div>
+    <div class="e-tiles">
+      ${ag.map(a=>`
+        <div class="e-tile">
+          <div class="k">${a.k}</div>
+          <div class="v num" style="${a.sign&&a.v<0?'color:var(--bad)':a.k==='Receitas'?'color:var(--in)':''}">
+            ${brl(a.v)}</div>
+          <div class="dim" style="font-size:11.5px;margin-top:2px">${a.hint}${a.aprox?' · aproximado':''}</div>
+        </div>`).join('')}
+    </div>
+    <div class="section-h"><h2>Os potes — onde existe limite</h2><span class="rule"></span></div>
+    ${avisoSemReceita()}
+    ${seletorEixo()}
+    ${gradeCards(false)}
+    ${feed()}
+  </div>`;
+}
+
+/* ============================= F — Saldo em foco =============================
+   Inverte a hierarquia de propósito: um agregado gigante, os outros três como
+   satélites, e os potes rebaixados a uma grade compacta. Serve para testar se
+   rebaixar o veredito é de fato errado, ou se só parecia errado no papel. */
+function renderF(){
+  const ag = agregados();
+  const saldo = ag[2];
+  return `<div class="wrap">
+    ${cabecalho()}
+    <div class="f-hero">
+      <div>
+        <div class="dim" style="font-size:12px;text-transform:uppercase;letter-spacing:.05em">
+          ${saldo.k}</div>
+        <div class="big num" style="${saldo.v<0?'color:var(--bad)':''}">${brl(saldo.v)}</div>
+        <div class="dim" style="font-size:12.5px">${saldo.hint}</div>
+      </div>
+      <div class="f-sats">
+        ${[ag[0],ag[1],ag[3]].map(a=>`
+          <div>
+            <div class="k">${a.k}</div>
+            <div class="v num" style="${a.k==='Receitas'?'color:var(--in)':a.v<0?'color:var(--bad)':''}">
+              ${brl(a.v)}</div>
+            <div class="dim" style="font-size:11.5px">${a.hint}${a.aprox?' · aprox.':''}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    ${avisoSemReceita()}
+    ${seletorEixo()}
+    ${gradeCards(true)}
+    ${feed()}
+  </div>`;
+}
+
+/* -------------------------------- switcher -------------------------------- */
+const V = {
+  D:{nome:'Faixa de contexto', render:renderD},
+  E:{nome:'Dois andares',      render:renderE},
+  F:{nome:'Saldo em foco',     render:renderF},
+};
+const K = Object.keys(V);
+const atual = () => {
+  const v = (new URLSearchParams(location.search).get('variant')||'D').toUpperCase();
+  return V[v] ? v : 'D';
+};
+function irPara(v){
+  const u = new URL(location); u.searchParams.set('variant',v);
+  history.replaceState(null,'',u); detalhe=null; render();
+}
+const ciclar = p => irPara(K[(K.indexOf(atual())+p+K.length)%K.length]);
+
+function render(){
+  const v = atual();
+  document.getElementById('app').innerHTML = V[v].render();
+  document.getElementById('overlay').innerHTML = painelDetalhe();
+  document.getElementById('vlabel').textContent = `${v} — ${V[v].nome}`;
+  wire();
+}
+
+function wire(){
+  document.querySelectorAll('[data-eixo]').forEach(b=>b.addEventListener('click',()=>{
+    eixo = b.dataset.eixo; detalhe = null; render();
+  }));
+  document.querySelectorAll('[data-drill]').forEach(b=>b.addEventListener('click',e=>{
+    if (e.target.matches('input')) return;
+    detalhe = decodeURIComponent(b.dataset.drill); render();
+  }));
+  document.querySelectorAll('[data-fechar]').forEach(b=>b.addEventListener('click',()=>{
+    detalhe = null; render();
+  }));
+  document.querySelectorAll('[data-slider]').forEach(s=>s.addEventListener('input',e=>{
+    const p = potes.find(x=>x.id===e.target.dataset.slider);
+    if (p) { p.pct = +e.target.value; render();
+      const again = document.querySelector(`[data-slider="${p.id}"]`); if (again) again.focus(); }
+  }));
+  const fi = document.getElementById('f-in');  if (fi) fi.addEventListener('click', addEntrada);
+  const fo = document.getElementById('f-out'); if (fo) fo.addEventListener('click',
+    ()=>alert('Stub: o protótipo é somente leitura para gastos.\nO que interessa medir aqui é a entrada movendo os seis limites.'));
+}
+
+let nEntrada = 0;
+function addEntrada(){
+  entradas.push({dia: 8+(nEntrada%18), desc:`Entrada avulsa ${++nEntrada}`, pgto:'PIX',
+    valor:1000, origem:'avista', tag:'avulso'});
+  render();
+}
+
+document.getElementById('prev').addEventListener('click',()=>ciclar(-1));
+document.getElementById('next').addEventListener('click',()=>ciclar(1));
+document.addEventListener('keydown',e=>{
+  if (e.target.matches('input,textarea,[contenteditable]')) return;
+  if (e.key==='Escape' && detalhe){ detalhe=null; render(); return; }
+  if (e.key==='ArrowLeft')  ciclar(-1);
+  if (e.key==='ArrowRight') ciclar(1);
+});
+document.getElementById('add-in').addEventListener('click', addEntrada);
+document.getElementById('rm-in').addEventListener('click',()=>{ entradas.pop(); render(); });
+document.getElementById('reset').addEventListener('click',()=>{ nEntrada=0; reset(); render(); });
+
+render();
+</script>
+</body>
+</html>
