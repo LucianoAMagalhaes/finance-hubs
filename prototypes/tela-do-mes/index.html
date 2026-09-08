@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTÓTIPO — Tela do mês (6 potes)</title>
+<!--
+  PROTÓTIPO DESCARTÁVEL — issue #3
+  Três variantes da tela do mês, alternáveis por ?variant=A|B|C e pela barra flutuante.
+
+  A pergunta que este protótipo existe para responder:
+  a tela do mês é uma tabela renderizada no servidor, ou precisa de interatividade
+  o bastante para justificar um front-end de verdade?
+
+  As três variantes foram construídas de propósito em pontos diferentes desse eixo:
+    A — Planilha do mês  : zero recálculo ao vivo, tudo passa por um submit
+    B — Painel ao vivo   : tudo recalcula a cada tecla, sliders de percentual
+    C — Extrato do mês   : o feed de ocorrências é o protagonista, os potes são um trilho
+
+  Sem build, sem dependências. Abrir o arquivo no navegador basta.
+-->
+<style>
+  :root {
+    --bg: #f6f6f4;
+    --surface: #ffffff;
+    --ink: #16181d;
+    --ink-2: #5b6270;
+    --ink-3: #8b93a1;
+    --line: #e2e4e9;
+    --line-2: #c9cdd6;
+    --accent: #2f5bd7;
+    --ok: #1c7a4a;
+    --ok-bg: #e7f5ee;
+    --bad: #c0392b;
+    --bad-bg: #fdecea;
+    --warn: #8a6100;
+    --warn-bg: #fdf4e0;
+    --radius: 8px;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    padding-bottom: 90px;
+  }
+  h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- faixa de protótipo (não faz parte do design avaliado) ---------- */
+  .proto-banner {
+    background: #1c1f26; color: #e8eaee; padding: 8px 16px;
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    font-size: 12.5px;
+  }
+  .proto-banner strong { color: #ffd166; letter-spacing: 0.04em; }
+  .proto-banner button {
+    background: #333843; color: #e8eaee; border: 1px solid #4a505d;
+    border-radius: 5px; padding: 3px 9px; cursor: pointer; font-size: 12px;
+  }
+  .proto-banner button:hover { background: #414855; }
+  .proto-banner .spacer { flex: 1; }
+
+  /* ---------- barra flutuante de variantes ---------- */
+  .switcher {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: #16181d; color: #fff; border-radius: 999px;
+    display: flex; align-items: center; gap: 4px; padding: 5px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.28); z-index: 100; font-size: 13px;
+  }
+  .switcher button {
+    background: transparent; border: 0; color: #fff; cursor: pointer;
+    width: 30px; height: 30px; border-radius: 999px; font-size: 15px; line-height: 1;
+  }
+  .switcher button:hover { background: rgba(255,255,255,.16); }
+  .switcher .label { padding: 0 12px; white-space: nowrap; font-weight: 500; }
+  .switcher .hint { color: #8b93a1; font-size: 11px; padding-right: 10px; }
+
+  /* ---------- primitivas compartilhadas ---------- */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 26px 20px; }
+  .wrap-wide { max-width: 1240px; }
+  .monthnav { display: flex; align-items: center; gap: 10px; }
+  .monthnav button {
+    width: 28px; height: 28px; border: 1px solid var(--line-2); background: var(--surface);
+    border-radius: 6px; cursor: pointer; color: var(--ink-2);
+  }
+  input[type=text], input[type=number] {
+    font: inherit; border: 1px solid var(--line-2); border-radius: 6px;
+    padding: 6px 9px; background: #fff; color: var(--ink);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  .tag {
+    display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 999px;
+    border: 1px solid var(--line-2); color: var(--ink-2); background: #fafafa;
+    white-space: nowrap;
+  }
+  .tag-rec { background: #eef2fd; border-color: #ccd8f7; color: #2f4fa8; }
+  .tag-par { background: #f2eefd; border-color: #ddd2f7; color: #5a3fa8; }
+  .tag-avista { background: #f4f5f7; }
+  .pill-ok  { color: var(--ok);  background: var(--ok-bg);  border: 1px solid #c3e6d3; padding: 2px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+  .pill-bad { color: var(--bad); background: var(--bad-bg); border: 1px solid #f4c7c1; padding: 2px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+  .pill-none{ color: var(--ink-3); background: #f2f3f5; border: 1px solid var(--line); padding: 2px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+  .muted { color: var(--ink-2); }
+  .dim { color: var(--ink-3); }
+  .notice {
+    background: var(--warn-bg); border: 1px solid #f0dcae; color: var(--warn);
+    padding: 10px 14px; border-radius: var(--radius); font-size: 13.5px; margin-bottom: 18px;
+  }
+
+  /* ================= VARIANTE A — Planilha do mês ================= */
+  .a-form {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px 18px; margin: 18px 0; display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap;
+  }
+  .a-field label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 5px; }
+  .a-btn {
+    font: inherit; font-weight: 500; background: var(--accent); color: #fff; border: 0;
+    border-radius: 6px; padding: 8px 16px; cursor: pointer;
+  }
+  .a-btn:disabled { background: #b9c2d8; cursor: default; }
+  .a-dirty { color: var(--warn); font-size: 13px; }
+  table.sheet { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 14px; }
+  table.sheet th, table.sheet td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: right; }
+  table.sheet th:first-child, table.sheet td:first-child { text-align: left; }
+  table.sheet thead th {
+    background: #eeeff2; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--ink-2); font-weight: 600; border-bottom: 1px solid var(--line-2);
+  }
+  table.sheet tfoot td { font-weight: 600; background: #fafbfc; border-top: 1px solid var(--line-2); }
+  table.sheet .pct-in { width: 58px; text-align: right; padding: 4px 6px; }
+  .a-table-box { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .a-loading { opacity: .45; pointer-events: none; }
+  .a-section-title { margin: 30px 0 12px; display: flex; align-items: baseline; gap: 10px; }
+
+  /* ================= VARIANTE B — Painel ao vivo ================= */
+  .b-hero {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px 24px; margin: 20px 0;
+  }
+  .b-receita-in {
+    font-size: 30px; font-weight: 600; width: 220px; padding: 4px 10px;
+    border: 0; border-bottom: 2px solid var(--line-2); border-radius: 0; background: transparent;
+  }
+  .b-receita-in:focus { outline: 0; border-bottom-color: var(--accent); }
+  .b-alloc { display: flex; height: 12px; border-radius: 999px; overflow: hidden; margin-top: 18px; background: #eceef2; }
+  .b-alloc span { transition: width .12s ease; }
+  .b-alloc-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--ink-2); }
+  .b-alloc-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+  .b-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+  .b-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .b-card.over { border-color: #f0b7b0; box-shadow: inset 3px 0 0 var(--bad); }
+  .b-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .b-slider { width: 100%; margin: 14px 0 4px; accent-color: var(--accent); }
+  .b-bar { height: 9px; background: #eceef2; border-radius: 999px; overflow: hidden; display: flex; }
+  .b-bar i { display: block; height: 100%; }
+  .b-bar .fill-c { background: #8fa6dd; }
+  .b-bar .fill-m { background: #2f5bd7; }
+  .b-bar.over .fill-c { background: #e0a19a; }
+  .b-bar.over .fill-m { background: var(--bad); }
+  .b-figs { display: flex; justify-content: space-between; margin-top: 9px; font-size: 13px; }
+  .b-drawer { margin-top: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  .b-drawer > summary { padding: 13px 18px; cursor: pointer; font-weight: 500; }
+  .b-drawer table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .b-drawer td { padding: 8px 18px; border-top: 1px solid var(--line); }
+
+  /* ================= VARIANTE C — Extrato do mês ================= */
+  .c-layout { display: grid; grid-template-columns: 1fr 330px; gap: 28px; align-items: start; }
+  .c-rail { position: sticky; top: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .c-rail-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .c-pote-row {
+    display: block; width: 100%; text-align: left; background: transparent; border: 0;
+    padding: 9px 6px; border-radius: 6px; cursor: pointer; font: inherit;
+  }
+  .c-pote-row:hover { background: #f2f4f8; }
+  .c-pote-row.sel { background: #eaf0fe; box-shadow: inset 0 0 0 1px #c3d3f7; }
+  .c-pote-head { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 6px; }
+  .c-mini { height: 5px; background: #eceef2; border-radius: 999px; overflow: hidden; }
+  .c-mini i { display: block; height: 100%; background: var(--accent); }
+  .c-mini.over i { background: var(--bad); }
+  .c-feed-group { margin-bottom: 26px; }
+  .c-feed-group > h3 {
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3);
+    padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px;
+  }
+  .c-item {
+    display: grid; grid-template-columns: 46px 1fr auto; gap: 14px; align-items: center;
+    padding: 11px 8px; border-bottom: 1px solid var(--line);
+  }
+  .c-item:hover { background: #fafbfc; }
+  .c-day { font-size: 12px; color: var(--ink-3); text-align: center; }
+  .c-desc { font-size: 14.5px; }
+  .c-meta { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .c-val { font-weight: 500; }
+  .c-add {
+    width: 100%; text-align: left; padding: 12px 14px; border: 1px dashed var(--line-2);
+    background: transparent; border-radius: 8px; color: var(--ink-2); cursor: pointer;
+    font: inherit; margin-bottom: 18px;
+  }
+  .c-add:hover { border-color: var(--accent); color: var(--accent); }
+  @media (max-width: 900px) { .c-layout { grid-template-columns: 1fr; } .c-rail { position: static; } }
+</style>
+</head>
+<body>
+
+<div class="proto-banner">
+  <strong>PROTÓTIPO</strong>
+  <span>Código descartável — issue #3. Três variantes da tela do mês.</span>
+  <span class="spacer"></span>
+  <button id="btn-zerar">Simular mês sem receita</button>
+  <button id="btn-reset">Restaurar dados</button>
+</div>
+
+<div id="app"></div>
+
+<div class="switcher">
+  <button id="prev" title="Variante anterior (←)">‹</button>
+  <span class="label" id="vlabel"></span>
+  <button id="next" title="Próxima variante (→)">›</button>
+  <span class="hint">← →</span>
+</div>
+
+<script>
+/* =========================================================================
+   Dados de trabalho. Setembro/2026, mês em curso (hoje = 07/09).
+   Ocorrências já vêm derivadas: é assim que o back-end as entregaria,
+   conforme o ADR-0002. O protótipo não deriva nada, só desenha o resultado.
+   ========================================================================= */
+
+const PADRAO = [
+  { id: 'fixos',        nome: 'Custos Fixos',         pct: 30, cor: '#2f5bd7' },
+  { id: 'liberdade',    nome: 'Liberdade Financeira', pct: 25, cor: '#1c7a4a' },
+  { id: 'conforto',     nome: 'Conforto',             pct: 15, cor: '#c47f1b' },
+  { id: 'metas',        nome: 'Metas',                pct: 15, cor: '#8b5cf6' },
+  { id: 'conhecimento', nome: 'Conhecimento',         pct: 10, cor: '#0d9aa8' },
+  { id: 'prazeres',     nome: 'Prazeres',             pct:  5, cor: '#d4568c' },
+];
+
+// origem: 'recorrente' | 'parcela' | 'avista'
+// As duas primeiras são derivadas (nascem comprometidas no mês, ninguém as digitou aqui).
+const OCORRENCIAS = [
+  { dia:  5, desc: 'Aluguel',                    pote: 'fixos',        pgto: 'Débito Automático', valor: 1850.00, origem: 'recorrente' },
+  { dia: 10, desc: 'Plano de saúde',             pote: 'fixos',        pgto: 'Boleto',            valor:  412.00, origem: 'recorrente' },
+  { dia: 12, desc: 'Internet fibra',             pote: 'fixos',        pgto: 'Débito Automático', valor:  129.90, origem: 'recorrente' },
+  { dia:  5, desc: 'Aporte Tesouro Direto',      pote: 'liberdade',    pgto: 'Transferência',     valor: 1200.00, origem: 'recorrente' },
+  { dia: 15, desc: 'Curso de inglês',            pote: 'conhecimento', pgto: 'Débito Automático', valor:  340.00, origem: 'recorrente' },
+  { dia: 20, desc: 'Netflix + Spotify',          pote: 'prazeres',     pgto: 'Cartão de Crédito', valor:   94.80, origem: 'recorrente' },
+  { dia: 18, desc: 'Notebook Dell',              pote: 'conforto',     pgto: 'Cartão de Crédito', valor:  389.90, origem: 'parcela', n: 4, de: 10 },
+  { dia: 18, desc: 'Sofá retrátil',              pote: 'conforto',     pgto: 'Cartão de Crédito', valor:  316.50, origem: 'parcela', n: 2, de:  6 },
+
+  { dia:  1, desc: 'Aporte reserva de emergência', pote: 'metas',        pgto: 'Transferência',     valor: 500.00, origem: 'avista' },
+  { dia:  2, desc: 'Supermercado Assaí',           pote: 'fixos',        pgto: 'Cartão de Débito',  valor: 642.30, origem: 'avista' },
+  { dia:  3, desc: 'Uber até o aeroporto',         pote: 'conforto',     pgto: 'PIX',               valor:  78.50, origem: 'avista' },
+  { dia:  4, desc: 'Livro de modelagem de domínio',pote: 'conhecimento', pgto: 'Cartão de Crédito', valor: 189.00, origem: 'avista' },
+  { dia:  5, desc: 'Jantar no Outback',            pote: 'prazeres',     pgto: 'Cartão de Crédito', valor: 312.40, origem: 'avista' },
+  { dia:  6, desc: 'Cinema',                       pote: 'prazeres',     pgto: 'Dinheiro',          valor:  96.00, origem: 'avista' },
+  { dia:  6, desc: 'Farmácia',                     pote: 'fixos',        pgto: 'PIX',               valor:  87.60, origem: 'avista' },
+  { dia:  7, desc: 'Gasolina',                     pote: 'fixos',        pgto: 'Cartão de Débito',  valor: 250.00, origem: 'avista' },
+];
+
+let state, rascunho;
+
+function reset() {
+  state = { receita: 8500, potes: PADRAO.map(p => ({ ...p })) };
+  novoRascunho();
+}
+function novoRascunho() {
+  // A variante A edita um rascunho e só o aplica no submit. B e C escrevem direto no state.
+  rascunho = { receita: state.receita, potes: state.potes.map(p => ({ ...p })) };
+}
+reset();
+
+/* ---------------------------- derivações ---------------------------- */
+
+const brl = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const semReceita = () => !state.receita || state.receita <= 0;
+
+function linhas() {
+  return state.potes.map(p => {
+    const ocs  = OCORRENCIAS.filter(o => o.pote === p.id);
+    const comp = ocs.filter(o => o.origem !== 'avista').reduce((s, o) => s + o.valor, 0);
+    const man  = ocs.filter(o => o.origem === 'avista').reduce((s, o) => s + o.valor, 0);
+    const gasto = comp + man;
+    const limite = semReceita() ? null : state.receita * p.pct / 100;
+    return {
+      ...p, ocs, comprometido: comp, manual: man, gasto, limite,
+      saldo:   limite === null ? null : limite - gasto,
+      estouro: limite === null ? null : Math.max(0, gasto - limite),
+      uso:     limite === null || limite === 0 ? null : gasto / limite,
+    };
+  });
+}
+const somaPct   = () => state.potes.reduce((s, p) => s + p.pct, 0);
+const totalGasto = () => OCORRENCIAS.reduce((s, o) => s + o.valor, 0);
+
+const ORIGEM_TAG = {
+  recorrente: () => `<span class="tag tag-rec">recorrente</span>`,
+  parcela:    o  => `<span class="tag tag-par">parcela ${o.n}/${o.de}</span>`,
+  avista:     () => `<span class="tag tag-avista">à vista</span>`,
+};
+const tagDe = o => ORIGEM_TAG[o.origem](o);
+
+/* =========================================================================
+   VARIANTE A — "Planilha do mês"
+   O polo servidor. Nada recalcula sozinho: receita e percentuais são campos
+   de um formulário, e o veredito só muda depois do submit (com round-trip
+   simulado). Serve para medir quanto se perde sem interatividade.
+   ========================================================================= */
+
+let aCarregando = false;
+
+function aSujo() {
+  return rascunho.receita !== state.receita ||
+         rascunho.potes.some((p, i) => p.pct !== state.potes[i].pct);
+}
+
+function renderA() {
+  const ls = linhas();
+  const somaP = somaPct();
+  const rascunhoSoma = rascunho.potes.reduce((s, p) => s + p.pct, 0);
+
+  return `
+  <div class="wrap ${aCarregando ? 'a-loading' : ''}">
+    <div class="monthnav">
+      <button>‹</button><h1>Setembro de 2026</h1><button>›</button>
+      <span class="dim" style="margin-left:6px">mês em curso</span>
+    </div>
+
+    ${semReceita() ? `<div class="notice" style="margin-top:18px">
+      <strong>Sem receita informada.</strong> Sem receita não há limite, e sem limite não há
+      veredito. Os gastos continuam somados; a coluna de estouro fica vazia até você informar
+      quanto entrou neste mês.</div>` : ''}
+
+    <form class="a-form" id="form-a">
+      <div class="a-field">
+        <label for="rec-a">Receita do mês</label>
+        <input type="number" id="rec-a" step="0.01" value="${rascunho.receita || ''}"
+               placeholder="0,00" style="width:150px">
+      </div>
+      <div class="a-field" style="flex:1">
+        <label>&nbsp;</label>
+        <div style="display:flex; gap:12px; align-items:center">
+          <button class="a-btn" type="submit" ${aSujo() ? '' : 'disabled'}>Recalcular</button>
+          ${aSujo()
+            ? `<span class="a-dirty">Alterações pendentes — os números abaixo ainda são os antigos.</span>`
+            : `<span class="dim" style="font-size:13px">Percentuais somam ${somaP}%.</span>`}
+        </div>
+      </div>
+    </form>
+
+    <div class="a-table-box">
+      <table class="sheet">
+        <thead><tr>
+          <th>Pote</th><th style="width:82px">%</th><th>Limite</th>
+          <th>Comprometido</th><th>Manual</th><th>Gasto</th><th style="width:180px">Veredito</th>
+        </tr></thead>
+        <tbody>
+          ${ls.map((l, i) => `
+          <tr>
+            <td>${l.nome}</td>
+            <td><input class="pct-in num" type="number" data-pct="${i}" value="${rascunho.potes[i].pct}" min="0" max="100"></td>
+            <td class="num">${l.limite === null ? '<span class="dim">—</span>' : brl(l.limite)}</td>
+            <td class="num ${l.comprometido ? '' : 'dim'}">${l.comprometido ? brl(l.comprometido) : '—'}</td>
+            <td class="num ${l.manual ? '' : 'dim'}">${l.manual ? brl(l.manual) : '—'}</td>
+            <td class="num"><strong>${brl(l.gasto)}</strong></td>
+            <td>${vereditoA(l)}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot><tr>
+          <td>Total</td>
+          <td class="num">${rascunhoSoma}%</td>
+          <td class="num">${semReceita() ? '—' : brl(state.receita * somaP / 100)}</td>
+          <td class="num">${brl(ls.reduce((s, l) => s + l.comprometido, 0))}</td>
+          <td class="num">${brl(ls.reduce((s, l) => s + l.manual, 0))}</td>
+          <td class="num">${brl(totalGasto())}</td>
+          <td class="muted" style="font-weight:400; font-size:13px">
+            ${semReceita() ? '' : `Não alocado: ${100 - somaP}% (${brl(state.receita * (100 - somaP) / 100)})`}
+          </td>
+        </tr></tfoot>
+      </table>
+    </div>
+
+    <div class="a-section-title">
+      <h2 style="font-size:17px">Lançamentos do mês</h2>
+      <span class="dim" style="font-size:13px">${OCORRENCIAS.length} ocorrências</span>
+    </div>
+    <div class="a-table-box">
+      <table class="sheet">
+        <thead><tr>
+          <th style="width:56px">Dia</th><th>Descrição</th><th style="width:110px">Origem</th>
+          <th>Pote</th><th>Pagamento</th><th style="width:120px">Valor</th>
+        </tr></thead>
+        <tbody>
+          ${[...OCORRENCIAS].sort((a, b) => a.dia - b.dia).map(o => `
+          <tr>
+            <td class="num dim">${String(o.dia).padStart(2, '0')}/09</td>
+            <td>${o.desc}</td>
+            <td style="text-align:left">${tagDe(o)}</td>
+            <td style="text-align:left">${state.potes.find(p => p.id === o.pote).nome}</td>
+            <td style="text-align:left" class="muted">${o.pgto}</td>
+            <td class="num">${brl(o.valor)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function vereditoA(l) {
+  if (l.limite === null) return `<span class="pill-none">sem limite</span>`;
+  if (l.estouro > 0)     return `<span class="pill-bad">estourou ${brl(l.estouro)}</span>`;
+  return `<span class="pill-ok">sobra ${brl(l.saldo)}</span>`;
+}
+
+function wireA() {
+  const rec = document.getElementById('rec-a');
+  if (rec) rec.addEventListener('input', e => {
+    rascunho.receita = parseFloat(e.target.value) || 0;
+    repaintDirtyA();
+  });
+  document.querySelectorAll('[data-pct]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      rascunho.potes[+e.target.dataset.pct].pct = parseFloat(e.target.value) || 0;
+      repaintDirtyA();
+    });
+  });
+  const form = document.getElementById('form-a');
+  if (form) form.addEventListener('submit', e => {
+    e.preventDefault();
+    // Round-trip simulado: é o custo real de não ter estado no cliente.
+    aCarregando = true; render();
+    setTimeout(() => {
+      state.receita = rascunho.receita;
+      state.potes.forEach((p, i) => p.pct = rascunho.potes[i].pct);
+      aCarregando = false; render();
+    }, 420);
+  });
+}
+
+// Atualiza só o aviso de "pendente" sem redesenhar (redesenhar mataria o foco do input).
+function repaintDirtyA() {
+  const form = document.getElementById('form-a');
+  if (!form) return;
+  form.querySelector('button[type=submit]').disabled = !aSujo();
+  const hint = form.querySelector('.a-dirty, .dim');
+  if (!hint) return;
+  if (aSujo()) {
+    hint.className = 'a-dirty';
+    hint.textContent = 'Alterações pendentes — os números abaixo ainda são os antigos.';
+  } else {
+    hint.className = 'dim';
+    hint.style.fontSize = '13px';
+    hint.textContent = `Percentuais somam ${somaPct()}%.`;
+  }
+}
+
+/* =========================================================================
+   VARIANTE B — "Painel ao vivo"
+   O polo cliente. Receita e percentuais recalculam a cada tecla e a cada
+   arrasto de slider. A barra de alocação e os seis cartões respondem juntos.
+   ========================================================================= */
+
+function renderB() {
+  const ls = linhas();
+  const somaP = somaPct();
+  const naoAlocado = 100 - somaP;
+  const estourados = ls.filter(l => l.estouro > 0);
+
+  return `
+  <div class="wrap">
+    <div class="monthnav">
+      <button>‹</button><h1>Setembro de 2026</h1><button>›</button>
+      <span class="dim" style="margin-left:6px">mês em curso</span>
+    </div>
+
+    <div class="b-hero">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:24px; flex-wrap:wrap">
+        <div>
+          <div style="font-size:12.5px; color:var(--ink-2); margin-bottom:2px">Receita do mês</div>
+          <span style="font-size:26px; color:var(--ink-3)">R$</span>
+          <input class="b-receita-in num" type="number" step="0.01" id="rec-b"
+                 value="${state.receita || ''}" placeholder="0,00">
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12.5px; color:var(--ink-2)">Gasto até agora</div>
+          <div class="num" style="font-size:26px; font-weight:600">${brl(totalGasto())}</div>
+          <div style="font-size:13px" class="${semReceita() ? 'dim' : (state.receita - totalGasto() < 0 ? 'pill-bad' : 'muted')}">
+            ${semReceita() ? 'sem receita para comparar'
+              : (state.receita - totalGasto() >= 0
+                 ? `${brl(state.receita - totalGasto())} livres`
+                 : `${brl(totalGasto() - state.receita)} acima da receita`)}
+          </div>
+        </div>
+      </div>
+
+      <div class="b-alloc">
+        ${ls.map(l => `<span style="width:${l.pct}%; background:${l.cor}" title="${l.nome} ${l.pct}%"></span>`).join('')}
+        ${naoAlocado > 0 ? `<span style="width:${naoAlocado}%; background:#dfe2e8"></span>` : ''}
+      </div>
+      <div class="b-alloc-legend">
+        ${ls.map(l => `<span><i style="background:${l.cor}"></i>${l.nome} ${l.pct}%</span>`).join('')}
+        <span style="margin-left:auto; font-weight:500; color:${
+          somaP > 100 ? 'var(--bad)' : somaP === 100 ? 'var(--ok)' : 'var(--warn)'}">
+          ${somaP > 100
+            ? `${somaP - 100}% além dos 100%`
+            : somaP === 100 ? 'Tudo alocado'
+            : `Não alocado: ${naoAlocado}%${semReceita() ? '' : ' · ' + brl(state.receita * naoAlocado / 100)}`}
+        </span>
+      </div>
+    </div>
+
+    ${semReceita()
+      ? `<div class="notice"><strong>Sem receita informada.</strong> Os percentuais continuam
+         ajustáveis, mas nenhum limite existe até a receita entrar. Digite um valor acima e os
+         seis potes ganham limite na mesma hora.</div>`
+      : estourados.length
+        ? `<div class="notice" style="background:var(--bad-bg); border-color:#f4c7c1; color:var(--bad)">
+           <strong>${estourados.length} ${estourados.length === 1 ? 'pote estourou' : 'potes estouraram'}:</strong>
+           ${estourados.map(l => `${l.nome} (${brl(l.estouro)})`).join(' · ')}</div>`
+        : ''}
+
+    <div class="b-grid">
+      ${ls.map((l, i) => cardB(l, i)).join('')}
+    </div>
+
+    <details class="b-drawer">
+      <summary>Ocorrências do mês (${OCORRENCIAS.length}) — ${brl(totalGasto())}</summary>
+      <table>
+        <tbody>
+          ${[...OCORRENCIAS].sort((a, b) => a.dia - b.dia).map(o => `
+          <tr>
+            <td class="dim num" style="width:60px">${String(o.dia).padStart(2, '0')}/09</td>
+            <td>${o.desc}</td>
+            <td style="width:110px">${tagDe(o)}</td>
+            <td class="muted" style="width:170px">${state.potes.find(p => p.id === o.pote).nome}</td>
+            <td class="num" style="text-align:right; width:120px">${brl(o.valor)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </details>
+  </div>`;
+}
+
+function cardB(l, i) {
+  const over = l.estouro > 0;
+  const denom = l.limite || l.gasto || 1;
+  const wC = Math.min(100, l.comprometido / denom * 100);
+  const wM = Math.min(100 - wC, l.manual / denom * 100);
+  return `
+  <div class="b-card ${over ? 'over' : ''}">
+    <div class="b-card-top">
+      <div>
+        <div style="font-weight:600">${l.nome}</div>
+        <div class="dim" style="font-size:12.5px; margin-top:2px">
+          ${l.limite === null ? 'sem limite' : `limite ${brl(l.limite)}`}
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="num" style="font-size:20px; font-weight:600">${brl(l.gasto)}</div>
+        <div style="margin-top:4px">
+          ${l.limite === null ? `<span class="pill-none">—</span>`
+            : over ? `<span class="pill-bad">+${brl(l.estouro)}</span>`
+                   : `<span class="pill-ok">${brl(l.saldo)} livres</span>`}
+        </div>
+      </div>
+    </div>
+
+    <input class="b-slider" type="range" min="0" max="60" step="1" value="${l.pct}" data-slider="${i}">
+    <div style="display:flex; justify-content:space-between; font-size:12.5px" class="muted">
+      <span>${l.pct}% da receita</span>
+      <span>${l.uso === null ? '' : Math.round(l.uso * 100) + '% do limite usado'}</span>
+    </div>
+
+    <div class="b-bar ${over ? 'over' : ''}" style="margin-top:12px">
+      <i class="fill-c" style="width:${wC}%"></i><i class="fill-m" style="width:${wM}%"></i>
+    </div>
+    <div class="b-figs">
+      <span class="muted">Comprometido <strong class="num">${brl(l.comprometido)}</strong></span>
+      <span class="muted">Manual <strong class="num">${brl(l.manual)}</strong></span>
+    </div>
+  </div>`;
+}
+
+function wireB() {
+  const rec = document.getElementById('rec-b');
+  if (rec) rec.addEventListener('input', e => {
+    state.receita = parseFloat(e.target.value) || 0;
+    const pos = e.target.selectionStart;
+    render();
+    const again = document.getElementById('rec-b');
+    again.focus(); try { again.setSelectionRange(pos, pos); } catch (_) {}
+  });
+  document.querySelectorAll('[data-slider]').forEach(s => {
+    s.addEventListener('input', e => {
+      const i = +e.target.dataset.slider;
+      state.potes[i].pct = +e.target.value;
+      render();
+      const again = document.querySelector(`[data-slider="${i}"]`);
+      if (again) again.focus();
+    });
+  });
+}
+
+/* =========================================================================
+   VARIANTE C — "Extrato do mês"
+   Terceira hierarquia: o protagonista é o feed de ocorrências, respondendo
+   "onde foi meu dinheiro", e os potes viram um trilho lateral que também
+   funciona como filtro. Os percentuais ficam atrás de um toggle.
+   ========================================================================= */
+
+let cFiltro = null;      // id do pote selecionado, ou null
+let cAjustando = false;  // painel de percentuais aberto?
+
+function renderC() {
+  const ls = linhas();
+  const somaP = somaPct();
+  const visiveis = cFiltro ? OCORRENCIAS.filter(o => o.pote === cFiltro) : OCORRENCIAS;
+  const comprometidas = visiveis.filter(o => o.origem !== 'avista').sort((a, b) => a.dia - b.dia);
+  const manuais = visiveis.filter(o => o.origem === 'avista').sort((a, b) => b.dia - a.dia);
+  const poteSel = cFiltro ? ls.find(l => l.id === cFiltro) : null;
+
+  return `
+  <div class="wrap wrap-wide">
+    <div class="monthnav" style="margin-bottom:22px">
+      <button>‹</button><h1>Setembro de 2026</h1><button>›</button>
+      <span class="dim" style="margin-left:6px">mês em curso</span>
+    </div>
+
+    <div class="c-layout">
+      <div>
+        <button class="c-add">+ Novo lançamento</button>
+
+        ${cFiltro ? `<div style="margin-bottom:16px; display:flex; align-items:center; gap:10px">
+          <strong>${poteSel.nome}</strong>
+          <span class="muted" style="font-size:13.5px">${visiveis.length} ocorrências · ${brl(poteSel.gasto)}</span>
+          <button class="c-add" style="width:auto; padding:4px 10px; margin:0" data-clear>limpar filtro ✕</button>
+        </div>` : ''}
+
+        ${comprometidas.length ? `
+        <div class="c-feed-group">
+          <h3>Já comprometido neste mês · ${brl(comprometidas.reduce((s, o) => s + o.valor, 0))}</h3>
+          ${comprometidas.map(itemC).join('')}
+        </div>` : ''}
+
+        ${manuais.length ? `
+        <div class="c-feed-group">
+          <h3>Lançado por você · ${brl(manuais.reduce((s, o) => s + o.valor, 0))}</h3>
+          ${manuais.map(itemC).join('')}
+        </div>` : ''}
+
+        ${!visiveis.length ? `<p class="dim">Nenhuma ocorrência neste pote.</p>` : ''}
+      </div>
+
+      <aside class="c-rail">
+        <div class="c-rail-card">
+          <div style="font-size:12px; color:var(--ink-2)">Receita do mês</div>
+          <input type="number" step="0.01" id="rec-c" value="${state.receita || ''}" placeholder="0,00"
+                 class="num" style="width:100%; font-size:19px; font-weight:600; margin-top:5px">
+          <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:13px" class="muted">
+            <span>Gasto</span><strong class="num">${brl(totalGasto())}</strong>
+          </div>
+          ${!semReceita() ? `
+          <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:13px" class="muted">
+            <span>${state.receita - totalGasto() >= 0 ? 'Livre' : 'Acima da receita'}</span>
+            <strong class="num" style="color:${state.receita - totalGasto() >= 0 ? 'var(--ok)' : 'var(--bad)'}">
+              ${brl(Math.abs(state.receita - totalGasto()))}</strong>
+          </div>` : `<div class="dim" style="font-size:12.5px; margin-top:8px">
+            Sem receita, nenhum pote tem limite.</div>`}
+        </div>
+
+        <div class="c-rail-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+            <strong style="font-size:13.5px">Potes</strong>
+            <button class="c-add" style="width:auto; padding:3px 9px; margin:0; font-size:12px" data-toggle-pct>
+              ${cAjustando ? 'fechar' : 'ajustar %'}
+            </button>
+          </div>
+          ${ls.map((l, i) => railC(l, i)).join('')}
+          ${cAjustando ? `<div style="border-top:1px solid var(--line); margin-top:10px; padding-top:9px;
+            display:flex; justify-content:space-between; font-size:12.5px"
+            class="${somaP === 100 ? 'muted' : ''}">
+            <span>${somaP > 100 ? 'Passou de 100%' : 'Não alocado'}</span>
+            <strong style="color:${somaP > 100 ? 'var(--bad)' : somaP === 100 ? 'var(--ok)' : 'var(--warn)'}">
+              ${Math.abs(100 - somaP)}%</strong>
+          </div>` : ''}
+        </div>
+      </aside>
+    </div>
+  </div>`;
+}
+
+function itemC(o) {
+  const pote = PADRAO.find(p => p.id === o.pote);
+  return `
+  <div class="c-item">
+    <div class="c-day">${String(o.dia).padStart(2, '0')}<br><span style="font-size:10px">SET</span></div>
+    <div>
+      <div class="c-desc">${o.desc}</div>
+      <div class="c-meta">
+        <span style="color:${pote.cor}">● ${pote.nome}</span>
+        <span>·</span><span>${o.pgto}</span>
+        ${tagDe(o)}
+      </div>
+    </div>
+    <div class="c-val num">${brl(o.valor)}</div>
+  </div>`;
+}
+
+function railC(l, i) {
+  const over = l.estouro > 0;
+  return `
+  <button class="c-pote-row ${cFiltro === l.id ? 'sel' : ''}" data-pote="${l.id}">
+    <div class="c-pote-head">
+      <span>${l.nome}</span>
+      <span class="num ${over ? 'pill-bad' : ''}" style="font-size:12.5px; ${over ? '' : 'color:var(--ink-2)'}">
+        ${over ? '+' + brl(l.estouro) : brl(l.gasto)}
+      </span>
+    </div>
+    <div class="c-mini ${over ? 'over' : ''}">
+      <i style="width:${l.uso === null ? 0 : Math.min(100, l.uso * 100)}%"></i>
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top:5px; font-size:11.5px" class="dim">
+      ${cAjustando
+        ? `<span onclick="event.stopPropagation()">
+             <input type="number" data-pctc="${i}" value="${l.pct}" min="0" max="100"
+                    style="width:52px; padding:2px 5px; font-size:12px" class="num">%
+           </span>`
+        : `<span>${l.pct}%</span>`}
+      <span>${l.limite === null ? 'sem limite' : 'de ' + brl(l.limite)}</span>
+    </div>
+  </button>`;
+}
+
+function wireC() {
+  const rec = document.getElementById('rec-c');
+  if (rec) rec.addEventListener('input', e => {
+    state.receita = parseFloat(e.target.value) || 0;
+    const pos = e.target.selectionStart;
+    render();
+    const again = document.getElementById('rec-c');
+    again.focus(); try { again.setSelectionRange(pos, pos); } catch (_) {}
+  });
+  document.querySelectorAll('[data-pote]').forEach(b => {
+    b.addEventListener('click', e => {
+      if (e.target.matches('input')) return;
+      const id = b.dataset.pote;
+      cFiltro = cFiltro === id ? null : id;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-pctc]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const i = +e.target.dataset.pctc;
+      state.potes[i].pct = parseFloat(e.target.value) || 0;
+      const pos = e.target.selectionStart;
+      render();
+      const again = document.querySelector(`[data-pctc="${i}"]`);
+      if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch (_) {} }
+    });
+  });
+  const t = document.querySelector('[data-toggle-pct]');
+  if (t) t.addEventListener('click', () => { cAjustando = !cAjustando; render(); });
+  const c = document.querySelector('[data-clear]');
+  if (c) c.addEventListener('click', () => { cFiltro = null; render(); });
+}
+
+/* ------------------------------ switcher ------------------------------ */
+
+const VARIANTES = {
+  A: { nome: 'Planilha do mês',  render: renderA, wire: wireA },
+  B: { nome: 'Painel ao vivo',   render: renderB, wire: wireB },
+  C: { nome: 'Extrato do mês',   render: renderC, wire: wireC },
+};
+const CHAVES = Object.keys(VARIANTES);
+
+function atual() {
+  const v = (new URLSearchParams(location.search).get('variant') || 'A').toUpperCase();
+  return VARIANTES[v] ? v : 'A';
+}
+function irPara(v) {
+  const u = new URL(location);
+  u.searchParams.set('variant', v);
+  history.replaceState(null, '', u);
+  novoRascunho();
+  render();
+}
+function ciclar(passo) {
+  const i = CHAVES.indexOf(atual());
+  irPara(CHAVES[(i + passo + CHAVES.length) % CHAVES.length]);
+}
+
+function render() {
+  const v = atual();
+  document.getElementById('app').innerHTML = VARIANTES[v].render();
+  VARIANTES[v].wire();
+  document.getElementById('vlabel').textContent = `${v} — ${VARIANTES[v].nome}`;
+}
+
+document.getElementById('prev').addEventListener('click', () => ciclar(-1));
+document.getElementById('next').addEventListener('click', () => ciclar(1));
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft')  ciclar(-1);
+  if (e.key === 'ArrowRight') ciclar(1);
+});
+document.getElementById('btn-zerar').addEventListener('click', () => {
+  state.receita = 0; novoRascunho(); render();
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  cFiltro = null; cAjustando = false; reset(); render();
+});
+
+render();
+</script>
+</body>
+</html>
