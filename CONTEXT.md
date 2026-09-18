@@ -111,3 +111,21 @@ _Avoid_: Caixinha, bucket, categoria
 **Estouro**:
 O quanto a soma das ocorrências de um pote num mês excede o limite daquele pote.
 _Avoid_: Excesso, furo, overflow
+
+### Os agregados do mês
+
+**Despesas do mês**:
+A soma líquida de todas as ocorrências de um mês, reembolsos incluídos. É o mesmo número que o total
+de qualquer eixo, e portanto a soma dos seis potes.
+_Avoid_: Gastos totais, saídas
+
+**Saldo do mês**:
+Receita do mês menos despesas do mês. Fluxo daquele mês, não quanto a pessoa tem.
+_Avoid_: Sobra, resultado, lucro
+
+**Saldo em conta**:
+Receita do mês menos as ocorrências do mês que não foram no Cartão de Crédito. Existe para ser
+comparado com o saldo do banco, e não bate com ele por construção: é fluxo do mês (ignora o que
+sobrou do mês anterior), a compra no cartão pesa no mês da compra e não no do pagamento, e Dinheiro
+conta como qualquer outro tipo de pagamento. É referência aproximada, não conciliação.
+_Avoid_: Saldo bancário, saldo disponível, extrato
