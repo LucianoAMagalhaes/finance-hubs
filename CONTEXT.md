@@ -50,7 +50,8 @@ _Avoid_: Categoria de receita, origem, pote de entrada
 ### Os gastos
 
 **Lançamento**:
-Um registro de gasto criado pela pessoa: data, descrição, pote, tipo de pagamento e valor. É a
+Um registro de gasto criado pela pessoa: data, descrição, pote, tipo de pagamento, valor e, se a
+pessoa quiser, uma tag. É a
 única coisa gravada — à vista, parcelado e recorrente são todos lançamentos. O valor é negativo
 quando o lançamento é um reembolso.
 _Avoid_: Transação, despesa, movimento, gasto
@@ -78,7 +79,7 @@ apaga dali para frente — é assim que um recorrente termina.
 _Avoid_: Assinatura, gasto fixo
 
 **Vigência**:
-Um trecho de uma recorrência em que valor, pote, tipo de pagamento e descrição ficaram iguais. O
+Um trecho de uma recorrência em que valor, pote, tipo de pagamento, tag e descrição ficaram iguais. O
 aluguel de R$ 1.500 que passou a R$ 1.650 em julho é uma recorrência com duas vigências, não dois
 lançamentos.
 _Avoid_: Versão, período, trecho
@@ -88,6 +89,24 @@ O meio pelo qual um lançamento foi pago, escolhido de uma lista fixa de sete. S
 admite parcelamento. Uma entrada usa a mesma lista, restrita aos três que creditam: Dinheiro, PIX
 e Transferência.
 _Avoid_: Forma de pagamento, método de pagamento
+
+**Tag**:
+Um rótulo livre e opcional de um lançamento, digitado pela pessoa, que existe para cruzar potes: a
+`#transporte` junta o combustível de Custos Fixos e o Uber de Conforto. Um lançamento tem no máximo
+uma. Não tem percentual, limite nem veredito. Não é cadastrada: existe enquanto algum lançamento a
+usa.
+_Avoid_: Categoria, etiqueta, marcador
+
+**Eixo**:
+Uma dimensão pela qual as ocorrências de um mês são agrupadas: pote, tipo de pagamento ou tag. Toda
+ocorrência cai em exatamente um grupo de cada eixo, então os três eixos somam o mesmo total.
+_Avoid_: Classificador, dimensão, filtro
+
+**Grupo**:
+Um valor de um eixo e as ocorrências do mês que caem nele: o grupo Conforto, o grupo Cartão de
+Crédito, o grupo `#transporte`, o grupo "sem tag". O total de um grupo é a soma líquida das suas
+ocorrências e pode ser negativo.
+_Avoid_: Caixinha, bucket, categoria
 
 **Estouro**:
 O quanto a soma das ocorrências de um pote num mês excede o limite daquele pote.
