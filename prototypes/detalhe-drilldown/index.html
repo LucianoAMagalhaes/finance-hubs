@@ -162,9 +162,10 @@
   .inline-det .x{border:0;background:transparent;color:var(--ink-3);cursor:pointer;font-size:13px}
 
   /* ---- I: mestre-detalhe ---- */
-  .md{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start}
-  .md-list{background:var(--surface);border:1px solid var(--line);border-radius:11px;overflow:hidden;
-    position:sticky;top:12px}
+  .md{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
+  .md-list{display:flex;flex-direction:column;gap:10px;position:sticky;top:12px;
+    max-height:calc(100vh - 24px);overflow:auto;padding:3px}
+  .md-list .md-total{border:1px solid var(--line);border-radius:9px}
   .md-item{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);
     background:transparent;padding:10px 14px;cursor:pointer;color:inherit}
   .md-item:last-child{border-bottom:0}
@@ -395,6 +396,13 @@ function card(g, selecionado){
   </button>`;
 }
 
+function cardFonte(f, selecionado){
+  return `<button class="pcard ${selecionado?'sel':''}" data-drill="${encodeURIComponent(f.chave)}">
+    <div class="pcard-top"><div><div style="font-weight:600">${f.nome}</div>
+    <div class="dim" style="font-size:12px">${f.es.length} ${f.es.length===1?'entrada':'entradas'}</div></div>
+    <span class="num" style="font-size:19px;font-weight:600;color:var(--in)">${brl(f.total)}</span></div></button>`;
+}
+
 function seletorEixo(){
   return `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:13px">
     <div class="axis">${Object.entries(EIXOS).map(([k,v])=>
@@ -588,10 +596,7 @@ function renderI(){
 
   if (abertos===null || abertos===undefined){
     const corpo = emFonte
-      ? `<div class="grid">${gruposFonte().filter(f=>f.total).map(f=>`<button class="pcard" data-drill="${encodeURIComponent(f.chave)}">
-          <div class="pcard-top"><div><div style="font-weight:600">${f.nome}</div>
-          <div class="dim" style="font-size:12px">${f.es.length} ${f.es.length===1?'entrada':'entradas'}</div></div>
-          <span class="num" style="font-size:19px;font-weight:600;color:var(--in)">${brl(f.total)}</span></div></button>`).join('')}</div>`
+      ? `<div class="grid">${gruposFonte().filter(f=>f.total).map(f=>cardFonte(f,false)).join('')}</div>`
       : `<div class="grid">${grupos(eixo).map(g=>card(g,false)).join('')}</div>`;
     return `<div class="wrap">${cabecalho()}${andarDeCima()}
       <div class="section-h"><h2>Os potes — onde existe limite</h2><span class="rule"></span></div>
@@ -600,22 +605,15 @@ function renderI(){
 
   let lista, det;
   if (emFonte){
-    const fs = gruposFonte().filter(f=>f.total), max = Math.max(...fs.map(f=>f.total));
-    lista = fs.map(f=>`<button class="md-item ${f.chave===fonteSel?'sel':''}" data-drill="${encodeURIComponent(f.chave)}">
-      <div class="row"><span>${f.nome}</span><span class="v num" style="color:var(--in)">${brl(f.total)}</span></div>
-      <div class="md-mini"><i style="width:${f.total/max*100}%;background:var(--in)"></i></div></button>`).join('')
+    const fs = gruposFonte().filter(f=>f.total);
+    lista = fs.map(f=>cardFonte(f, f.chave===fonteSel)).join('')
       + `<div class="md-total"><span>Soma = receita</span><strong class="num" style="color:var(--in)">${brl(receita())}</strong></div>`;
     const f = fs.find(x=>x.chave===fonteSel);
     det = `<header>${cabecalhoFonte(f)}</header>${porData(f.es).map(linhaEntrada).join('')}`;
   } else {
-    const gs = grupos(eixo), max = Math.max(...gs.map(g=>g.limite!=null?Math.max(g.limite,g.total):g.total));
-    lista = gs.map(g=>{
-      const temL=g.limite!=null, over=temL&&g.estouro>0;
-      return `<button class="md-item ${g.chave===sel?'sel':''} ${over?'over':''}" data-drill="${encodeURIComponent(g.chave)}">
-        <div class="row"><span>${g.nome}</span><span class="v num ${g.total<0?'neg':''}">${g.total<0?'− '+brl(-g.total):brl(g.total)}</span></div>
-        ${temL?`<div class="dim" style="font-size:11.5px">${over?`<span style="color:var(--bad)">+${brl(g.estouro)}</span>`:`${brl(g.saldo)} livres`} · limite ${brl(g.limite)}</div>`:''}
-        <div class="md-mini ${over?'over':''}"><i style="width:${Math.max(0,g.total)/max*100}%"></i></div></button>`;
-    }).join('') + `<div class="md-total"><span>Soma = despesas</span><strong class="num">${brl(despesas())}</strong></div>`;
+    // Os mesmos cards da grade, só empilhados: abrir um grupo não muda como ele se parece.
+    lista = grupos(eixo).map(g=>card(g, g.chave===sel)).join('')
+      + `<div class="md-total"><span>Soma = despesas</span><strong class="num">${brl(despesas())}</strong></div>`;
     const g = grupoAtual(), temL = g.limite!=null;
     det = `<header>
         <div class="kicker">${EIXOS[eixo].rotulo}</div>
