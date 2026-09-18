@@ -31,3 +31,31 @@ formulários são os mesmos. Os ⚑ saíram porque os 16 buracos já viraram dec
 | **Celular: lançar** | Barra fixa embaixo com + Entrada e + Gasto | Botão + flutuante | Botões no topo |
 
 Déficit (saldo abaixo de zero) é vermelho nas três, para não se confundir com reembolso.
+
+## Rodada 2: Sinal escolhido, com cor por pote e tema escuro
+
+Só a direção **B** ganhou isto. A e C ficam como estavam, como fonte.
+
+- **Cor do pote = identidade, não veredito.** Um quadrado ao lado do nome (no cartão, no
+  detalhe e nas linhas dos outros eixos), um filete no topo do cartão e a barra de gasto na cor
+  do pote enquanto está dentro do limite. Ao estourar, o vermelho assume a barra, o filete, o selo e
+  o fundo. O selo "Sobra" ficou neutro: o verde era veredito e agora competiria com as cores dos
+  potes.
+- **Paleta**: seis matizes sem vermelho (estouro), sem verde (entrada) e sem violeta (reembolso),
+  cada um com um tom mais claro para o escuro. Todos passam 3:1 contra o cartão nos dois temas
+  (Conforto no claro é o mais justo, com 3,16).
+
+  | Pote | Claro | Escuro |
+  |---|---|---|
+  | Custos Fixos | `#2f6fd6` azul | `#6f9cf0` |
+  | Liberdade Financeira | `#0b8f9c` petróleo | `#3cc4cf` |
+  | Conforto | `#b98900` âmbar | `#e0b33a` |
+  | Metas | `#5f8a1c` oliva | `#9cc653` |
+  | Conhecimento | `#b0409c` magenta | `#e27ccf` |
+  | Prazeres | `#8b6b4a` terra | `#c7a07a` |
+
+- **O azul saiu do botão principal**, que ficou marinho (a cor da faixa dos agregados), para não
+  disputar com Custos Fixos.
+- **Tema escuro**: segue o sistema. O botão no topo passa por Sistema → Claro → Escuro, e a
+  escolha fica lembrada no navegador. A faixa dos agregados clareia um pouco no escuro para
+  continuar sendo "outra espécie".
