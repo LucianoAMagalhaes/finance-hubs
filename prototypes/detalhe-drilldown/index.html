@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTÓTIPO — Detalhe do drill-down</title>
+<!--
+  PROTÓTIPO DESCARTÁVEL — issue #12
+  Parte da tela composta vencedora de #10 (E — Dois andares). O modelo do detalhe está
+  fechado em #8: um eixo por vez, total líquido, lista de OCORRÊNCIAS com anotação
+  ("4/10 de R$ 3.899,00"), clicar abre o lançamento. Aqui só se decide COMO FICA NA TELA.
+
+  Pergunta 1 — o detalhe é uma tela só para os três eixos? Três variantes:
+    G — Um painel só     : o mesmo painel lateral para qualquer grupo; o pote ganha
+                           limite, barra e estouro no cabeçalho. Nada mais muda.
+    H — Pote tem página  : pote abre uma página própria (barra grande, onde o limite
+                           foi cruzado, comprometido × manual). Tipo e tag abrem uma
+                           lista leve, no lugar, abaixo da grade. Telas diferentes.
+    I — Mestre-detalhe   : sem sobreposição. A grade vira uma coluna de grupos à
+                           esquerda e o detalhe fica à direita; trocar de grupo é um
+                           clique. Uniforme nos três eixos.
+
+  Pergunta 2 — Fonte ganha drill-down? Interruptor na faixa preta, vale nas três:
+    desligado : as entradas são uma lista com a Fonte como coluna (o que já existe).
+    ligado    : Fonte vira grupos clicáveis, e cada variante abre o grupo do SEU jeito.
+                Fonte classifica entradas, então os grupos dela somam a RECEITA, não as
+                despesas — não é um quarto eixo. Ver ADR-0003.
+-->
+<style>
+  :root {
+    --bg:#f6f6f4; --surface:#fff; --ink:#16181d; --ink-2:#5b6270; --ink-3:#8b93a1;
+    --line:#e2e4e9; --line-2:#c9cdd6; --accent:#2f5bd7;
+    --ok:#1c7a4a; --ok-bg:#e7f5ee; --bad:#c0392b; --bad-bg:#fdecea;
+    --warn:#8a6100; --warn-bg:#fdf4e0; --in:#0d7a5f; --in-bg:#e6f4ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--ink);padding-bottom:92px}
+  h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em}
+  .num{font-variant-numeric:tabular-nums}
+  .muted{color:var(--ink-2)} .dim{color:var(--ink-3)}
+  button{font:inherit}
+
+  .proto-banner{background:#1c1f26;color:#e8eaee;padding:8px 16px;display:flex;gap:10px;
+    align-items:center;flex-wrap:wrap;font-size:12.5px}
+  .proto-banner strong{color:#ffd166;letter-spacing:.04em}
+  .proto-banner button{background:#333843;color:#e8eaee;border:1px solid #4a505d;
+    border-radius:5px;padding:3px 9px;cursor:pointer;font-size:12px}
+  .proto-banner button.on{background:#ffd166;color:#1c1f26;border-color:#ffd166;font-weight:600}
+  .proto-banner .spacer{flex:1}
+  .proto-banner .jump{color:#aab1bf}
+
+  .switcher{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16181d;
+    color:#fff;border-radius:999px;display:flex;align-items:center;gap:4px;padding:5px;
+    box-shadow:0 8px 28px rgba(0,0,0,.28);z-index:300;font-size:13px}
+  .switcher button{background:transparent;border:0;color:#fff;cursor:pointer;width:30px;height:30px;
+    border-radius:999px;font-size:15px}
+  .switcher button:hover{background:rgba(255,255,255,.16)}
+  .switcher .label{padding:0 12px;white-space:nowrap;font-weight:500}
+  .switcher .hint{color:#8b93a1;font-size:11px;padding-right:10px}
+
+  .wrap{max-width:1140px;margin:0 auto;padding:24px 20px}
+  .monthnav{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .monthnav button{width:28px;height:28px;border:1px solid var(--line-2);background:var(--surface);
+    border-radius:6px;cursor:pointer;color:var(--ink-2)}
+  .pill-ok{color:var(--ok);background:var(--ok-bg);border:1px solid #c3e6d3;padding:2px 8px;
+    border-radius:999px;font-size:12px;white-space:nowrap}
+  .pill-bad{color:var(--bad);background:var(--bad-bg);border:1px solid #f4c7c1;padding:2px 8px;
+    border-radius:999px;font-size:12px;white-space:nowrap}
+  .pill-none{color:var(--ink-3);background:#f2f3f5;border:1px solid var(--line);padding:2px 8px;
+    border-radius:999px;font-size:12px;white-space:nowrap}
+  .pill-in{color:var(--in);background:var(--in-bg);border:1px solid #bfe3d6;padding:2px 8px;
+    border-radius:999px;font-size:12px;white-space:nowrap}
+  .tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:999px;
+    border:1px solid var(--line-2);color:var(--ink-2);background:#fafafa;white-space:nowrap}
+  .tag-rec{background:#eef2fd;border-color:#ccd8f7;color:#2f4fa8}
+  .tag-par{background:#f2eefd;border-color:#ddd2f7;color:#5a3fa8}
+  .tag-tag{background:#fdf3e8;border-color:#f3ddc0;color:#8a5a12}
+  .tag-neg{background:var(--in-bg);border-color:#bfe3d6;color:var(--in)}
+  .neg{color:var(--in)}
+
+  .axis{display:flex;gap:2px;background:#e8eaee;border-radius:8px;padding:3px;font-size:13px}
+  .axis button{border:0;background:transparent;padding:5px 13px;border-radius:6px;cursor:pointer;
+    color:var(--ink-2)}
+  .axis button.on{background:var(--surface);color:var(--ink);font-weight:500;
+    box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .axis .sep{width:1px;background:#cfd3db;margin:4px 6px}
+  .axis button.fonte{color:var(--in)}
+  .axis button.fonte.on{color:var(--in)}
+  .axis-note{font-size:12.5px;color:var(--warn);background:var(--warn-bg);border:1px solid #f0dcae;
+    padding:6px 11px;border-radius:6px}
+  .axis-note.in{color:var(--in);background:var(--in-bg);border-color:#bfe3d6}
+
+  /* ---- tela composta (E de #10) ---- */
+  .e-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:8px}
+  .e-tile{background:#eef0f4;border:1px solid #e0e3e9;border-radius:9px;padding:12px 14px}
+  .e-tile .k{font-size:11.5px;color:var(--ink-2)}
+  .e-tile .v{font-size:21px;font-weight:600;margin-top:2px}
+  .fchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .fchip{border:1px solid #bfe3d6;background:var(--surface);color:var(--in);border-radius:999px;
+    padding:2px 9px;font-size:11.5px;cursor:pointer}
+  .fchip:hover,.fchip.on{background:var(--in);color:#fff;border-color:var(--in)}
+  .section-h{display:flex;align-items:baseline;gap:10px;margin:26px 0 12px}
+  .section-h h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3)}
+  .section-h .rule{flex:1;height:1px;background:var(--line)}
+
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(310px,1fr))}
+  .pcard{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:15px 16px;
+    text-align:left;cursor:pointer;width:100%;display:block;color:inherit}
+  .pcard:hover{border-color:var(--line-2);box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  .pcard.over{border-color:#f0b7b0;box-shadow:inset 3px 0 0 var(--bad)}
+  .pcard.sel{outline:2px solid var(--accent);outline-offset:1px}
+  .pcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .bar{height:8px;background:#eceef2;border-radius:999px;overflow:hidden;display:flex;margin-top:12px;position:relative}
+  .bar i{display:block;height:100%}
+  .bar .c{background:#8fa6dd} .bar .m{background:#2f5bd7}
+  .bar.over .c{background:#e0a19a} .bar.over .m{background:var(--bad)}
+  .bar.nolim .c{background:#c9ced8} .bar.nolim .m{background:#9aa2b1}
+
+  /* ---- linhas de ocorrência (compartilhado) ---- */
+  .drow{display:grid;grid-template-columns:48px 1fr auto;gap:12px;padding:11px 22px;
+    border-bottom:1px solid var(--line);cursor:pointer}
+  .drow:hover{background:#fafbfc}
+  .fmeta{font-size:12.5px;color:var(--ink-2);margin-top:2px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .anot{font-size:12px;color:var(--ink-3);margin-top:3px}
+  .crossline{padding:5px 22px;font-size:11.5px;color:var(--bad);background:var(--bad-bg);
+    border-bottom:1px solid #f4c7c1;display:flex;gap:8px;align-items:center}
+  .crossline::before{content:"";flex:0 0 18px;height:2px;background:var(--bad)}
+  .after-cross{background:#fffafa}
+
+  /* ---- G: painel lateral ---- */
+  .scrim{position:fixed;inset:0;background:rgba(20,22,28,.34);z-index:150}
+  .panel{position:fixed;top:0;right:0;bottom:0;width:min(540px,100%);background:var(--surface);
+    z-index:160;box-shadow:-8px 0 30px rgba(0,0,0,.16);display:flex;flex-direction:column}
+  .panel header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  .panel .body{overflow:auto}
+  .close{position:absolute;top:15px;right:18px;border:0;background:#eef0f4;width:28px;
+    height:28px;border-radius:999px;cursor:pointer;color:var(--ink-2)}
+  .kicker{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+
+  /* ---- H: página do pote + lista no lugar ---- */
+  .crumb{display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:16px}
+  .crumb button{border:1px solid var(--line-2);background:var(--surface);border-radius:6px;
+    padding:4px 10px;cursor:pointer;color:var(--ink-2)}
+  .h-hero{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:22px 24px}
+  .h-hero.over{border-color:#f0b7b0}
+  .h-hero .big{font-size:36px;font-weight:600;letter-spacing:-.02em}
+  .h-bar{height:14px;background:#eceef2;border-radius:999px;position:relative;margin:18px 0 6px;overflow:visible}
+  .h-bar .fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--accent)}
+  .h-bar .fill.over{background:var(--bad)}
+  .h-bar .lim{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--ink)}
+  .h-bar .limlbl{position:absolute;top:-24px;transform:translateX(-50%);font-size:11px;color:var(--ink-2);white-space:nowrap}
+  .h-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:18px}
+  .h-stats .k{font-size:11.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+  .h-stats .v{font-size:17px;font-weight:600}
+  .h-list{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .h-list > .hd{padding:12px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;
+    align-items:center;font-size:13px}
+  .inline-det{margin-top:12px;background:var(--surface);border:1px solid var(--line-2);border-radius:11px;overflow:hidden}
+  .inline-det > .hd{padding:10px 22px;background:#f7f8fa;border-bottom:1px solid var(--line);display:flex;
+    justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+  .inline-det .x{border:0;background:transparent;color:var(--ink-3);cursor:pointer;font-size:13px}
+
+  /* ---- I: mestre-detalhe ---- */
+  .md{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start}
+  .md-list{background:var(--surface);border:1px solid var(--line);border-radius:11px;overflow:hidden;
+    position:sticky;top:12px}
+  .md-item{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);
+    background:transparent;padding:10px 14px;cursor:pointer;color:inherit}
+  .md-item:last-child{border-bottom:0}
+  .md-item:hover{background:#fafbfc}
+  .md-item.sel{background:#eef2fd;box-shadow:inset 3px 0 0 var(--accent)}
+  .md-item.over .v{color:var(--bad)}
+  .md-item .row{display:flex;justify-content:space-between;gap:8px}
+  .md-mini{height:4px;background:#eceef2;border-radius:999px;margin-top:6px;overflow:hidden}
+  .md-mini i{display:block;height:100%;background:var(--accent)}
+  .md-mini.over i{background:var(--bad)}
+  .md-total{padding:10px 14px;background:#f7f8fa;font-size:12.5px;display:flex;justify-content:space-between}
+  .md-det{background:var(--surface);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .md-det header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  .md-empty{padding:40px 22px;text-align:center;color:var(--ink-3)}
+  @media(max-width:820px){.md{grid-template-columns:1fr}.md-list{position:static}}
+
+  /* ---- lista de entradas (Fonte desligada) ---- */
+  .etable{background:var(--surface);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .erow{display:grid;grid-template-columns:52px 1fr 130px 120px auto;gap:12px;align-items:center;
+    padding:9px 17px;border-top:1px solid var(--line);font-size:14px}
+  .erow.hd{border-top:0;background:#f7f8fa;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+  @media(max-width:640px){.erow{grid-template-columns:44px 1fr auto}.erow .c3,.erow .c4{display:none}}
+
+  .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:#16181d;color:#fff;
+    padding:8px 14px;border-radius:8px;font-size:13px;z-index:400;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+</style>
+</head>
+<body>
+
+<div class="proto-banner">
+  <strong>PROTÓTIPO</strong><span>issue #12 — detalhe do drill-down</span>
+  <span class="spacer"></span>
+  <span class="jump">Ir direto:</span>
+  <button data-jump="pote:conforto">Conforto</button>
+  <button data-jump="pgto:Cartão de Crédito">Cartão de Crédito</button>
+  <button data-jump="tag:transporte">#transporte</button>
+  <button data-jump="tag:">sem tag</button>
+  <button data-jump="tag:farmácia">#farmácia (negativo)</button>
+  <span class="spacer"></span>
+  <button id="fonte-toggle">Fonte com drill-down: não</button>
+</div>
+
+<div id="app"></div>
+<div id="overlay"></div>
+
+<div class="switcher">
+  <button id="prev" title="Anterior (←)">‹</button>
+  <span class="label" id="vlabel"></span>
+  <button id="next" title="Próxima (→)">›</button>
+  <span class="hint">← →</span>
+</div>
+
+<script>
+/* ===========================================================================
+   Dados. Setembro/2026. Receita = soma das entradas = R$ 10.000,00, então
+   Conforto (15%) tem limite de R$ 1.500,00 e estoura R$ 821,80 — o exemplo do ticket.
+   Casos pedidos pelo ticket:
+     - Conforto: pote estourado, com parcela, recorrente não, e um reembolso dentro.
+     - Cartão de Crédito: grupo grande, sem limite.
+     - #transporte: tag que cruza potes (Conforto e Custos Fixos).
+     - "sem tag": lançamentos sem tag caem aqui.
+     - #farmácia: grupo de total NEGATIVO — só um reembolso de uma compra de agosto.
+   Entradas não têm tag, não parcelam e não se repetem (ADR-0003): só Fonte.
+   =========================================================================== */
+
+const POTES = [
+  {id:'fixos',        nome:'Custos Fixos',         pct:30, cor:'#2f5bd7'},
+  {id:'liberdade',    nome:'Liberdade Financeira', pct:25, cor:'#1c7a4a'},
+  {id:'conforto',     nome:'Conforto',             pct:15, cor:'#c47f1b'},
+  {id:'metas',        nome:'Metas',                pct:15, cor:'#8b5cf6'},
+  {id:'conhecimento', nome:'Conhecimento',         pct:10, cor:'#0d9aa8'},
+  {id:'prazeres',     nome:'Prazeres',             pct: 5, cor:'#d4568c'},
+];
+const FONTES = ['Salário','Freela','Rendimentos','Outras Receitas'];
+
+const ENTRADAS = [
+  {dia:5,  desc:'Salário setembro',          fonte:'Salário',     pgto:'Transferência', valor:7200},
+  {dia:9,  desc:'Freela — identidade visual', fonte:'Freela',      pgto:'PIX',           valor: 900},
+  {dia:15, desc:'Rendimento CDB',            fonte:'Rendimentos', pgto:'Transferência', valor: 400},
+  {dia:22, desc:'Freela — landing page',     fonte:'Freela',      pgto:'PIX',           valor:1500},
+];
+
+const L = (dia,desc,pote,pgto,valor,tag,extra={}) => ({dia,desc,pote,pgto,valor,tag,origem:'avista',...extra});
+const REC = desde => ({origem:'recorrente', desde});
+const PAR = (n,de,total) => ({origem:'parcela', n, de, total});
+
+const GASTOS = [
+  // Custos Fixos
+  L(5, 'Aluguel',                      'fixos','Débito Automático',1850.00,'moradia', REC('jan/25')),
+  L(10,'Plano de saúde',               'fixos','Boleto',            412.00,'saúde',   REC('mar/26')),
+  L(12,'Internet fibra',               'fixos','Débito Automático', 129.90,'moradia', REC('ago/24')),
+  L(2, 'Supermercado Assaí',           'fixos','Cartão de Débito',  184.30,'supermercado'),
+  L(6, 'Farmácia',                     'fixos','PIX',                87.60,'saúde'),
+  L(7, 'Gasolina',                     'fixos','Cartão de Débito',  250.00,'transporte'),
+  L(8, 'Padaria',                      'fixos','Dinheiro',           38.00,''),
+  L(19,'Reembolso coparticipação (compra de agosto)','fixos','PIX', -64.00,'farmácia'),
+  // Liberdade Financeira / Metas — a #investimento cruza os dois
+  L(5, 'Aporte Tesouro Direto',        'liberdade','Transferência',1200.00,'investimento', REC('jan/26')),
+  L(1, 'Aporte reserva de emergência', 'metas','Transferência',    500.00,'investimento'),
+  // Conforto — estoura
+  L(18,'Notebook Dell',                'conforto','Cartão de Crédito', 389.90,'eletrônicos', PAR(4,10,3899.00)),
+  L(18,'Sofá retrátil',                'conforto','Cartão de Crédito', 316.50,'casa',        PAR(2, 6,1899.00)),
+  L(3, 'Uber até o aeroporto',         'conforto','PIX',                78.50,'transporte'),
+  L(3, 'Passagens aéreas Paraty',      'conforto','Cartão de Crédito', 756.90,'viagem'),
+  L(4, 'Pousada em Paraty',            'conforto','Cartão de Crédito',1180.00,'viagem'),
+  L(11,'Reembolso — amigo pagou metade da pousada','conforto','PIX',-400.00,'viagem'),
+  // Conhecimento
+  L(15,'Curso de inglês',              'conhecimento','Débito Automático',340.00,'educação', REC('fev/26')),
+  L(4, 'Livro de modelagem',           'conhecimento','Cartão de Crédito',189.00,'livros'),
+  // Prazeres
+  L(20,'Netflix + Spotify',            'prazeres','Cartão de Crédito', 94.80,'assinaturas', REC('nov/24')),
+  L(5, 'Jantar no Outback',            'prazeres','Cartão de Crédito',212.40,'restaurante'),
+  L(6, 'Cinema',                       'prazeres','Dinheiro',          96.00,''),
+];
+
+/* ------------------------------- estado ------------------------------- */
+let eixo='pote', sel=null, fonteOn=false, fonteSel=null, toastMsg=null;
+// sel = chave do grupo aberto no eixo atual; fonteSel = fonte aberta (só com fonteOn)
+
+/* ------------------------------ derivações ------------------------------ */
+const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const receita  = () => ENTRADAS.reduce((s,e)=>s+e.valor,0);
+const despesas = () => GASTOS.reduce((s,g)=>s+g.valor,0);
+const noCartao = () => GASTOS.filter(g=>g.pgto==='Cartão de Crédito').reduce((s,g)=>s+g.valor,0);
+const pote = id => POTES.find(p=>p.id===id);
+const nomeTag = t => t ? '#'+t : 'sem tag';
+
+const EIXOS = {
+  pote:{rotulo:'Pote'}, pgto:{rotulo:'Tipo de pagamento'}, tag:{rotulo:'Tag'},
+};
+const chaveDe = (g,e) => e==='pote' ? g.pote : e==='pgto' ? g.pgto : g.tag;
+
+function grupos(e){
+  const r = receita();
+  if (e==='pote') return POTES.map(p=>{
+    const gs = GASTOS.filter(g=>g.pote===p.id);
+    return montar(p.id, p.nome, gs, {pct:p.pct, cor:p.cor, limite:r*p.pct/100});
+  });
+  const m = new Map();
+  for (const g of GASTOS){ const k=chaveDe(g,e); if(!m.has(k)) m.set(k,[]); m.get(k).push(g); }
+  return [...m.entries()]
+    .map(([k,gs])=>montar(k, e==='tag'?nomeTag(k):k, gs, {}))
+    .sort((a,b)=> (a.chave===''?1:0)-(b.chave===''?1:0) || b.total-a.total);
+}
+function montar(chave,nome,gs,extra){
+  const total = gs.reduce((s,g)=>s+g.valor,0);
+  const comp = gs.filter(g=>g.origem!=='avista').reduce((s,g)=>s+g.valor,0);
+  const g = {chave,nome,gs,total,comprometido:comp,manual:total-comp,limite:null,...extra};
+  if (g.limite!=null){ g.saldo=g.limite-total; g.estouro=Math.max(0,total-g.limite); }
+  return g;
+}
+const grupoAtual = () => sel===null ? null : grupos(eixo).find(g=>g.chave===sel) || null;
+
+function gruposFonte(){
+  return FONTES.map(f=>{
+    const es = ENTRADAS.filter(e=>e.fonte===f);
+    return {chave:f, nome:f, es, total:es.reduce((s,e)=>s+e.valor,0)};
+  });
+}
+
+/* --------------------------- peças compartilhadas --------------------------- */
+const dd = d => String(d).padStart(2,'0')+'/09';
+const valorCel = v => `<span class="num ${v<0?'neg':''}" style="font-weight:500">${v<0?'− '+brl(-v):brl(v)}</span>`;
+
+function anotacao(o){
+  if (o.origem==='parcela') return `<div class="anot">⤷ ${o.n}/${o.de} de ${brl(o.total)}</div>`;
+  if (o.origem==='recorrente') return `<div class="anot">⤷ recorrente desde ${o.desde}</div>`;
+  if (o.valor<0) return `<div class="anot">⤷ reembolso — lançamento negativo, não é entrada</div>`;
+  return '';
+}
+// Mostra só os classificadores que NÃO são o eixo aberto (o eixo aberto é o título).
+function metaOcorrencia(o, e){
+  const p = pote(o.pote);
+  return [
+    e!=='pote' ? `<span style="color:${p.cor}">● ${p.nome}</span>` : '',
+    e!=='pgto' ? `<span>${o.pgto}</span>` : '',
+    e!=='tag'  ? `<span class="tag tag-tag">${nomeTag(o.tag)}</span>` : '',
+    o.origem==='parcela' ? `<span class="tag tag-par">parcela</span>`
+      : o.origem==='recorrente' ? `<span class="tag tag-rec">recorrente</span>` : '',
+    o.valor<0 ? `<span class="tag tag-neg">reembolso</span>` : '',
+  ].filter(Boolean).join('');
+}
+function linhaOcorrencia(o, e, cls=''){
+  return `<div class="drow ${cls}" data-abrir="${encodeURIComponent(o.desc)}">
+    <div class="dim num" style="font-size:12px">${dd(o.dia)}</div>
+    <div><div>${o.desc}</div><div class="fmeta">${metaOcorrencia(o,e)}</div>${anotacao(o)}</div>
+    <div>${valorCel(o.valor)}</div>
+  </div>`;
+}
+function linhaEntrada(en){
+  return `<div class="drow" data-abrir="${encodeURIComponent(en.desc)}">
+    <div class="dim num" style="font-size:12px">${dd(en.dia)}</div>
+    <div><div>${en.desc}</div><div class="fmeta"><span>${en.pgto}</span></div></div>
+    <div class="num" style="font-weight:500;color:var(--in)">+ ${brl(en.valor)}</div>
+  </div>`;
+}
+const porData = xs => [...xs].sort((a,b)=>a.dia-b.dia || b.valor-a.valor);
+
+function vereditoPill(g){
+  if (g.limite==null) return '';
+  return g.estouro>0 ? `<span class="pill-bad">estourou ${brl(g.estouro)}</span>`
+                     : `<span class="pill-ok">sobra ${brl(g.saldo)}</span>`;
+}
+const totalGrande = (v,sz) => `<span class="num" style="font-size:${sz}px;font-weight:600;${v<0?'color:var(--in)':''}">${v<0?'− '+brl(-v):brl(v)}</span>`;
+const contagem = n => `${n} ${n===1?'ocorrência':'ocorrências'}`;
+const notaNegativo = g => g.total<0 ? `<div class="axis-note in" style="margin-top:10px">Total negativo: neste mês o grupo só tem reembolso.
+  Entrou dinheiro de volta, mas não é entrada — não move a receita.</div>` : '';
+
+function card(g, selecionado){
+  const temL = g.limite!=null, over = temL && g.estouro>0;
+  const den = temL ? Math.max(g.limite,g.total) : Math.max(...grupos(eixo).map(x=>x.total),1);
+  const wc = Math.max(0,Math.min(100,g.comprometido/den*100));
+  const wm = Math.max(0,Math.min(100-wc,g.manual/den*100));
+  return `<button class="pcard ${over?'over':''} ${selecionado?'sel':''}" data-drill="${encodeURIComponent(g.chave)}">
+    <div class="pcard-top">
+      <div>
+        <div style="font-weight:600">${g.nome}</div>
+        <div class="dim" style="font-size:12px;margin-top:2px">
+          ${temL ? `${g.pct}% · limite ${brl(g.limite)}` : contagem(g.gs.length)}</div>
+      </div>
+      <div style="text-align:right">
+        ${totalGrande(g.total,19)}
+        ${temL ? `<div style="margin-top:4px">${over?`<span class="pill-bad">+${brl(g.estouro)}</span>`
+                   :`<span class="pill-ok">${brl(g.saldo)} livres</span>`}</div>` : ''}
+      </div>
+    </div>
+    <div class="bar ${over?'over':''} ${temL?'':'nolim'}"><i class="c" style="width:${wc}%"></i><i class="m" style="width:${wm}%"></i></div>
+  </button>`;
+}
+
+function seletorEixo(){
+  return `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:13px">
+    <div class="axis">${Object.entries(EIXOS).map(([k,v])=>
+      `<button class="${eixo===k?'on':''}" data-eixo="${k}">${v.rotulo}</button>`).join('')}</div>
+    ${eixo!=='pote' ? `<span class="axis-note">Sem limite e sem veredito: só <strong>pote</strong> tem percentual da receita.</span>`
+      : `<span class="dim" style="font-size:12.5px">Clique num grupo para abrir o detalhe.</span>`}
+  </div>`;
+}
+
+const cabecalho = () => `<div class="monthnav"><button>‹</button><h1>Setembro de 2026</h1><button>›</button>
+  <span class="dim" style="margin-left:6px">mês em curso</span></div>`;
+
+// Andar de cima (E de #10). Com Fonte ligada, a Receita ganha chips clicáveis por fonte.
+function andarDeCima(){
+  const r=receita(), d=despesas(), c=noCartao();
+  const tiles = [
+    {k:'Receitas', v:r, hint:`${ENTRADAS.length} entradas`, cor:'var(--in)'},
+    {k:'Despesas', v:d, hint:'líquido, cartão incluído'},
+    {k:'Saldo do mês', v:r-d, hint:'receitas − despesas'},
+    {k:'Saldo em conta', v:r-(d-c), hint:`sem cartão (${brl(c)}) · aproximado`},
+  ];
+  return `<div class="section-h" style="margin-top:0"><h2>O mês</h2><span class="rule"></span></div>
+  <div class="e-tiles">${tiles.map((t,i)=>`<div class="e-tile">
+    <div class="k">${t.k}</div>
+    <div class="v num" style="${t.cor?'color:'+t.cor:t.v<0?'color:var(--bad)':''}">${brl(t.v)}</div>
+    <div class="dim" style="font-size:11.5px;margin-top:2px">${t.hint}</div>
+    ${i===0 && fonteOn && V[atual()].chipsFonte ? `<div class="fchips">${gruposFonte().filter(f=>f.total).map(f=>
+      `<button class="fchip ${fonteSel===f.chave?'on':''}" data-fonte="${f.chave}">${f.nome} ${brl(f.total)}</button>`).join('')}</div>` : ''}
+  </div>`).join('')}</div>`;
+}
+
+// Fonte desligada: a lista de entradas, com Fonte como coluna. É o "já existe".
+function listaEntradas(){
+  return `<div class="section-h"><h2>Entradas do mês</h2><span class="rule"></span></div>
+  <div class="etable">
+    <div class="erow hd"><span>Data</span><span>Descrição</span><span class="c3">Fonte</span><span class="c4">Tipo</span><span style="text-align:right">Valor</span></div>
+    ${porData(ENTRADAS).map(e=>`<div class="erow">
+      <span class="dim num" style="font-size:12px">${dd(e.dia)}</span><span>${e.desc}</span>
+      <span class="c3"><span class="pill-in">${e.fonte}</span></span><span class="c4 muted" style="font-size:13px">${e.pgto}</span>
+      <span class="num" style="text-align:right;color:var(--in);font-weight:500">+ ${brl(e.valor)}</span></div>`).join('')}
+    <div class="erow" style="background:#f7f8fa"><span></span><span class="muted">Receita do mês</span><span class="c3"></span><span class="c4"></span>
+      <span class="num" style="text-align:right;font-weight:600;color:var(--in)">${brl(receita())}</span></div>
+  </div>`;
+}
+const cabecalhoFonte = f => `
+  <div class="kicker" style="color:var(--in)">Fonte · entradas</div>
+  <h2 style="font-size:20px;margin-top:3px">${f.nome}</h2>
+  <div style="margin-top:9px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+    <span class="num" style="font-size:17px;font-weight:600;color:var(--in)">+ ${brl(f.total)}</span>
+    <span class="pill-in">${Math.round(f.total/receita()*100)}% da receita</span>
+    <span class="dim" style="font-size:12.5px">${f.es.length} ${f.es.length===1?'entrada':'entradas'}</span>
+  </div>
+  <div class="axis-note in" style="margin-top:10px">Fonte não é eixo: soma a <strong>receita</strong>
+    (${brl(receita())}), não as despesas (${brl(despesas())}). Entrada não tem ocorrência.</div>`;
+
+/* ============================ G — Um painel só ============================
+   O mesmo painel lateral de #10, para qualquer grupo de qualquer eixo. O pote ganha
+   percentual, limite, barra e estouro no cabeçalho; a lista é idêntica nos três. */
+function painelG(){
+  const g = grupoAtual();
+  if (g){
+    const temL = g.limite!=null;
+    return `<div class="scrim" data-fechar></div><aside class="panel">
+      <header><button class="close" data-fechar>✕</button>
+        <div class="kicker">${EIXOS[eixo].rotulo}</div>
+        <h2 style="font-size:20px;margin-top:3px">${g.nome}</h2>
+        <div style="margin-top:9px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          ${totalGrande(g.total,17)}
+          ${temL ? vereditoPill(g) : ''}
+          <span class="dim" style="font-size:12.5px">${contagem(g.gs.length)}</span>
+        </div>
+        ${temL ? `<div class="dim" style="font-size:12.5px;margin-top:6px">${g.pct}% de ${brl(receita())} · limite ${brl(g.limite)}</div>
+          <div class="bar ${g.estouro>0?'over':''}" style="margin-top:8px">
+            <i class="m" style="width:${Math.min(100,g.total/Math.max(g.limite,g.total)*100)}%"></i></div>` : ''}
+        ${notaNegativo(g)}
+      </header>
+      <div class="body">${porData(g.gs).map(o=>linhaOcorrencia(o,eixo)).join('')}</div>
+    </aside>`;
+  }
+  if (fonteOn && fonteSel){
+    const f = gruposFonte().find(x=>x.chave===fonteSel);
+    return `<div class="scrim" data-fechar></div><aside class="panel">
+      <header><button class="close" data-fechar>✕</button>${cabecalhoFonte(f)}</header>
+      <div class="body">${porData(f.es).map(linhaEntrada).join('')}</div></aside>`;
+  }
+  return '';
+}
+function renderG(){
+  return `<div class="wrap">${cabecalho()}${andarDeCima()}
+    <div class="section-h"><h2>Os potes — onde existe limite</h2><span class="rule"></span></div>
+    ${seletorEixo()}
+    <div class="grid">${grupos(eixo).map(g=>card(g,false)).join('')}</div>
+    ${fonteOn ? '' : listaEntradas()}
+  </div>`;
+}
+
+/* ========================= H — Pote tem página própria =========================
+   Duas telas. O pote é o único grupo com limite, então ganha uma página: barra com a
+   marca do limite, a linha onde o limite foi cruzado na lista cronológica, e
+   comprometido × manual. Tipo de pagamento e tag só somam: abrem uma lista leve, no
+   lugar, logo abaixo da grade — sem sair da tela do mês. */
+function paginaPoteH(g){
+  const over = g.estouro>0, max = Math.max(g.limite,g.total)*1.04;
+  let acc=0, cruzou=false;
+  const linhas = porData(g.gs).map(o=>{
+    acc+=o.valor;
+    let pre='';
+    if (!cruzou && acc>g.limite){ cruzou=true;
+      pre=`<div class="crossline">limite de ${brl(g.limite)} cruzado aqui, em ${dd(o.dia)} — acumulado ${brl(acc)}</div>`; }
+    return pre + linhaOcorrencia(o,'pote', cruzou?'after-cross':'');
+  }).join('');
+  return `<div class="wrap">
+    <div class="crumb"><button data-fechar>‹ Setembro de 2026</button><span class="dim">/ Pote /</span><strong>${g.nome}</strong></div>
+    <div class="h-hero ${over?'over':''}">
+      <div style="display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;align-items:flex-end">
+        <div><div class="kicker">Pote · ${g.pct}% da receita</div>
+          <h1 style="font-size:24px;margin-top:2px">${g.nome}</h1></div>
+        <div style="text-align:right"><div class="big num">${brl(g.total)}</div>${vereditoPill(g)}</div>
+      </div>
+      <div class="h-bar" style="margin-top:34px">
+        <div class="fill ${over?'over':''}" style="width:${g.total/max*100}%"></div>
+        <div class="lim" style="left:${g.limite/max*100}%"></div>
+        <div class="limlbl" style="left:${g.limite/max*100}%">limite ${brl(g.limite)}</div>
+      </div>
+      <div class="h-stats">
+        <div><div class="k">Limite</div><div class="v num">${brl(g.limite)}</div>
+          <div class="dim" style="font-size:11.5px">${g.pct}% de ${brl(receita())}</div></div>
+        <div><div class="k">Comprometido</div><div class="v num">${brl(g.comprometido)}</div>
+          <div class="dim" style="font-size:11.5px">parcelas e recorrentes</div></div>
+        <div><div class="k">Manual</div><div class="v num">${brl(g.manual)}</div>
+          <div class="dim" style="font-size:11.5px">à vista, reembolsos incluídos</div></div>
+        <div><div class="k">${over?'Estouro':'Sobra'}</div>
+          <div class="v num" style="color:${over?'var(--bad)':'var(--ok)'}">${brl(over?g.estouro:g.saldo)}</div>
+          <div class="dim" style="font-size:11.5px">${over?`${Math.round(g.total/g.limite*100)}% do limite`:'ainda livre'}</div></div>
+      </div>
+    </div>
+    <div class="h-list"><div class="hd"><strong>${contagem(g.gs.length)}</strong>
+      <span class="dim">em ordem de data — clique para abrir o lançamento</span></div>${linhas}</div>
+  </div>`;
+}
+function inlineH(){
+  const g = grupoAtual();
+  if (g && eixo!=='pote') return `<div class="inline-det">
+    <div class="hd"><div><span class="kicker">${EIXOS[eixo].rotulo}</span> &nbsp;<strong>${g.nome}</strong>
+      &nbsp; ${totalGrande(g.total,14)} <span class="dim">· ${contagem(g.gs.length)}</span></div>
+      <button class="x" data-fechar>fechar ✕</button></div>
+    ${g.total<0?`<div style="padding:0 22px 10px">${notaNegativo(g)}</div>`:''}
+    ${porData(g.gs).map(o=>linhaOcorrencia(o,eixo)).join('')}</div>`;
+  return '';
+}
+function inlineFonteH(){
+  if (!(fonteOn && fonteSel)) return '';
+  const f = gruposFonte().find(x=>x.chave===fonteSel);
+  return `<div class="inline-det" style="margin-bottom:6px">
+    <div class="hd"><div><span class="kicker" style="color:var(--in)">Fonte</span> &nbsp;<strong>${f.nome}</strong>
+      &nbsp;<span class="num" style="color:var(--in);font-weight:600">+ ${brl(f.total)}</span>
+      <span class="dim">· ${f.es.length} ${f.es.length===1?'entrada':'entradas'} · soma a receita, não as despesas</span></div>
+      <button class="x" data-fechar-fonte>fechar ✕</button></div>
+    ${porData(f.es).map(linhaEntrada).join('')}</div>`;
+}
+function renderH(){
+  const g = grupoAtual();
+  if (g && eixo==='pote') return paginaPoteH(g);
+  // Grade com o card aberto marcado; a lista cai abaixo da linha da grade.
+  return `<div class="wrap">${cabecalho()}${andarDeCima()}${inlineFonteH()}
+    <div class="section-h"><h2>Os potes — onde existe limite</h2><span class="rule"></span></div>
+    ${seletorEixo()}
+    <div class="grid">${grupos(eixo).map(x=>card(x, x.chave===sel)).join('')}</div>
+    ${inlineH()}
+    ${fonteOn ? '' : listaEntradas()}
+  </div>`;
+}
+
+/* ============================ I — Mestre-detalhe ============================
+   Sem sobreposição e sem trocar de página. Ao abrir um grupo, a grade de cards vira
+   uma coluna estreita com todos os grupos do eixo e o detalhe ocupa a direita. Andar
+   entre Conforto → Prazeres → Metas é um clique cada. Com Fonte ligada, ela aparece
+   no seletor, separada por um traço, como "quase eixo" — é aqui que se vê o custo
+   de pôr Fonte ao lado dos três: o rodapé da coluna deixa de somar as despesas. */
+function renderI(){
+  const emFonte = fonteOn && eixo==='fonte';
+  const abertos = emFonte ? fonteSel : sel;
+  const seletor = `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:13px">
+    <div class="axis">${Object.entries(EIXOS).map(([k,v])=>
+      `<button class="${eixo===k?'on':''}" data-eixo="${k}">${v.rotulo}</button>`).join('')}
+      ${fonteOn?`<span class="sep"></span><button class="fonte ${emFonte?'on':''}" data-eixo="fonte">Fonte (entradas)</button>`:''}</div>
+    ${emFonte ? `<span class="axis-note in">Fonte agrupa <strong>entradas</strong>: soma ${brl(receita())}, não ${brl(despesas())}.</span>`
+      : eixo!=='pote' ? `<span class="axis-note">Sem limite e sem veredito: só <strong>pote</strong> tem percentual da receita.</span>`
+      : `<span class="dim" style="font-size:12.5px">Clique num grupo para abrir o detalhe ao lado.</span>`}
+  </div>`;
+
+  if (abertos===null || abertos===undefined){
+    const corpo = emFonte
+      ? `<div class="grid">${gruposFonte().filter(f=>f.total).map(f=>`<button class="pcard" data-drill="${encodeURIComponent(f.chave)}">
+          <div class="pcard-top"><div><div style="font-weight:600">${f.nome}</div>
+          <div class="dim" style="font-size:12px">${f.es.length} ${f.es.length===1?'entrada':'entradas'}</div></div>
+          <span class="num" style="font-size:19px;font-weight:600;color:var(--in)">${brl(f.total)}</span></div></button>`).join('')}</div>`
+      : `<div class="grid">${grupos(eixo).map(g=>card(g,false)).join('')}</div>`;
+    return `<div class="wrap">${cabecalho()}${andarDeCima()}
+      <div class="section-h"><h2>Os potes — onde existe limite</h2><span class="rule"></span></div>
+      ${seletor}${corpo}${fonteOn?'':listaEntradas()}</div>`;
+  }
+
+  let lista, det;
+  if (emFonte){
+    const fs = gruposFonte().filter(f=>f.total), max = Math.max(...fs.map(f=>f.total));
+    lista = fs.map(f=>`<button class="md-item ${f.chave===fonteSel?'sel':''}" data-drill="${encodeURIComponent(f.chave)}">
+      <div class="row"><span>${f.nome}</span><span class="v num" style="color:var(--in)">${brl(f.total)}</span></div>
+      <div class="md-mini"><i style="width:${f.total/max*100}%;background:var(--in)"></i></div></button>`).join('')
+      + `<div class="md-total"><span>Soma = receita</span><strong class="num" style="color:var(--in)">${brl(receita())}</strong></div>`;
+    const f = fs.find(x=>x.chave===fonteSel);
+    det = `<header>${cabecalhoFonte(f)}</header>${porData(f.es).map(linhaEntrada).join('')}`;
+  } else {
+    const gs = grupos(eixo), max = Math.max(...gs.map(g=>g.limite!=null?Math.max(g.limite,g.total):g.total));
+    lista = gs.map(g=>{
+      const temL=g.limite!=null, over=temL&&g.estouro>0;
+      return `<button class="md-item ${g.chave===sel?'sel':''} ${over?'over':''}" data-drill="${encodeURIComponent(g.chave)}">
+        <div class="row"><span>${g.nome}</span><span class="v num ${g.total<0?'neg':''}">${g.total<0?'− '+brl(-g.total):brl(g.total)}</span></div>
+        ${temL?`<div class="dim" style="font-size:11.5px">${over?`<span style="color:var(--bad)">+${brl(g.estouro)}</span>`:`${brl(g.saldo)} livres`} · limite ${brl(g.limite)}</div>`:''}
+        <div class="md-mini ${over?'over':''}"><i style="width:${Math.max(0,g.total)/max*100}%"></i></div></button>`;
+    }).join('') + `<div class="md-total"><span>Soma = despesas</span><strong class="num">${brl(despesas())}</strong></div>`;
+    const g = grupoAtual(), temL = g.limite!=null;
+    det = `<header>
+        <div class="kicker">${EIXOS[eixo].rotulo}</div>
+        <h2 style="font-size:20px;margin-top:3px">${g.nome}</h2>
+        <div style="margin-top:9px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          ${totalGrande(g.total,17)} ${vereditoPill(g)}
+          <span class="dim" style="font-size:12.5px">${contagem(g.gs.length)}</span></div>
+        ${temL?`<div class="dim" style="font-size:12.5px;margin-top:6px">${g.pct}% de ${brl(receita())} · limite ${brl(g.limite)}</div>`:''}
+        ${notaNegativo(g)}
+      </header>${porData(g.gs).map(o=>linhaOcorrencia(o,eixo)).join('')}`;
+  }
+  return `<div class="wrap">${cabecalho()}${andarDeCima()}
+    <div class="section-h"><h2>Os potes — onde existe limite</h2><span class="rule"></span></div>
+    ${seletor}
+    <div class="md"><div class="md-list">${lista}</div>
+      <div class="md-det" style="position:relative"><button class="close" data-fechar title="Voltar à grade">✕</button>${det}</div></div>
+    ${fonteOn?'':listaEntradas()}
+  </div>`;
+}
+
+/* -------------------------------- switcher -------------------------------- */
+const V = {
+  G:{nome:'Um painel só',         render:renderG, overlay:painelG, chipsFonte:true},
+  H:{nome:'Pote tem página',      render:renderH, overlay:()=>'',  chipsFonte:true},
+  I:{nome:'Mestre-detalhe',       render:renderI, overlay:()=>'',  chipsFonte:false},
+};
+const K = Object.keys(V);
+const atual = () => { const v=(new URLSearchParams(location.search).get('variant')||'G').toUpperCase(); return V[v]?v:'G'; };
+function irPara(v){ const u=new URL(location); u.searchParams.set('variant',v); history.replaceState(null,'',u);
+  sel=null; fonteSel=null; if (eixo==='fonte') eixo='pote'; render(); }
+const ciclar = p => irPara(K[(K.indexOf(atual())+p+K.length)%K.length]);
+
+function render(){
+  const v = atual();
+  document.getElementById('app').innerHTML = V[v].render();
+  document.getElementById('overlay').innerHTML = V[v].overlay() + (toastMsg?`<div class="toast">${toastMsg}</div>`:'');
+  document.getElementById('vlabel').textContent = `${v} — ${V[v].nome}`;
+  const ft = document.getElementById('fonte-toggle');
+  ft.textContent = `Fonte com drill-down: ${fonteOn?'sim':'não'}`; ft.classList.toggle('on',fonteOn);
+  wire();
+}
+function fechar(){ sel=null; fonteSel=null; render(); }
+
+function wire(){
+  document.querySelectorAll('[data-eixo]').forEach(b=>b.addEventListener('click',()=>{
+    eixo=b.dataset.eixo; sel=null; fonteSel=null; render(); }));
+  document.querySelectorAll('[data-drill]').forEach(b=>b.addEventListener('click',()=>{
+    const k = decodeURIComponent(b.dataset.drill);
+    if (eixo==='fonte'){ fonteSel=k; sel=null; }
+    else { sel = (atual()==='H' && eixo!=='pote' && sel===k) ? null : k; fonteSel=null; }
+    render(); window.scrollTo({top: atual()==='H'&&eixo==='pote' ? 0 : window.scrollY}); }));
+  document.querySelectorAll('[data-fonte]').forEach(b=>b.addEventListener('click',()=>{
+    const k=b.dataset.fonte; fonteSel = fonteSel===k?null:k; sel=null; render(); }));
+  document.querySelectorAll('[data-fechar]').forEach(b=>b.addEventListener('click',fechar));
+  document.querySelectorAll('[data-fechar-fonte]').forEach(b=>b.addEventListener('click',()=>{fonteSel=null;render();}));
+  document.querySelectorAll('[data-abrir]').forEach(r=>r.addEventListener('click',()=>{
+    toastMsg = `Stub: abriria o lançamento “${decodeURIComponent(r.dataset.abrir)}” para editar.`;
+    render(); setTimeout(()=>{toastMsg=null;render();},1800); }));
+}
+
+document.querySelectorAll('[data-jump]').forEach(b=>b.addEventListener('click',()=>{
+  const [e,...rest] = b.dataset.jump.split(':'); eixo=e; sel=rest.join(':'); fonteSel=null; render();
+  window.scrollTo({top:0});
+}));
+document.getElementById('fonte-toggle').addEventListener('click',()=>{
+  fonteOn=!fonteOn; fonteSel=null; if (eixo==='fonte') { eixo='pote'; sel=null; } render(); });
+document.getElementById('prev').addEventListener('click',()=>ciclar(-1));
+document.getElementById('next').addEventListener('click',()=>ciclar(1));
+document.addEventListener('keydown',e=>{
+  if (e.target.matches('input,textarea,[contenteditable]')) return;
+  if (e.key==='Escape' && (sel!==null||fonteSel)){ fechar(); return; }
+  if (e.key==='ArrowLeft')  ciclar(-1);
+  if (e.key==='ArrowRight') ciclar(1);
+});
+
+render();
+</script>
+</body>
+</html>
