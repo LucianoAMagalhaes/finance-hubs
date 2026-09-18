@@ -1,0 +1,8 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# dados locais: o banco e as cópias de segurança nunca vão para o git
+dados/
+.env*.local
