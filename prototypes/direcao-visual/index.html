@@ -1,0 +1,1261 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTÓTIPO — Direção visual</title>
+<!--
+  PROTÓTIPO DESCARTÁVEL — issue #14
+  Pergunta: qual a direção visual do app (paleta, tipografia, veredito, valor negativo) e como a
+  tela se reorganiza no celular?
+
+  Plano: três direções sobre o app integrado do #13, na mesma página, trocadas por ?variant=A|B|C
+  e pela barra flutuante (← → também trocam). "Celular" põe a tela numa moldura de 390px; o
+  layout reage à largura da moldura (container query), não à da janela.
+
+    A · Papel  — cor só para estouro. Sinal, peso e tipografia serifada fazem o resto.
+                 Agregados como faixa de extrato; celular: o detalhe empilha como página nova.
+    B · Sinal  — cor é o estado. Agregados numa faixa escura; potes com selo verde/vermelho/cinza;
+                 reembolso em violeta. Celular: grade 2×2 e o detalhe sobe como folha inferior.
+    C · Régua  — sem cartões: potes numa tabela com régua de limite fixa (a marca é o limite).
+                 Números em mono. Celular: a linha tocada abre o detalhe logo abaixo dela.
+
+  O Dominio e os formulários são os do #13, sem mudança. Os ⚑ sumiram: os 16 buracos viraram decisão.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  /* ============ tokens por direção ============ */
+  body[data-v="A"]{ --bg:#f4f1ea; --surface:#fffdf8; --sunken:#ece6da; --ink:#1d1b17; --ink-2:#5f594f; --ink-3:#948c7e;
+    --line:#e3dccd; --line-2:#cfc6b4; --accent:#1d1b17; --on-accent:#fffdf8;
+    --ok:#5f594f; --ok-bg:transparent; --bad:#b3261e; --bad-bg:#fbeae7; --warn:#7a5a12; --warn-bg:#f3e8cf;
+    --in:#1d1b17; --in-bg:#ece6da; --neg:#1d1b17; --neg-bg:#ece6da; --radius:3px; --radius-lg:4px;
+    --font:"Source Sans 3",system-ui,sans-serif; --font-num:"Source Serif 4",Georgia,serif; --font-title:"Source Serif 4",Georgia,serif; }
+  body[data-v="B"]{ --bg:#eef1f6; --surface:#fff; --sunken:#e5e9f0; --ink:#0e1726; --ink-2:#4a5568; --ink-3:#8a94a6;
+    --line:#dde3ec; --line-2:#c3ccd9; --accent:#2454e0; --on-accent:#fff;
+    --ok:#0f7a3d; --ok-bg:#dcf3e5; --bad:#d12c1f; --bad-bg:#ffe9e6; --warn:#9a6700; --warn-bg:#fff4d6;
+    --in:#0f7a3d; --in-bg:#dcf3e5; --neg:#6b46c1; --neg-bg:#f1ebff; --radius:10px; --radius-lg:16px;
+    --font:Inter,system-ui,sans-serif; --font-num:Inter,system-ui,sans-serif; --font-title:Inter,system-ui,sans-serif; }
+  body[data-v="C"]{ --bg:#fff; --surface:#fff; --sunken:#f3f4f5; --ink:#111418; --ink-2:#555b65; --ink-3:#8d939c;
+    --line:#e6e8eb; --line-2:#cdd1d6; --accent:#111418; --on-accent:#fff;
+    --ok:#2b8a3e; --ok-bg:#ebfbee; --bad:#e8590c; --bad-bg:#fff4e6; --warn:#946200; --warn-bg:#fff9db;
+    --in:#2b8a3e; --in-bg:#ebfbee; --neg:#1971c2; --neg-bg:#e7f5ff; --radius:2px; --radius-lg:3px;
+    --font:"IBM Plex Sans",system-ui,sans-serif; --font-num:"IBM Plex Mono",ui-monospace,monospace; --font-title:"IBM Plex Sans",system-ui,sans-serif; }
+
+  /* ============ base ============ */
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 var(--font);background:var(--bg);color:var(--ink)}
+  h1,h2,h3{margin:0;font-weight:600}
+  .num{font-family:var(--font-num);font-variant-numeric:tabular-nums lining-nums}
+  .muted{color:var(--ink-2)} .dim{color:var(--ink-3)}
+  button,input,select{font:inherit;color:inherit}
+
+  .proto-banner{background:#1c1f26;color:#e8eaee;padding:8px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    font:12.5px/1.4 system-ui,sans-serif;position:sticky;top:0;z-index:500}
+  .proto-banner strong{color:#ffd166;letter-spacing:.04em}
+  .proto-banner button{background:#333843;color:#e8eaee;border:1px solid #4a505d;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:12px}
+  .proto-banner .spacer{flex:1}
+
+  /* A tela vive num "aparelho". Largo: ocupa tudo. Celular: moldura de 390px. */
+  .device{container:tela / inline-size;position:relative;background:var(--bg)}
+  body.celular{background:#cfd2d8}
+  body.celular .stage{display:flex;justify-content:center;padding:24px 12px 100px}
+  body.celular .device{width:390px;flex:none;height:min(844px,calc(100vh - 150px));border:10px solid #15171b;border-radius:40px;
+    overflow:hidden;transform:translateZ(0);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  body.celular .screen{height:100%;overflow:auto}
+
+  .wrap{max-width:1140px;margin:0 auto;padding:22px 20px 110px}
+  .topo{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+  .monthnav{display:flex;align-items:center;gap:6px}
+  .monthnav h1{font-family:var(--font-title);font-size:24px;min-width:210px;text-align:center;letter-spacing:-.01em}
+  .status{display:flex;gap:6px;flex-wrap:wrap}
+  .acoes{display:flex;gap:8px;margin-left:auto}
+  .btn{border:1px solid var(--line-2);background:var(--surface);border-radius:var(--radius);cursor:pointer;color:var(--ink-2);padding:6px 12px;font-size:13.5px;white-space:nowrap}
+  .btn:hover{border-color:var(--ink-3)}
+  .btn.seta{width:32px;height:32px;padding:0;font-size:17px}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:500}
+  .btn.in{border-color:var(--in);color:var(--in);font-weight:500}
+  .btn.perigo{color:var(--bad);border-color:var(--bad)}
+  .btn.mini{font-size:12px;padding:3px 9px;margin-left:8px;vertical-align:middle}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .chip{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:var(--sunken);color:var(--ink-2);white-space:nowrap}
+  .chip.nasc{color:var(--warn);background:var(--warn-bg);border-color:transparent}
+
+  .section-h{display:flex;align-items:center;gap:10px;margin:30px 0 12px;flex-wrap:wrap}
+  .section-h h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-weight:600}
+  .section-h .rule{flex:1;height:1px;background:var(--line);min-width:20px}
+  .section-h .extra{font-size:12.5px;color:var(--ink-3)}
+
+  .aviso{font-size:13px;color:var(--warn);background:var(--warn-bg);border-radius:var(--radius);padding:8px 12px}
+  .aviso.info{color:var(--ink-2);background:var(--sunken)}
+  .aviso.bad{color:var(--bad);background:var(--bad-bg)}
+  .aviso.neg{color:var(--neg);background:var(--neg-bg);margin-top:12px}
+
+  .eixo-bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .eixo-bar .dica{font-size:12.5px}
+  .axis,.seg{display:flex;gap:2px;background:var(--sunken);border-radius:calc(var(--radius) + 3px);padding:3px;font-size:13px}
+  .axis button,.seg button{border:0;background:transparent;padding:6px 13px;border-radius:var(--radius);cursor:pointer;color:var(--ink-2)}
+  .seg button{flex:1}
+  .axis button.on,.seg button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .seg button:disabled{opacity:.4;cursor:not-allowed}
+
+  /* valores: negativo (reembolso) ≠ déficit (saldo abaixo de zero) */
+  .val.neg{color:var(--neg)}
+  .val.entrada{color:var(--in)}
+  .deficit{color:var(--bad)}
+  .v-bad{color:var(--bad);font-weight:600;white-space:nowrap}
+  .v-ok{color:var(--ok);white-space:nowrap}
+  .v-none{color:var(--ink-3);white-space:nowrap}
+
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+
+  /* mestre-detalhe (comum) */
+  .md{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+  .md-list{display:flex;flex-direction:column;gap:10px;position:sticky;top:48px;max-height:calc(100vh - 60px);overflow:auto;padding:3px}
+  .md-total{padding:10px 4px;font-size:12.5px;display:flex;justify-content:space-between;color:var(--ink-2)}
+  .md-det{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;position:relative}
+  .det-h{padding:18px 22px;border-bottom:1px solid var(--line)}
+  .det-t{font-family:var(--font-title);font-size:21px;margin-top:3px}
+  .det-l{margin-top:9px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px}
+  .det-total{font-size:19px;font-weight:600}
+  .det-s{font-size:12.5px;margin-top:6px}
+  .kicker{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3)}
+  .close{position:absolute;top:14px;right:16px;border:0;background:var(--sunken);width:30px;height:30px;border-radius:999px;cursor:pointer;color:var(--ink-2)}
+  .voltar{display:none;border:0;background:none;color:var(--ink-2);padding:0;margin-bottom:10px;cursor:pointer;font-size:14px}
+  .sheet-scrim,.handle{display:none}
+  .nota{font-size:12.5px;padding:4px}
+  .md-empty{padding:34px 22px;text-align:center;color:var(--ink-3)}
+  .drow{display:grid;grid-template-columns:52px 1fr auto;gap:12px;padding:11px 22px;border-bottom:1px solid var(--line);cursor:pointer}
+  .drow:hover{background:var(--sunken)}
+  .drow .dia{font-size:12px;padding-top:2px}
+  .drow .dval{font-weight:500;text-align:right;white-space:nowrap}
+  .fmeta{font-size:12.5px;color:var(--ink-2);margin-top:2px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .anot{font-size:12px;color:var(--ink-3);margin-top:3px}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:calc(var(--radius) * 3);border:1px solid var(--line-2);color:var(--ink-2);white-space:nowrap}
+  .tag.neg{color:var(--neg);border-color:currentColor}
+
+  /* entradas */
+  .etable{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden}
+  .erow{display:grid;grid-template-columns:56px 1fr 140px 120px 130px;gap:12px;align-items:center;padding:10px 17px;border-top:1px solid var(--line);font-size:14px}
+  .erow.click{cursor:pointer} .erow.click:hover{background:var(--sunken)}
+  .erow.hd{border-top:0;background:var(--sunken);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+  .erow .r{text-align:right} .erow .fonte{font-size:12.5px;color:var(--ink-2)}
+  .erow .d{font-size:12px}
+
+  /* ============ A · Papel ============ */
+  [data-v="A"] .monthnav h1{font-size:28px;font-weight:600}
+  [data-v="A"] .chip{border-radius:2px;background:transparent;border-color:var(--line-2)}
+  [data-v="A"] .chip.nasc{background:var(--warn-bg)}
+  [data-v="A"] .section-h h2{font-family:var(--font-title);font-size:19px;text-transform:none;letter-spacing:0;color:var(--ink);font-style:italic;font-weight:400}
+  [data-v="A"] .a-ledger{display:grid;grid-template-columns:repeat(4,1fr);border-top:2px solid var(--ink);border-bottom:1px solid var(--ink)}
+  [data-v="A"] .a-ledger .ag{padding:12px 16px;border-left:1px solid var(--line)}
+  [data-v="A"] .a-ledger .ag:first-child{border-left:0;padding-left:0}
+  [data-v="A"] .a-ledger .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2)}
+  [data-v="A"] .a-ledger .v{font-size:25px;margin:2px 0 1px}
+  [data-v="A"] .a-ledger .h{font-size:12px;color:var(--ink-3)}
+  [data-v="A"] .a-ledger .clic{cursor:pointer}
+  [data-v="A"] .a-ledger .clic:hover .v,[data-v="A"] .a-ledger .sel .v{text-decoration:underline;text-underline-offset:5px;text-decoration-thickness:1px}
+  .acard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px 18px 13px;text-align:left;cursor:pointer;width:100%;display:block}
+  .acard:hover{border-color:var(--line-2)}
+  .acard.sel{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  .acard.over{box-shadow:inset 4px 0 0 var(--bad)}
+  .acard.over.sel{box-shadow:inset 4px 0 0 var(--bad),inset 0 0 0 1px var(--ink)}
+  .a-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .a-nome{font-weight:600;font-size:15.5px}
+  .a-total{font-size:23px}
+  .a-line{height:2px;background:var(--line);margin:12px 0 8px;position:relative}
+  .a-line i{position:absolute;left:0;top:0;bottom:0;background:var(--ink)}
+  .acard.over .a-line{height:3px} .acard.over .a-line i{background:var(--bad)}
+  .a-line.nolim i{background:var(--ink-3)}
+  .a-sub{font-size:12.5px;color:var(--ink-3)}
+  [data-v="A"] .md-det{border-color:var(--line-2)}
+  [data-v="A"] .etable{border:0;border-top:2px solid var(--ink);border-radius:0;background:transparent}
+  [data-v="A"] .erow.hd{background:transparent}
+  [data-v="A"] .erow.tot{border-top:1px solid var(--ink)}
+  [data-v="A"] .aviso.neg{font-style:italic}
+
+  /* ============ B · Sinal ============ */
+  [data-v="B"] .monthnav h1{font-weight:700;letter-spacing:-.02em}
+  [data-v="B"] .btn.in{background:var(--in);color:#fff}
+  [data-v="B"] .b-band{background:#0f1b2d;color:#e9eef7;border-radius:var(--radius-lg);display:grid;grid-template-columns:repeat(4,1fr);overflow:hidden}
+  [data-v="B"] .b-band .ag{padding:16px 20px;border-left:1px solid rgba(255,255,255,.09)}
+  [data-v="B"] .b-band .ag:first-child{border-left:0}
+  [data-v="B"] .b-band .k{font-size:12px;color:#9fb0c8;font-weight:500}
+  [data-v="B"] .b-band .v{font-size:23px;font-weight:700;margin-top:2px;letter-spacing:-.02em}
+  [data-v="B"] .b-band .h{font-size:11.5px;color:#7d8fa9}
+  [data-v="B"] .b-band .clic{cursor:pointer}
+  [data-v="B"] .b-band .clic:hover,[data-v="B"] .b-band .sel{background:rgba(255,255,255,.07)}
+  [data-v="B"] .b-band .val.entrada{color:#6ee7a0} [data-v="B"] .b-band .deficit{color:#ff8a80} [data-v="B"] .b-band .val.neg{color:#c4b5fd}
+  [data-v="B"] .v-bad,[data-v="B"] .v-ok,[data-v="B"] .v-none{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:600}
+  [data-v="B"] .v-bad{background:var(--bad);color:#fff}
+  [data-v="B"] .v-ok{background:var(--ok-bg);color:var(--ok)}
+  [data-v="B"] .v-none{background:var(--sunken);color:var(--ink-3)}
+  .bcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px 18px;text-align:left;cursor:pointer;width:100%;
+    display:flex;flex-direction:column;gap:9px;box-shadow:0 1px 2px rgba(14,23,38,.05)}
+  .bcard:hover{box-shadow:0 4px 14px rgba(14,23,38,.08)}
+  .bcard.over{background:var(--bad-bg);border-color:#f5b5ae}
+  .bcard.nolim{border-style:dashed;background:transparent;box-shadow:none}
+  .bcard.sel{outline:2px solid var(--accent);outline-offset:1px}
+  .b-head{display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink-2);font-weight:600}
+  .b-total{font-size:27px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+  .b-meter{height:10px;background:var(--sunken);border-radius:999px;position:relative}
+  .b-meter i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--ok)}
+  .bcard.over .b-meter i{background:var(--bad)}
+  .b-meter.nolim i{background:var(--ink-3)} .b-meter.free i{background:var(--accent)} .b-meter.neg i{background:var(--neg)}
+  .b-meter b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);border-radius:1px}
+  .b-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3)}
+  [data-v="B"] .md-det{box-shadow:0 1px 2px rgba(14,23,38,.05)}
+  [data-v="B"] .tag.neg{background:var(--neg-bg);border-color:transparent}
+  .fab{display:none;position:fixed;right:16px;bottom:20px;z-index:200;flex-direction:column;align-items:flex-end;gap:8px}
+  .fab .mais{width:56px;height:56px;border-radius:18px;background:var(--accent);color:#fff;border:0;font-size:28px;line-height:1;box-shadow:0 8px 24px rgba(36,84,224,.4);cursor:pointer}
+  .fab .op{display:none;box-shadow:0 4px 14px rgba(0,0,0,.15);padding:9px 16px}
+  .fab.aberto .op{display:block}
+
+  /* ============ C · Régua ============ */
+  [data-v="C"] .monthnav h1{font-weight:500}
+  [data-v="C"] .section-h h2{font-family:var(--font-num);font-size:11.5px;color:var(--ink-2)}
+  [data-v="C"] .axis{background:none;border-bottom:1px solid var(--line);border-radius:0;padding:0;gap:20px}
+  [data-v="C"] .axis button{padding:6px 0;border-radius:0}
+  [data-v="C"] .axis button.on{box-shadow:inset 0 -2px 0 var(--ink);background:none}
+  [data-v="C"] .c-stats{display:flex;gap:44px;flex-wrap:wrap}
+  [data-v="C"] .c-stats .k{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3)}
+  [data-v="C"] .c-stats .v{font-size:25px;font-weight:500;letter-spacing:-.02em}
+  [data-v="C"] .c-stats .h{font-size:12px;color:var(--ink-3)}
+  [data-v="C"] .c-stats .clic{cursor:pointer}
+  [data-v="C"] .c-stats .clic:hover .v,[data-v="C"] .c-stats .sel .v{text-decoration:underline;text-underline-offset:5px}
+  .ctab{border-top:1px solid var(--ink)}
+  .crow{display:grid;grid-template-columns:minmax(150px,1.3fr) 110px 120px minmax(150px,2fr) 180px;grid-template-areas:"nome lim gasto regua saldo";
+    gap:16px;align-items:center;padding:11px 6px;border:0;border-bottom:1px solid var(--line);background:none;width:100%;text-align:left;cursor:pointer;font-size:14px}
+  .crow.hd{cursor:default;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);padding:7px 6px}
+  .crow:not(.hd):hover{background:var(--sunken)}
+  .crow.sel{background:var(--sunken);box-shadow:inset 3px 0 0 var(--ink)}
+  .c-nome{grid-area:nome;font-weight:500} .c-nome small{color:var(--ink-3);font-weight:400;margin-left:7px;font-family:var(--font-num);font-size:12px}
+  .c-lim{grid-area:lim;text-align:right;color:var(--ink-2)}
+  .c-gasto{grid-area:gasto;text-align:right;font-weight:600}
+  .c-regua,.c-regua-h{grid-area:regua}
+  .c-saldo{grid-area:saldo;text-align:right;font-size:13px;font-family:var(--font-num)}
+  .c-regua{height:16px;position:relative;background:var(--sunken)}
+  .c-regua i{position:absolute;top:4px;bottom:4px;left:0;background:var(--ink)}
+  .c-regua i.ov{background:var(--bad)}
+  .c-regua i.neg{background:var(--neg)}
+  .c-regua.nolim i{background:var(--ink-3)}
+  .c-regua b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink)}
+  .c-regua em{position:absolute;right:-3px;top:0;font-style:normal;color:var(--bad);font-size:13px;line-height:16px}
+  .acc{display:none}
+  .md-c .md-list{gap:0}
+  .md-c .md-list .crow{grid-template-columns:1fr auto;grid-template-areas:"nome gasto" "regua saldo";row-gap:6px}
+  .md-c .md-list .c-lim,.md-c .md-list .crow.hd{display:none}
+  [data-v="C"] .md-det{border:0;border-left:1px solid var(--line);border-radius:0}
+  [data-v="C"] .etable{border:0;border-top:1px solid var(--ink);border-radius:0}
+  [data-v="C"] .erow.hd{background:transparent}
+  [data-v="C"] .tag{font-family:var(--font-num);font-size:10.5px}
+
+  /* ============ modal, toast ============ */
+  .scrim{position:fixed;inset:0;background:rgba(20,22,28,.4);z-index:300;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+  .modal{background:var(--surface);border-radius:var(--radius-lg);width:min(560px,100%);box-shadow:0 16px 50px rgba(0,0,0,.25);position:relative}
+  .modal header{padding:18px 22px 12px;border-bottom:1px solid var(--line)}
+  .modal header h2{font-family:var(--font-title)}
+  .modal .corpo{padding:16px 22px;display:flex;flex-direction:column;gap:12px}
+  .modal footer{padding:12px 22px 18px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;border-top:1px solid var(--line)}
+  .modal footer .spacer{flex:1}
+  .campo{display:flex;flex-direction:column;gap:4px}
+  .campo label{font-size:12px;color:var(--ink-2);font-weight:500}
+  .campo input,.campo select{border:1px solid var(--line-2);border-radius:var(--radius);padding:8px 10px;background:var(--surface);width:100%}
+  .campo input:disabled,.campo select:disabled{background:var(--sunken);color:var(--ink-2)}
+  .linha2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .check{display:flex;gap:8px;align-items:center;font-size:13.5px}
+  .vigs{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;font-size:13px}
+  .vigs div{display:grid;grid-template-columns:110px 1fr auto;gap:10px;padding:6px 11px;border-top:1px solid var(--line)}
+  .vigs div:first-child{border-top:0}
+  .vigs .agora{background:var(--sunken);font-weight:500}
+  .vigs .fim{color:var(--bad)}
+  .pcts{display:grid;grid-template-columns:1fr 90px;gap:8px 14px;align-items:center}
+  .pcts input{border:1px solid var(--line-2);border-radius:var(--radius);padding:6px 9px;text-align:right;width:100%;background:var(--surface)}
+  .toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:#16181d;color:#fff;padding:10px 16px;border-radius:9px;font-size:13px;
+    z-index:400;box-shadow:0 6px 20px rgba(0,0,0,.25);display:flex;gap:12px;align-items:center;max-width:92%}
+  .toast button{background:#333843;color:#fff;border:1px solid #4a505d;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:12.5px}
+
+  /* ============ celular: a moldura (ou a janela) tem até 640px ============ */
+  @container tela (max-width:640px){
+    .wrap{padding:14px 14px 110px}
+    .topo{gap:8px;margin-bottom:16px}
+    .monthnav{width:100%}
+    .monthnav h1{min-width:0;flex:1;font-size:21px}
+    .grid{grid-template-columns:1fr}
+    .md{grid-template-columns:1fr}
+    .md-list{position:static;max-height:none;overflow:visible}
+    .eixo-bar .dica{display:none}
+    .axis{width:100%} .axis button{flex:1;padding:6px 4px}
+    .erow{grid-template-columns:44px 1fr auto;padding:10px 12px} .erow .c3,.erow .c4{display:none}
+    .drow{padding:11px 16px;grid-template-columns:40px 1fr auto;gap:10px}
+    .det-h{padding:16px}
+    .scrim{padding:0;align-items:flex-end}
+    .modal{width:100%;border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-height:94%;overflow:auto}
+    .linha2{grid-template-columns:1fr}
+    .toast{bottom:90px}
+
+    /* A: agregados 2×2; ações numa barra fixa embaixo; o detalhe entra no lugar da lista */
+    [data-v="A"] .monthnav h1{font-size:23px}
+    [data-v="A"] .a-ledger{grid-template-columns:1fr 1fr}
+    [data-v="A"] .a-ledger .ag{padding:10px 0 10px 14px}
+    [data-v="A"] .a-ledger .ag:nth-child(odd){border-left:0;padding-left:0}
+    [data-v="A"] .a-ledger .ag:nth-child(n+3){border-top:1px solid var(--line)}
+    [data-v="A"] .a-ledger .v{font-size:20px}
+    [data-v="A"] .acoes{position:fixed;left:0;right:0;bottom:0;margin:0;padding:10px 14px;background:var(--surface);border-top:1px solid var(--ink);z-index:200}
+    [data-v="A"] .acoes .btn{flex:1;padding:10px}
+    [data-v="A"] .acoes .btn.lix{flex:0 0 auto}
+    [data-v="A"] .acard{padding:12px 14px 11px}
+    [data-v="A"] .a-total{font-size:20px}
+    [data-v="A"] .md .md-list{display:none}
+    [data-v="A"] .md .voltar{display:inline-block}
+    [data-v="A"] .md .close{display:none}
+    [data-v="A"] .md-det{border-left:0;border-right:0;border-radius:0;margin:0 -14px}
+
+    /* B: faixa 2×2; potes em grade 2 colunas; detalhe numa folha que sobe; botão + flutuante */
+    [data-v="B"] .b-band{grid-template-columns:1fr 1fr}
+    [data-v="B"] .b-band .ag{padding:12px 14px}
+    [data-v="B"] .b-band .ag:nth-child(3){border-left:0}
+    [data-v="B"] .b-band .ag:nth-child(n+3){border-top:1px solid rgba(255,255,255,.09)}
+    [data-v="B"] .b-band .v{font-size:18px}
+    [data-v="B"] .grid,[data-v="B"] .md-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    [data-v="B"] .md-list .md-total,[data-v="B"] .md-list .nota{grid-column:1/-1}
+    [data-v="B"] .bcard{padding:12px;gap:6px;border-radius:14px}
+    [data-v="B"] .b-head{font-size:12.5px}
+    [data-v="B"] .b-total{font-size:19px}
+    [data-v="B"] .b-meter{height:7px}
+    [data-v="B"] .b-foot .lim{display:none}
+    [data-v="B"] .v-bad,[data-v="B"] .v-ok,[data-v="B"] .v-none{font-size:11.5px;padding:2px 8px}
+    [data-v="B"] .sheet-scrim{display:block;position:fixed;inset:0;background:rgba(14,23,38,.45);z-index:250}
+    [data-v="B"] .md-det{position:fixed;left:0;right:0;bottom:0;max-height:84%;overflow:auto;z-index:260;border-radius:22px 22px 0 0;border:0;box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+    [data-v="B"] .handle{display:block;width:40px;height:5px;border-radius:9px;background:var(--line-2);margin:-6px auto 10px}
+    [data-v="B"] .acoes .btn.in,[data-v="B"] .acoes .btn.pri{display:none}
+    [data-v="B"] .fab{display:flex}
+
+    /* C: linha em dois andares; a linha tocada abre o detalhe logo abaixo */
+    [data-v="C"] .c-stats{gap:14px 20px}
+    [data-v="C"] .c-stats .ag{flex:1 1 40%}
+    [data-v="C"] .c-stats .v{font-size:19px}
+    [data-v="C"] .crow{grid-template-columns:1fr auto;grid-template-areas:"nome gasto" "regua saldo";row-gap:6px;padding:10px 2px}
+    [data-v="C"] .crow.hd,[data-v="C"] .c-lim{display:none}
+    [data-v="C"] .c-saldo{font-size:12px}
+    [data-v="C"] .md-c .md-det{display:none}
+    [data-v="C"] .acc{display:block;border-bottom:1px solid var(--ink);margin:0 -14px;background:var(--surface)}
+    [data-v="C"] .acc .close{display:none}
+    [data-v="C"] .acoes .btn{padding:5px 9px}
+  }
+
+  /* ============ barra do protótipo ============ */
+  .switcher{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:600;display:flex;align-items:center;gap:6px;background:#15171b;color:#f1f2f4;
+    border-radius:999px;padding:6px 8px;box-shadow:0 8px 28px rgba(0,0,0,.35);font:13px/1.2 system-ui,sans-serif;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  .switcher button{background:#2a2e36;color:#f1f2f4;border:0;border-radius:999px;height:30px;min-width:30px;padding:0 11px;cursor:pointer;font:inherit}
+  .switcher button.on{background:#ffd166;color:#15171b;font-weight:600}
+  .switcher .lbl{min-width:112px;text-align:center;font-weight:600}
+  .switcher .sep{width:1px;height:20px;background:#3a3f49;margin:0 3px}
+  .switcher select{background:#2a2e36;color:#f1f2f4;border:0;border-radius:999px;height:30px;padding:0 10px;font:inherit}
+</style>
+</head>
+<body data-v="A">
+
+<div class="proto-banner">
+  <strong>PROTÓTIPO</strong><span>issue #14 — direção visual · hoje é 18/09/2026 · tudo em memória</span>
+  <span class="spacer"></span>
+  <span id="tese" style="color:#ffd9a0"></span>
+  <button id="reset">Recomeçar dados</button>
+</div>
+
+<div class="stage"><div class="device">
+  <div class="screen"><main id="app"></main></div>
+  <div id="overlay"></div>
+</div></div>
+<div class="switcher" id="switcher"></div>
+
+<script>
+/* ===== 1. DOMÍNIO — idêntico ao do #13 ===== */
+const Dominio = (() => {
+  const POTES = [
+    {id:'fixos',        nome:'Custos Fixos'},
+    {id:'liberdade',    nome:'Liberdade Financeira'},
+    {id:'conforto',     nome:'Conforto'},
+    {id:'metas',        nome:'Metas'},
+    {id:'conhecimento', nome:'Conhecimento'},
+    {id:'prazeres',     nome:'Prazeres'},
+  ];
+  const PADRAO = [30,25,15,15,10,5];
+  const FONTES = ['Salário','Freela','Rendimentos','Outras Receitas'];
+  const PGTOS = ['Dinheiro','Cartão de Crédito','Cartão de Débito','PIX','Transferência','Boleto','Débito Automático'];
+  const PGTOS_ENTRADA = ['Dinheiro','PIX','Transferência'];
+  const CARTAO = 'Cartão de Crédito';
+
+  /* ---- meses ('AAAA-MM') ---- */
+  const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const mesDe = data => data.slice(0,7);
+  const addM = (ym,k) => { let [y,m]=ym.split('-').map(Number); m+=k-1; y+=Math.floor(m/12); m=((m%12)+12)%12+1;
+    return `${y}-${String(m).padStart(2,'0')}`; };
+  const diffM = (a,b) => { const [ya,ma]=a.split('-').map(Number), [yb,mb]=b.split('-').map(Number); return (yb-ya)*12+(mb-ma); };
+  const diasNoMes = ym => { const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); };
+  const nomeMes = ym => { const [y,m]=ym.split('-').map(Number); return `${MESES[m-1]} de ${y}`; };
+  const curto = ym => { const [y,m]=ym.split('-').map(Number); return `${MESES[m-1].slice(0,3)}/${y}`; };
+  const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+
+  const normTag = t => (t||'').trim().replace(/^#+/,'').trim().toLowerCase().replace(/\s+/g,'-');
+  const clone = s => structuredClone(s);
+  const novoId = (s,p) => `${p}${++s.seq}`;
+  const erro = m => { throw new Error(m); };
+
+  /* ---- orçamento do mês (ADR-0001) ---- */
+  function herdaria(s, M){
+    const antes = Object.keys(s.orcamentos).filter(k=>k<M).sort();
+    return antes.length ? {pcts:[...s.orcamentos[antes.at(-1)]], de:antes.at(-1)} : {pcts:[...PADRAO], de:null};
+  }
+  function percentuais(s, M){
+    return s.orcamentos[M] ? {pcts:s.orcamentos[M], proprio:true, de:null} : {...herdaria(s,M), proprio:false};
+  }
+  // O primeiro registro com data em M faz M nascer, copiando o anterior mais recente.
+  function nascer(s, M, log){
+    if (s.orcamentos[M]) return;
+    const h = herdaria(s, M);
+    s.orcamentos[M] = h.pcts;
+    log.push(`O orçamento de ${nomeMes(M)} nasceu agora, herdando ${h.de ? 'de '+curto(h.de) : 'os percentuais padrão'} (${h.pcts.join('/')}).`);
+  }
+
+  /* ---- ocorrências (ADR-0002): nunca gravadas ---- */
+  function ocorrencia(l, M){
+    if (l.forma==='avista'){
+      if (mesDe(l.data)!==M) return null;
+      return {lanc:l.id, forma:'avista', desc:l.desc, pote:l.pote, pgto:l.pgto, tag:l.tag, valor:l.valor, dia:+l.data.slice(8)};
+    }
+    if (l.forma==='parcelado'){
+      const k = diffM(mesDe(l.data), M);
+      if (k<0 || k>=l.n) return null;
+      const c = Math.round(l.total*100), p = Math.trunc(c/l.n);
+      const v = (k===0 ? c - p*(l.n-1) : p)/100;          // o centavo que sobra cai na 1ª
+      return {lanc:l.id, forma:'parcelado', desc:l.desc, pote:l.pote, pgto:l.pgto, tag:l.tag, valor:v,
+              dia:Math.min(+l.data.slice(8), diasNoMes(M)), parcela:k+1, de:l.n, total:l.total};
+    }
+    // recorrente
+    const ini = l.vigencias[0].desde;
+    if (M<ini || (l.ate && M>=l.ate)) return null;
+    const v = [...l.vigencias].reverse().find(x=>x.desde<=M);
+    return {lanc:l.id, forma:'recorrente', desc:v.desc, pote:v.pote, pgto:v.pgto, tag:v.tag, valor:v.valor,
+            dia:Math.min(l.dia, diasNoMes(M)), desde:ini, vigDesde:v.desde, nVig:l.vigencias.length};
+  }
+
+  /* ---- o mês inteiro, derivado ---- */
+  function mes(s, M){
+    const oc = s.lancamentos.map(l=>ocorrencia(l,M)).filter(Boolean);
+    const entradas = s.entradas.filter(e=>mesDe(e.data)===M);
+    const receita = soma(entradas);
+    const P = percentuais(s, M);
+    const despesas = soma(oc);
+    const cartao = soma(oc.filter(o=>o.pgto===CARTAO));
+    const potes = POTES.map((p,i)=>{
+      const os = oc.filter(o=>o.pote===p.id);
+      const total = soma(os);
+      const limite = receita>0 ? P.pcts[i]*receita/100 : null;   // sem entrada, sem limite
+      const g = {chave:p.id, nome:p.nome, os, total, pct:P.pcts[i], limite,
+                 comprometido:soma(os.filter(o=>o.forma!=='avista'))};
+      if (limite!=null){ g.saldo = limite-total; g.estouro = Math.max(0,total-limite); }
+      return g;
+    });
+    return {M, oc, entradas, receita, despesas, cartao, potes, P,
+            saldoMes: receita-despesas, saldoConta: receita-(despesas-cartao),
+            naoAlocado: 100 - P.pcts.reduce((a,b)=>a+b,0)};
+  }
+  const soma = xs => Math.round(xs.reduce((a,x)=>a+x.valor,0)*100)/100;
+
+  function grupos(m, eixo){
+    if (eixo==='pote') return m.potes;
+    const chave = o => eixo==='pgto' ? o.pgto : o.tag;
+    const mp = new Map();
+    for (const o of m.oc){ const k=chave(o); if(!mp.has(k)) mp.set(k,[]); mp.get(k).push(o); }
+    return [...mp.entries()].map(([k,os])=>({chave:k, nome: eixo==='tag' ? (k?'#'+k:'sem tag') : k, os,
+        total:soma(os), comprometido:soma(os.filter(o=>o.forma!=='avista')), limite:null}))
+      .sort((a,b)=>(a.chave===''?1:0)-(b.chave===''?1:0) || b.total-a.total);
+  }
+
+  function tags(s){
+    const t = new Set();
+    for (const l of s.lancamentos){
+      if (l.forma==='recorrente') l.vigencias.forEach(v=>v.tag&&t.add(v.tag)); else if (l.tag) t.add(l.tag);
+    }
+    return [...t].sort();
+  }
+
+  /* ---- validação ---- */
+  function campos(c){
+    if (!c.desc || !c.desc.trim()) erro('Falta a descrição.');
+    if (!Number.isFinite(c.valor) || c.valor===0) erro('O valor precisa ser diferente de zero.');
+    if (!POTES.some(p=>p.id===c.pote)) erro('Escolha um pote.');
+    if (!PGTOS.includes(c.pgto)) erro('Escolha um tipo de pagamento.');
+    return {desc:c.desc.trim(), pote:c.pote, pgto:c.pgto, valor:Math.round(c.valor*100)/100, tag:normTag(c.tag)};
+  }
+  const dataOk = d => /^\d{4}-\d{2}-\d{2}$/.test(d||'') || erro('Data inválida.');
+
+  /* ---- mudanças ---- */
+  function salvarEntrada(s0, e){
+    const s = clone(s0), log = [];
+    dataOk(e.data);
+    if (!e.desc || !e.desc.trim()) erro('Falta a descrição.');
+    if (!(e.valor>0)) erro('Entrada tem valor positivo. Dinheiro de volta de um gasto é reembolso: lance como gasto negativo.');
+    if (!FONTES.includes(e.fonte)) erro('Escolha uma fonte.');
+    if (!PGTOS_ENTRADA.includes(e.pgto)) erro('Entrada só aceita Dinheiro, PIX ou Transferência.');
+    const reg = {id:e.id, data:e.data, desc:e.desc.trim(), fonte:e.fonte, pgto:e.pgto, valor:Math.round(e.valor*100)/100};
+    if (e.id){
+      const i = s.entradas.findIndex(x=>x.id===e.id), antes = s.entradas[i];
+      s.entradas[i] = reg;
+      log.push(`Entrada “${reg.desc}” corrigida.`);
+      if (mesDe(antes.data)!==mesDe(reg.data))
+        log.push(`Mudou de mês: a receita (e os seis limites) de ${curto(mesDe(antes.data))} e de ${curto(mesDe(reg.data))} mudaram.`);
+      else log.push(`A receita de ${curto(mesDe(reg.data))} mudou, e com ela os seis limites.`);
+    } else {
+      reg.id = novoId(s,'e'); s.entradas.push(reg);
+      log.push(`Entrada “${reg.desc}” de ${brl(reg.valor)} lançada. A receita de ${curto(mesDe(reg.data))} subiu, e os seis limites com ela.`);
+    }
+    nascer(s, mesDe(reg.data), log);
+    return {s, log};
+  }
+
+  function salvarCompra(s0, l){      // à vista ou parcelado, novo ou editado
+    const s = clone(s0), log = [];
+    dataOk(l.data);
+    const c = campos(l);
+    let reg;
+    if (l.forma==='parcelado'){
+      if (c.pgto!==CARTAO) erro('Só Cartão de Crédito parcela.');
+      if (!Number.isInteger(l.n) || l.n<2 || l.n>48) erro('Parcelado tem de 2 a 48 parcelas.');
+      reg = {id:l.id, forma:'parcelado', data:l.data, desc:c.desc, pote:c.pote, pgto:c.pgto, tag:c.tag, total:c.valor, n:l.n};
+    } else {
+      reg = {id:l.id, forma:'avista', data:l.data, desc:c.desc, pote:c.pote, pgto:c.pgto, tag:c.tag, valor:c.valor};
+    }
+    if (l.id){
+      const i = s.lancamentos.findIndex(x=>x.id===l.id), antes = s.lancamentos[i];
+      if (antes.forma==='recorrente') erro('Recorrente não vira compra.');
+      s.lancamentos[i] = reg;
+      if (reg.forma==='parcelado')
+        log.push(`Compra “${reg.desc}” corrigida: as ${reg.n} parcelas (${curto(mesDe(reg.data))} a ${curto(addM(mesDe(reg.data),reg.n-1))}) foram recalculadas, inclusive as de meses passados.`);
+      else log.push(`Lançamento “${reg.desc}” corrigido.`);
+      if (antes.forma!==reg.forma) log.push(`A forma mudou: ${antes.forma==='avista'?'à vista':'parcelado'} → ${reg.forma==='avista'?'à vista':'parcelado'}.`);
+    } else {
+      reg.id = novoId(s,'l'); s.lancamentos.push(reg);
+      log.push(reg.forma==='parcelado'
+        ? `Compra “${reg.desc}” gravada uma vez: ${brl(reg.total)} em ${reg.n}×. Nenhuma parcela foi gravada, todas são derivadas.`
+        : `Lançamento “${reg.desc}” de ${brl(reg.valor)} gravado.`);
+    }
+    nascer(s, mesDe(reg.data), log);
+    return {s, log};
+  }
+
+  function criarRecorrente(s0, r){
+    const s = clone(s0), log = [];
+    dataOk(r.data);
+    const c = campos(r), M = mesDe(r.data);
+    const reg = {id:novoId(s,'l'), forma:'recorrente', dia:+r.data.slice(8), ate:null, vigencias:[{desde:M, ...c}]};
+    s.lancamentos.push(reg);
+    log.push(`Recorrente “${c.desc}” gravado uma vez, com uma vigência desde ${curto(M)}. Cai todo dia ${reg.dia}, sem fim.`);
+    nascer(s, M, log);
+    return {s, log};
+  }
+
+  const mesmaVig = (a,b) => ['desc','pote','pgto','valor','tag'].every(k=>a[k]===b[k]);
+
+  // Mudar num mês vale dali para frente, até a próxima mudança.
+  function mudarRecorrente(s0, id, M, novo){
+    const s = clone(s0), log = [];
+    const l = s.lancamentos.find(x=>x.id===id), c = campos(novo), ini = l.vigencias[0].desde;
+    if (M<ini || (l.ate && M>=l.ate)) erro('Este recorrente não cai neste mês.');
+    const prox = l.vigencias.find(v=>v.desde>M);
+    let vs = l.vigencias.filter(v=>v.desde!==M);
+    vs.push({desde:M, ...c}); vs.sort((a,b)=>a.desde<b.desde?-1:1);
+    vs = vs.filter((v,i)=>i===0 || !mesmaVig(vs[i-1],v));   // vigência igual à anterior não existe
+    const antes = l.vigencias.length;
+    l.vigencias = vs;
+    const ate = prox ? `até ${curto(addM(prox.desde,-1))} (em ${curto(prox.desde)} já havia outra mudança, que continua valendo)`
+                     : l.ate ? `até ${curto(addM(l.ate,-1))}, quando ele termina` : 'sem fim';
+    log.push(`“${c.desc}” mudou de ${curto(M)} em diante, ${ate}.`);
+    log.push(`Vigências: ${antes} → ${vs.length}. Meses antes de ${curto(M)} não mudaram.`);
+    nascer(s, M, log);
+    return {s, log};
+  }
+
+  // Apagar num mês encerra dali em diante. No mês de início, o recorrente some inteiro.
+  function encerrarRecorrente(s0, id, M){
+    const s = clone(s0), log = [];
+    const i = s.lancamentos.findIndex(x=>x.id===id), l = s.lancamentos[i], ini = l.vigencias[0].desde;
+    if (M<=ini){
+      s.lixeira.push({tipo:'lancamento', item:l, quando:`encerrado no mês de início (${curto(M)})`});
+      s.lancamentos.splice(i,1);
+      log.push(`“${l.vigencias[0].desc}” foi encerrado no mês em que começa: sumiu inteiro e foi para a lixeira.`);
+      return {s, log};
+    }
+    const cortadas = l.vigencias.filter(v=>v.desde>=M).length;
+    l.ate = M; l.vigencias = l.vigencias.filter(v=>v.desde<M);
+    log.push(`“${l.vigencias[0].desc}” encerrado: a última ocorrência é ${curto(addM(M,-1))}. Os meses anteriores ficam como estavam.`);
+    if (cortadas) log.push(`${cortadas} vigência(s) futura(s) foram descartadas junto, sem ir para a lixeira.`);
+    nascer(s, M, log);
+    return {s, log};
+  }
+
+  function apagar(s0, tipo, id){
+    const s = clone(s0), log = [];
+    const lista = tipo==='entrada' ? s.entradas : s.lancamentos;
+    const i = lista.findIndex(x=>x.id===id), item = lista[i];
+    lista.splice(i,1);
+    s.lixeira.push({tipo, item, quando:'apagado'});
+    const nome = item.desc || item.vigencias?.[0].desc;
+    log.push(item.forma==='parcelado' ? `Compra “${nome}” apagada: as ${item.n} parcelas sumiram de todos os meses.`
+      : `“${nome}” apagado.`);
+    log.push('Foi para a lixeira, de onde volta intacto.');
+    return {s, log};
+  }
+
+  function restaurar(s0, idx){
+    const s = clone(s0), log = [];
+    const [r] = s.lixeira.splice(idx,1);
+    (r.tipo==='entrada' ? s.entradas : s.lancamentos).push(r.item);
+    log.push(`“${r.item.desc || r.item.vigencias[0].desc}” voltou da lixeira como estava.`);
+    return {s, log};
+  }
+
+  function salvarPercentuais(s0, M, pcts){
+    const s = clone(s0), log = [];
+    if (pcts.some(p=>!Number.isInteger(p) || p<0 || p>100)) erro('Cada percentual é um inteiro de 0 a 100.');
+    const t = pcts.reduce((a,b)=>a+b,0);
+    if (t>100) erro(`Os seis somam ${t}%. O máximo é 100%.`);
+    nascer(s, M, log);
+    s.orcamentos[M] = [...pcts];
+    log.push(`Percentuais de ${nomeMes(M)}: ${pcts.join('/')}${t<100?` (${100-t}% não alocado)`:''}. Nenhum outro mês mudou.`);
+    return {s, log};
+  }
+
+  function renomearTag(s0, de, para){
+    const s = clone(s0), log = [];
+    const alvo = normTag(para);
+    if (!alvo) erro('Dê um nome à tag.');
+    if (alvo===de) erro('É o mesmo nome.');
+    const jaExiste = tags(s).includes(alvo);
+    let n = 0;
+    for (const l of s.lancamentos){
+      if (l.forma==='recorrente') { let t=false; l.vigencias.forEach(v=>{ if(v.tag===de){v.tag=alvo;t=true;} }); if(t) n++; }
+      else if (l.tag===de){ l.tag=alvo; n++; }
+    }
+    log.push(`#${de} → #${alvo} em ${n} lançamento(s), em todos os meses.`);
+    if (jaExiste) log.push(`#${alvo} já existia: as duas viraram uma só, e não há como separá-las de novo.`);
+    return {s, log};
+  }
+
+  return {POTES, PADRAO, FONTES, PGTOS, PGTOS_ENTRADA, CARTAO, mesDe, addM, diffM, nomeMes, curto, brl, normTag,
+    percentuais, herdaria, ocorrencia, mes, grupos, tags,
+    salvarEntrada, salvarCompra, criarRecorrente, mudarRecorrente, encerrarRecorrente, apagar, restaurar,
+    salvarPercentuais, renomearTag};
+})();
+
+/* ===========================================================================
+   Dados de partida. Jan–set/2026 já nasceram; maio teve outros percentuais.
+   Os ids fixos servem aos roteiros.
+   =========================================================================== */
+function semente(){
+  const orc = {};
+  for (let m=1;m<=9;m++) orc[`2026-${String(m).padStart(2,'0')}`] = [30,25,15,15,10,5];
+  orc['2026-05'] = [30,20,20,15,10,5];
+  const sal = [6800,6800,6900,6900,7000,7000,7100,7200,7200];
+  const entradas = sal.map((v,i)=>({id:'sal'+(i+1), data:`2026-${String(i+1).padStart(2,'0')}-05`,
+    desc:`Salário ${Dominio.nomeMes(`2026-${String(i+1).padStart(2,'0')}`).split(' ')[0]}`, fonte:'Salário', pgto:'Transferência', valor:v}));
+  entradas.push(
+    {id:'e1', data:'2026-08-20', desc:'Freela — logo', fonte:'Freela', pgto:'PIX', valor:600},
+    {id:'e2', data:'2026-09-09', desc:'Freela — identidade visual', fonte:'Freela', pgto:'PIX', valor:900},
+    {id:'e3', data:'2026-09-15', desc:'Rendimento CDB', fonte:'Rendimentos', pgto:'Transferência', valor:400},
+    {id:'e4', data:'2026-09-22', desc:'Freela — landing page', fonte:'Freela', pgto:'PIX', valor:1500});
+  const R = (id,dia,vigs) => ({id, forma:'recorrente', dia, ate:null, vigencias:vigs});
+  const V = (desde,desc,pote,pgto,valor,tag) => ({desde,desc,pote,pgto,valor,tag});
+  const A = (id,data,desc,pote,pgto,valor,tag='') => ({id, forma:'avista', data, desc, pote, pgto, valor, tag});
+  const lancamentos = [
+    R('aluguel',5,[V('2026-01','Aluguel','fixos','Débito Automático',1700,'moradia'),
+                   V('2026-07','Aluguel','fixos','Débito Automático',1850,'moradia')]),
+    R('internet',12,[V('2026-01','Internet fibra','fixos','Débito Automático',129.90,'moradia')]),
+    R('saude',10,[V('2026-03','Plano de saúde','fixos','Boleto',412,'saúde')]),
+    R('tesouro',5,[V('2026-01','Aporte Tesouro Direto','liberdade','Transferência',1200,'investimento')]),
+    R('ingles',15,[V('2026-02','Curso de inglês','conhecimento','Débito Automático',340,'educação')]),
+    R('streaming',20,[V('2026-01','Netflix + Spotify','prazeres','Cartão de Crédito',94.80,'assinaturas')]),
+    {id:'notebook', forma:'parcelado', data:'2026-06-18', desc:'Notebook Dell', pote:'conforto', pgto:'Cartão de Crédito', tag:'eletrônicos', total:3899, n:10},
+    {id:'sofa', forma:'parcelado', data:'2026-08-18', desc:'Sofá retrátil', pote:'conforto', pgto:'Cartão de Crédito', tag:'casa', total:1899, n:6},
+    // julho
+    A('j1','2026-07-03','Supermercado','fixos','Cartão de Débito',580,'supermercado'),
+    A('j2','2026-07-14','Farmácia','fixos','PIX',95,'farmácia'),
+    // agosto — #uber e #transporte convivem
+    A('a1','2026-08-02','Supermercado','fixos','Cartão de Débito',610,'supermercado'),
+    A('a2','2026-08-07','Gasolina','fixos','Cartão de Débito',230,'transporte'),
+    A('a3','2026-08-11','Uber para o show','conforto','PIX',64,'uber'),
+    A('a4','2026-08-16','Farmácia','fixos','PIX',150,'farmácia'),
+    A('a5','2026-08-23','Restaurante japonês','prazeres','Cartão de Crédito',180,'restaurante'),
+    A('a6','2026-08-01','Aporte reserva de emergência','metas','Transferência',500,'investimento'),
+    // setembro
+    A('s1','2026-09-02','Supermercado Assaí','fixos','Cartão de Débito',184.30,'supermercado'),
+    A('s2','2026-09-06','Farmácia','fixos','PIX',87.60,'saúde'),
+    A('s3','2026-09-07','Gasolina','fixos','Cartão de Débito',250,'transporte'),
+    A('s4','2026-09-08','Padaria','fixos','Dinheiro',38),
+    A('s5','2026-09-19','Reembolso coparticipação (compra de agosto)','fixos','PIX',-64,'farmácia'),
+    A('s6','2026-09-01','Aporte reserva de emergência','metas','Transferência',500,'investimento'),
+    A('s7','2026-09-03','Uber até o aeroporto','conforto','PIX',78.50,'uber'),
+    A('s8','2026-09-03','Passagens aéreas Paraty','conforto','Cartão de Crédito',756.90,'viagem'),
+    A('s9','2026-09-04','Pousada em Paraty','conforto','Cartão de Crédito',1180,'viagem'),
+    A('s10','2026-09-11','Reembolso — amigo pagou metade da pousada','conforto','PIX',-400,'viagem'),
+    A('s11','2026-09-04','Livro de modelagem','conhecimento','Cartão de Crédito',189,'livros'),
+    A('s12','2026-09-05','Jantar no Outback','prazeres','Cartão de Crédito',212.40,'restaurante'),
+    A('s13','2026-09-06','Cinema','prazeres','Dinheiro',96),
+  ];
+  return {seq:100, entradas, lancamentos, orcamentos:orc, lixeira:[]};
+}
+
+/* ===========================================================================
+   2. CASCA — três direções visuais sobre o mesmo domínio.
+   =========================================================================== */
+const D = Dominio;
+const HOJE = '2026-09-18';
+let S = semente();
+
+const VARIANTES = {A:'Papel', B:'Sinal', C:'Régua'};
+const TESES = {
+  A:'A · Papel: cor só para estouro. Todo o resto é tinta: sinal, peso e serifa.',
+  B:'B · Sinal: a cor é o estado. Cada pote diz verde, vermelho ou cinza antes do número.',
+  C:'C · Régua: o limite é uma marca fixa numa régua. Denso como planilha, lido pela geometria.',
+};
+const qs = new URLSearchParams(location.search);
+let ui = {v: VARIANTES[qs.get('variant')] ? qs.get('variant') : 'A', celular: qs.get('tela')==='celular',
+          M:'2026-09', eixo:'pote', sel:null, modal:null, toast:null, fab:false};
+
+const $ = id => document.getElementById(id);
+const esc = t => String(t).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const brl = D.brl;
+const dinheiro = v => v<0 ? '− '+brl(-v) : brl(v);
+const dataBR = d => `${d.slice(8)}/${d.slice(5,7)}/${d.slice(0,4)}`;
+const flag = () => '';                      // os 16 buracos do #13 já viraram decisão
+const nomePote = id => D.POTES.find(p=>p.id===id).nome;
+const EIXOS = {pote:'Pote', pgto:'Tipo de pagamento', tag:'Tag'};
+const cap = s => s.replace(/^./, c=>c.toUpperCase());
+
+function aplicar(res){ S = res.s; }
+function avisar(msg, irM){ ui.toast = {msg, irM}; clearTimeout(avisar.t); avisar.t = setTimeout(()=>{ ui.toast=null; render(); }, 6500); }
+function irPara(M){ ui.M = M; ui.sel = null; render(); }
+
+/* ---------- a gramática de valores: é aqui que as direções mais divergem ---------- */
+// Negativo = reembolso líquido (gasto que voltou). Não é o mesmo que déficit.
+function valor(v){
+  return v<0 ? `<span class="val neg">${ui.v==='B'?'↺ ':''}− ${brl(-v)}</span>` : `<span class="val">${brl(v)}</span>`;
+}
+const saldo = v => v<0 ? `<span class="deficit">− ${brl(-v)}</span>` : brl(v);
+function veredito(g){
+  const T = {A:{bad:'estourou ', ok:'sobra ', none:'sem receita, sem limite'},
+             B:{bad:'▲ Estourou ', ok:'✓ Sobra ', none:'— Sem receita'},
+             C:{bad:'▲ estouro ', ok:'livre ', none:'sem limite'}}[ui.v];
+  if (g.limite==null) return `<span class="v-none">${T.none}</span>`;
+  return g.estouro>0 ? `<span class="v-bad">${T.bad}${brl(g.estouro)}</span>` : `<span class="v-ok">${T.ok}${brl(g.saldo)}</span>`;
+}
+
+/* -------------------------------- tela do mês -------------------------------- */
+function statusMes(M){
+  const hoje = D.mesDe(HOJE);
+  return M===hoje ? '<span class="chip">mês em curso</span>' : M<hoje ? '<span class="chip">mês passado · editável</span>' : '<span class="chip">mês futuro</span>';
+}
+const statusOrc = m => m.P.proprio ? '' : `<span class="chip nasc">ainda não nasceu · herdaria ${m.P.de ? 'de '+D.curto(m.P.de) : 'os padrão'}</span>`;
+
+function renderApp(){
+  const m = D.mes(S, ui.M), gs = D.grupos(m, ui.eixo);
+  return `<div class="wrap">
+    ${topo(m)}
+    <div class="section-h" style="margin-top:0"><h2>O mês</h2><span class="rule"></span></div>
+    ${agregados(m)}
+    <div class="section-h"><h2>${ui.eixo==='pote' ? 'Os potes' : 'Gastos por '+EIXOS[ui.eixo].toLowerCase()}</h2><span class="rule"></span>
+      <span class="extra num">${m.P.pcts.join(' / ')}${m.naoAlocado>0?` · <strong style="color:var(--warn)">${m.naoAlocado}% não alocado</strong>`:''}</span>
+      <button class="btn mini" data-acao="pcts">Percentuais</button></div>
+    ${m.receita>0 ? '' : `<div class="aviso" style="margin-bottom:12px">Nenhuma entrada em ${D.nomeMes(ui.M)}: sem receita, os potes não têm limite nem veredito.</div>`}
+    ${seletorEixo()}
+    ${ui.sel===null ? grade(m, gs) : mestreDetalhe(m, gs)}
+    ${listaEntradas(m)}
+  </div>
+  ${ui.v==='B' ? fab() : ''}`;
+}
+
+function topo(m){
+  return `<div class="topo">
+    <div class="monthnav">
+      <button class="btn seta" data-ir="${D.addM(ui.M,-1)}" aria-label="Mês anterior">‹</button>
+      <h1>${cap(D.nomeMes(ui.M))}</h1>
+      <button class="btn seta" data-ir="${D.addM(ui.M,1)}" aria-label="Próximo mês">›</button>
+      ${ui.M!==D.mesDe(HOJE) ? `<button class="btn" data-ir="${D.mesDe(HOJE)}">Hoje</button>` : ''}
+    </div>
+    <div class="status">${statusMes(ui.M)} ${statusOrc(m)}</div>
+    <div class="acoes">
+      <button class="btn lix" data-acao="lixeira">Lixeira (${S.lixeira.length})</button>
+      <button class="btn in" data-acao="nova-entrada">+ Entrada</button>
+      <button class="btn pri" data-acao="novo-gasto">+ Gasto</button>
+    </div>
+  </div>`;
+}
+
+function agregados(m){
+  const t = [
+    {k:'Receitas', v:`<span class="val entrada">${brl(m.receita)}</span>`, h:`${m.entradas.length} ${m.entradas.length===1?'entrada':'entradas'}`},
+    {k:'Despesas', v:valor(m.despesas), h:'líquido · ver todos', clic:true},
+    {k:'Saldo do mês', v:saldo(m.saldoMes), h:'receitas − despesas'},
+    {k:'Saldo em conta', v:saldo(m.saldoConta), h:'sem cartão · aproximado'},
+  ];
+  const cls = {A:'a-ledger', B:'b-band', C:'c-stats'}[ui.v];
+  return `<div class="${cls}">${t.map(x=>`<div class="ag ${x.clic?'clic':''} ${x.clic&&ui.sel==='*'?'sel':''}" ${x.clic?'data-drill="*" role="button" tabindex="0"':''}>
+    <div class="k">${x.k}</div><div class="v num">${x.v}</div><div class="h">${x.h}</div></div>`).join('')}</div>`;
+}
+
+function seletorEixo(){
+  return `<div class="eixo-bar"><div class="axis">${Object.entries(EIXOS).map(([k,v])=>`<button class="${ui.eixo===k?'on':''}" data-eixo="${k}">${v}</button>`).join('')}</div>
+    <span class="dica dim">${ui.eixo==='pote' ? 'Clique num pote para abrir o detalhe.' : 'Sem limite e sem veredito: só pote tem percentual da receita.'}</span></div>`;
+}
+
+const escalaSemLimite = gs => Math.max(...gs.map(x=>Math.abs(x.total)), 1);
+const nOc = g => `${g.os.length} ${g.os.length===1?'ocorrência':'ocorrências'}`;
+
+function grade(m, gs){
+  if (!gs.length) return '<div class="dim">Nenhum gasto neste mês.</div>';
+  if (ui.v==='C') return `<div class="ctab">${cabecalhoC()}${gs.map(g=>linhaC(g, gs)).join('')}</div>`;
+  return `<div class="grid">${gs.map(g=>cartao(g, gs)).join('')}</div>`;
+}
+
+/* A e B: cartões. Mesma informação, gramática oposta. */
+function cartao(g, gs){
+  const ehPote = ui.eixo==='pote', temL = g.limite!=null, over = temL && g.estouro>0, sel = ui.sel===g.chave;
+  const drill = `data-drill="${encodeURIComponent(g.chave)}"`;
+  const sub = ehPote ? (temL ? `${g.pct}% · limite ${brl(g.limite)}` : `${g.pct}% · sem limite`) : nOc(g);
+  if (ui.v==='A'){
+    const w = temL ? Math.min(Math.max(g.total,0)/g.limite,1)*100 : Math.abs(g.total)/escalaSemLimite(gs)*100;
+    return `<button class="acard ${over?'over':''} ${sel?'sel':''}" ${drill}>
+      <div class="a-row"><span class="a-nome">${esc(g.nome)}</span><span class="a-total num">${valor(g.total)}</span></div>
+      <div class="a-line ${temL?'':'nolim'}"><i style="width:${w}%"></i></div>
+      <div class="a-row a-sub"><span>${sub}</span>${ehPote ? veredito(g) : ''}</div></button>`;
+  }
+  const esc_ = temL ? Math.max(g.limite, g.total) : escalaSemLimite(gs);
+  const w = Math.min(Math.abs(temL ? Math.max(g.total,0) : g.total)/esc_*100, 100);
+  const tick = temL ? g.limite/esc_*100 : null;
+  const tipo = temL ? '' : ehPote ? 'nolim' : g.total<0 ? 'neg' : 'free';
+  return `<button class="bcard ${over?'over':''} ${ehPote&&!temL?'nolim':''} ${sel?'sel':''}" ${drill}>
+    <div class="b-head"><span>${esc(g.nome)}</span>${ehPote ? `<span class="num">${g.pct}%</span>` : ''}</div>
+    <div class="b-total num">${valor(g.total)}</div>
+    <div class="b-meter ${tipo}"><i style="width:${w}%"></i>${tick!=null ? `<b style="left:calc(${tick}% - 1px)"></b>` : ''}</div>
+    <div class="b-foot">${ehPote ? veredito(g) : ''}<span class="lim">${ehPote ? (temL ? 'limite '+brl(g.limite) : 'sem limite') : sub}</span></div></button>`;
+}
+
+/* C: tabela com régua. A marca do limite fica sempre a 80% da régua; o que passa dela é estouro. */
+function cabecalhoC(){
+  const p = ui.eixo==='pote';
+  return `<div class="crow hd"><span class="c-nome">${EIXOS[ui.eixo]}</span><span class="c-lim">${p?'Limite':''}</span><span class="c-gasto">Gasto</span>
+    <span class="c-regua-h">${p?'┃ = limite':''}</span><span class="c-saldo">${p?'Livre · estouro':'Ocorrências'}</span></div>`;
+}
+function reguaC(g, gs){
+  if (ui.eixo==='pote' && g.limite!=null){
+    const f = Math.max(g.total,0)/g.limite, base = Math.min(f,1)*80, ov = Math.max(0, Math.min(f,1.25)-1)*80;
+    return `<span class="c-regua"><i style="width:${base}%"></i>${ov ? `<i class="ov" style="left:${base}%;width:${ov}%"></i>` : ''}<b style="left:80%"></b>${f>1.25 ? '<em>▸</em>' : ''}</span>`;
+  }
+  const w = Math.abs(g.total)/escalaSemLimite(gs)*100;
+  return `<span class="c-regua ${ui.eixo==='pote'?'nolim':''}"><i class="${g.total<0?'neg':''}" style="width:${w}%"></i></span>`;
+}
+function linhaC(g, gs, det){
+  const p = ui.eixo==='pote', sel = ui.sel===g.chave;
+  return `<button class="crow ${sel?'sel':''}" data-drill="${encodeURIComponent(g.chave)}">
+    <span class="c-nome">${esc(g.nome)}${p ? `<small>${g.pct}%</small>` : ''}</span>
+    <span class="c-lim num">${p ? (g.limite!=null ? brl(g.limite) : '—') : ''}</span>
+    <span class="c-gasto num">${valor(g.total)}</span>
+    ${reguaC(g, gs)}
+    <span class="c-saldo">${p ? veredito(g) : `<span class="dim">${g.os.length}×</span>`}</span></button>`
+    + (sel && det ? `<div class="acc">${det}</div>` : '');
+}
+
+function mestreDetalhe(m, gs){
+  const todos = ui.sel==='*';
+  const g = todos ? {chave:'*', nome:'Todos os gastos do mês', os:m.oc, total:m.despesas, limite:null} : gs.find(x=>x.chave===ui.sel);
+  if (!g){ ui.sel = null; return grade(m, gs); }
+  const det = detalhe(g, m, todos);
+  const soma = `<div class="md-total"><span>Soma = despesas</span><strong class="num">${valor(m.despesas)}</strong></div>`;
+  const nota = todos ? '<div class="nota dim">Todos os gastos do mês, sem agrupar.</div>' : '';
+  if (ui.v==='C'){
+    const lista = todos ? `<div class="acc">${det}</div>` : `<div class="ctab">${gs.map(x=>linhaC(x, gs, det)).join('')}</div>`;
+    return `<div class="md md-c"><div class="md-list">${nota}${lista}${soma}</div><div class="md-det">${det}</div></div>`;
+  }
+  const lista = todos ? '' : gs.map(x=>cartao(x, gs)).join('');
+  return `<div class="md"><div class="md-list">${nota}${lista}${soma}</div><div class="sheet-scrim" data-fechar></div><div class="md-det">${det}</div></div>`;
+}
+
+function detalhe(g, m, todos){
+  const ehPote = ui.eixo==='pote' && !todos;
+  const volta = todos ? 'Voltar' : ui.eixo==='pote' ? 'Todos os potes' : 'Todos os grupos';
+  const cab = `<div class="det-h"><div class="handle"></div>
+    <button class="voltar" data-fechar>‹ ${volta}</button>
+    <button class="close" data-fechar aria-label="Fechar">✕</button>
+    <div class="kicker">${todos ? 'Despesas' : EIXOS[ui.eixo]}</div>
+    <h2 class="det-t">${esc(g.nome)}${ui.eixo==='tag' && !todos && g.chave ? `<button class="btn mini" data-acao="renomear-tag" data-tag="${esc(g.chave)}">Renomear</button>` : ''}</h2>
+    <div class="det-l"><span class="det-total num">${valor(g.total)}</span>${ehPote ? veredito(g) : ''}<span class="dim">${nOc(g)}</span></div>
+    ${ehPote && g.limite!=null ? `<div class="dim det-s">${g.pct}% de ${brl(m.receita)} · limite ${brl(g.limite)}</div>` : ''}
+    ${g.total<0 ? '<div class="aviso neg">Total negativo: neste grupo voltou mais dinheiro do que saiu. Reembolso não é entrada e não move a receita.</div>' : ''}
+  </div>`;
+  const linhas = [...g.os].sort((a,b)=>a.dia-b.dia || b.valor-a.valor).map(o=>linhaOc(o, todos ? '*' : ui.eixo)).join('')
+    || '<div class="md-empty">Nada aqui neste mês.</div>';
+  return cab + linhas;
+}
+
+function linhaOc(o, eixo){
+  const meta = [
+    eixo!=='pote' ? `<span>${nomePote(o.pote)}</span>` : '',
+    eixo!=='pgto' ? `<span>${o.pgto}</span>` : '',
+    eixo!=='tag' ? `<span class="tag">${o.tag ? '#'+esc(o.tag) : 'sem tag'}</span>` : '',
+    o.forma==='parcelado' ? '<span class="tag">parcela</span>' : o.forma==='recorrente' ? '<span class="tag">recorrente</span>' : '',
+    o.valor<0 ? '<span class="tag neg">reembolso</span>' : '',
+  ].join('');
+  const anot = o.forma==='parcelado' ? `${o.parcela}/${o.de} de ${brl(o.total)}`
+    : o.forma==='recorrente' ? `recorrente desde ${D.curto(o.desde)}${o.nVig>1 ? ` · valor desde ${D.curto(o.vigDesde)}` : ''}` : '';
+  return `<div class="drow" data-abrir-lanc="${o.lanc}">
+    <div class="dim num dia">${String(o.dia).padStart(2,'0')}/${ui.M.slice(5)}</div>
+    <div><div>${esc(o.desc)}</div><div class="fmeta">${meta}</div>${anot ? `<div class="anot">⤷ ${anot}</div>` : ''}</div>
+    <div class="num dval">${valor(o.valor)}</div></div>`;
+}
+
+function listaEntradas(m){
+  const es = [...m.entradas].sort((a,b)=>a.data<b.data?-1:1);
+  return `<div class="section-h"><h2>Entradas do mês</h2><span class="rule"></span></div>
+  <div class="etable">
+    <div class="erow hd"><span>Data</span><span>Descrição</span><span class="c3">Fonte</span><span class="c4">Tipo</span><span class="r">Valor</span></div>
+    ${es.map(e=>`<div class="erow click" data-abrir-ent="${e.id}"><span class="dim num d">${e.data.slice(8)}/${e.data.slice(5,7)}</span><span>${esc(e.desc)}</span>
+      <span class="c3 fonte">${e.fonte}</span><span class="c4 muted" style="font-size:13px">${e.pgto}</span>
+      <span class="r num"><span class="val entrada">+ ${brl(e.valor)}</span></span></div>`).join('')
+      || '<div class="erow"><span></span><span class="dim">Nenhuma entrada. Sem entrada, sem receita, sem limite.</span></div>'}
+    <div class="erow tot"><span></span><span class="muted">Receita do mês</span><span class="c3"></span><span class="c4"></span>
+      <span class="r num"><strong class="val entrada">${brl(m.receita)}</strong></span></div>
+  </div>`;
+}
+
+function fab(){
+  return `<div class="fab ${ui.fab?'aberto':''}">
+    <button class="btn op in" data-acao="nova-entrada">+ Entrada</button>
+    <button class="btn op pri" data-acao="novo-gasto">+ Gasto</button>
+    <button class="mais" data-acao="fab" aria-label="Lançar">${ui.fab ? '×' : '+'}</button></div>`;
+}
+
+/* ----- formulários e salvar: idênticos aos do #13 ----- */
+/* -------------------------------- formulários -------------------------------- */
+const dataPadrao = M => M===D.mesDe(HOJE) ? HOJE : M+'-01';
+
+function abrirNovoGasto(r={}){
+  ui.modal = {tipo:'gasto', modo:'novo', M:ui.M, erro:null,
+    r:{forma:'avista', data:dataPadrao(ui.M), desc:'', valor:'', reembolso:false, pote:'fixos', pgto:'PIX', tag:'', n:2, ...r}};
+  render();
+}
+function abrirEdicao(id, M){
+  const l = S.lancamentos.find(x=>x.id===id);
+  let r;
+  if (l.forma==='recorrente'){
+    const o = D.ocorrencia(l, M);
+    r = {forma:'recorrente', data:`${l.vigencias[0].desde}-${String(l.dia).padStart(2,'0')}`, desc:o.desc,
+         valor:Math.abs(o.valor), reembolso:o.valor<0, pote:o.pote, pgto:o.pgto, tag:o.tag};
+  } else {
+    const v = l.forma==='parcelado' ? l.total : l.valor;
+    r = {forma:l.forma, data:l.data, desc:l.desc, valor:Math.abs(v), reembolso:v<0, pote:l.pote, pgto:l.pgto, tag:l.tag, n:l.n||2};
+  }
+  ui.modal = {tipo:'gasto', modo:'editar', id, M, erro:null, r};
+  render();
+}
+function abrirEntrada(id, r={}){
+  const e = id ? S.entradas.find(x=>x.id===id) : null;
+  ui.modal = {tipo:'entrada', id, erro:null,
+    r: e ? {...e} : {data:dataPadrao(ui.M), desc:'', fonte:'Salário', pgto:'Transferência', valor:'', ...r}};
+  render();
+}
+
+function campo(label, html, extra=''){ return `<div class="campo"><label>${label} ${extra}</label>${html}</div>`; }
+const opts = (xs, v, nome=x=>x, val=x=>x) => xs.map(x=>`<option value="${esc(val(x))}" ${val(x)===v?'selected':''}>${esc(nome(x))}</option>`).join('');
+
+function formGasto(md){
+  const r = md.r, ed = md.modo==='editar';
+  const l = ed ? S.lancamentos.find(x=>x.id===md.id) : null;
+  const eraRec = ed && l.forma==='recorrente';
+  const par = r.forma==='parcelado', rec = r.forma==='recorrente';
+  const titulo = !ed ? 'Novo gasto' : eraRec ? `Recorrente, aberto em ${D.curto(md.M)}` : par ? 'Compra parcelada' : 'Lançamento à vista';
+
+  let contexto = '';
+  if (ed && l.forma==='parcelado'){
+    const k = D.diffM(D.mesDe(l.data), md.M)+1;
+    contexto = `<div class="aviso info">Compra única de ${dataBR(l.data)} em ${l.n}×. Você abriu a parcela ${k}/${l.n} (${D.curto(md.M)}).
+      Salvar muda <strong>todas as parcelas</strong>, inclusive as de meses passados, e com elas o veredito desses meses. ${flag('B11')}</div>`;
+  }
+  if (eraRec){
+    const vigs = l.vigencias.map((v,i)=>{
+      const ate = l.vigencias[i+1] ? D.curto(D.addM(l.vigencias[i+1].desde,-1)) : l.ate ? D.curto(D.addM(l.ate,-1)) : 'sem fim';
+      const agora = v.desde<=md.M && (!l.vigencias[i+1] || l.vigencias[i+1].desde>md.M);
+      return `<div class="${agora?'agora':''}"><span>${D.curto(v.desde)} → ${ate}</span><span>${esc(v.desc)} · ${nomePote(v.pote)} · ${v.pgto}${v.tag?' · #'+esc(v.tag):''}</span><span class="num">${dinheiro(v.valor)}</span></div>`;
+    }).join('') + (l.ate ? `<div class="fim"><span>${D.curto(l.ate)}</span><span>encerrado</span><span></span></div>` : '');
+    const prox = l.vigencias.find(v=>v.desde>md.M);
+    contexto = `<div class="aviso info">Mudar vale de <strong>${D.curto(md.M)}</strong> em diante, ${prox ? `até ${D.curto(D.addM(prox.desde,-1))} — em ${D.curto(prox.desde)} já há outra mudança, que continua valendo` : 'sem fim'}.
+      Os meses antes de ${D.curto(md.M)} não mudam. ${flag('B5')}</div>
+      <div><div class="kicker" style="margin-bottom:5px">Vigências</div><div class="vigs">${vigs}</div></div>`;
+  }
+
+  const formas = [['avista','À vista'],['parcelado','Parcelado'],['recorrente','Recorrente']];
+  const bloq = f => ed && (eraRec ? f!=='recorrente' : f==='recorrente');
+  const nParc = Number(r.n)||0, tot = Number(r.valor)||0;
+  const prev = par && nParc>=2 && tot>0 ? (()=>{ const c=Math.round(tot*100), p=Math.trunc(c/nParc);
+      return `${nParc}× de ${brl(p/100)}${c-p*nParc ? ` (a 1ª de ${brl((c-p*(nParc-1))/100)})` : ''} · última em ${D.curto(D.addM(D.mesDe(r.data||HOJE), nParc-1))}`; })() : '';
+
+  return `<header><h2 style="font-size:19px">${titulo}</h2></header>
+  <div class="corpo">
+    <div class="seg">${formas.map(([k,n])=>`<button data-forma="${k}" class="${r.forma===k?'on':''}" ${bloq(k)?'disabled':''}>${n}</button>`).join('')}</div>
+    ${ed ? `<div class="dim" style="font-size:12px;margin-top:-6px">${eraRec ? 'Recorrente não muda de forma.' : 'À vista e parcelado trocam entre si; recorrente não.'} ${flag('B6')}</div>` : ''}
+    ${contexto}
+    ${eraRec
+      ? campo('Dia do mês', `<input value="todo dia ${l.dia} · desde ${D.curto(l.vigencias[0].desde)}" disabled>`, flag('B3'))
+      : campo(par ? 'Data da compra (1ª parcela cai neste mês)' : rec ? 'Primeira ocorrência (o dia se repete todo mês)' : 'Data',
+          `<input type="date" data-f="data" value="${r.data}">`, ed ? '' : flag('B8'))}
+    ${campo('Descrição', `<input data-f="desc" value="${esc(r.desc)}" placeholder="Ex.: Supermercado">`)}
+    <div class="linha2">
+      ${campo(par ? 'Valor total da compra' : 'Valor', `<input type="number" step="0.01" min="0" data-f="valor" value="${r.valor}">`)}
+      ${par ? campo('Parcelas', `<input type="number" min="2" max="48" data-f="n" value="${r.n}">`) : '<div></div>'}
+    </div>
+    ${prev ? `<div class="dim" style="font-size:12.5px;margin-top:-4px" id="prev-parc">${prev}</div>` : ''}
+    <label class="check"><input type="checkbox" data-f="reembolso" ${r.reembolso?'checked':''}> É reembolso — dinheiro voltando de um gasto; grava valor negativo neste pote ${flag('B9')}</label>
+    <div class="linha2">
+      ${campo('Pote', `<select data-f="pote">${opts(D.POTES, r.pote, p=>p.nome, p=>p.id)}</select>`)}
+      ${campo('Tipo de pagamento', par ? `<select disabled><option>Cartão de Crédito</option></select>` : `<select data-f="pgto">${opts(D.PGTOS, r.pgto)}</select>`,
+          par ? '<span class="dim">(só cartão parcela)</span>' : '')}
+    </div>
+    ${campo('Tag (opcional, no máximo uma)', `<input data-f="tag" list="tags" value="${esc(r.tag)}" placeholder="sem tag">
+      <datalist id="tags">${D.tags(S).map(t=>`<option value="${esc(t)}">`).join('')}</datalist>`, flag('B12'))}
+    ${eraRec ? `<div class="dim" style="font-size:12.5px">Encerrar a partir de ${D.curto(md.M)}: a última ocorrência passa a ser ${D.curto(D.addM(md.M,-1))}.
+       ${md.M===l.vigencias[0].desde ? `<strong style="color:var(--bad)">Este é o mês de início: encerrar apaga o recorrente inteiro.</strong> ${flag('B16')}` : ''}</div>` : ''}
+    ${md.erro ? `<div class="aviso bad">${esc(md.erro)}</div>` : ''}
+  </div>
+  <footer>
+    ${ed && !eraRec ? `<button class="btn perigo" data-acao="apagar-lanc">${l.forma==='parcelado'?`Apagar a compra (${l.n} parcelas)`:'Apagar'}</button>` : ''}
+    ${eraRec ? `<button class="btn perigo" data-acao="encerrar">Encerrar a partir de ${D.curto(md.M)}</button>` : ''}
+    <span class="spacer"></span>
+    <button class="btn" data-fechar-modal>Cancelar</button>
+    <button class="btn pri" data-acao="salvar-gasto">${eraRec ? `Salvar a partir de ${D.curto(md.M)}` : ed && l.forma==='parcelado' ? 'Salvar a compra' : 'Salvar'}</button>
+  </footer>`;
+}
+
+function formEntrada(md){
+  const r = md.r;
+  return `<header><h2 style="font-size:19px">${md.id?'Entrada':'Nova entrada'}</h2>
+    <div class="dim" style="font-size:12.5px;margin-top:3px">Dinheiro entrando. Sem pote, sem parcela, sem repetição: impacta só o mês da própria data.</div></header>
+  <div class="corpo">
+    ${campo('Data', `<input type="date" data-f="data" value="${r.data}">`, md.id ? '' : flag('B8'))}
+    ${campo('Descrição', `<input data-f="desc" value="${esc(r.desc)}" placeholder="Ex.: Salário outubro">`)}
+    <div class="linha2">
+      ${campo('Valor', `<input type="number" step="0.01" min="0" data-f="valor" value="${r.valor}">`)}
+      ${campo('Fonte', `<select data-f="fonte">${opts(D.FONTES, r.fonte)}</select>`)}
+    </div>
+    ${campo('Tipo de pagamento', `<select data-f="pgto">${opts(D.PGTOS_ENTRADA, r.pgto)}</select>`, '<span class="dim">(só os três que creditam)</span>')}
+    ${md.erro ? `<div class="aviso bad">${esc(md.erro)}</div>` : ''}
+  </div>
+  <footer>
+    ${md.id ? '<button class="btn perigo" data-acao="apagar-ent">Apagar</button>' : ''}
+    <span class="spacer"></span>
+    <button class="btn" data-fechar-modal>Cancelar</button>
+    <button class="btn in" data-acao="salvar-entrada">Salvar</button>
+  </footer>`;
+}
+
+function formPcts(md){
+  const P = D.percentuais(S, md.M);
+  const soma = md.r.reduce((a,b)=>a+(Number(b)||0),0);
+  return `<header><h2 style="font-size:19px">Percentuais de ${D.nomeMes(md.M)}</h2>
+    <div class="dim" style="font-size:12.5px;margin-top:3px">Valem só para este mês. Nenhum outro mês muda.</div></header>
+  <div class="corpo">
+    ${P.proprio ? '' : `<div class="aviso">Este mês ainda não nasceu: mostra o que herdaria ${P.de?'de '+D.curto(P.de):'dos padrão'}. Salvar faz ele nascer com estes números.</div>`}
+    <div class="pcts">${D.POTES.map((p,i)=>`<label for="pc${i}">${p.nome}</label>
+      <input id="pc${i}" type="number" min="0" max="100" step="1" data-pct="${i}" value="${md.r[i]}">`).join('')}
+      <strong>Soma</strong><strong class="num" id="soma-pcts" style="text-align:right;padding-right:10px">${soma}%</strong>
+    </div>
+    <div id="pcts-nota">${notaPcts(soma)}</div>
+    ${md.erro ? `<div class="aviso bad">${esc(md.erro)}</div>` : ''}
+  </div>
+  <footer><span class="spacer"></span><button class="btn" data-fechar-modal>Cancelar</button>
+    <button class="btn pri" data-acao="salvar-pcts" ${soma>100?'disabled':''}>Salvar</button></footer>`;
+}
+const notaPcts = s => s>100 ? `<div class="aviso bad">Passou ${s-100}% de 100. Tire de algum pote para salvar. ${flag('B13')}</div>`
+  : s<100 ? `<div class="aviso">${100-s}% fica não alocado.</div>` : '<div class="dim" style="font-size:12.5px">Soma 100%: tudo alocado.</div>';
+
+function formTag(md){
+  const alvo = D.normTag(md.r);
+  const existe = alvo && alvo!==md.de && D.tags(S).includes(alvo);
+  const n = S.lancamentos.filter(l=> l.forma==='recorrente' ? l.vigencias.some(v=>v.tag===alvo) : l.tag===alvo).length;
+  return `<header><h2 style="font-size:19px">Renomear #${esc(md.de)}</h2>
+    <div class="dim" style="font-size:12.5px;margin-top:3px">Troca em todos os lançamentos, de todos os meses, inclusive nas vigências.</div></header>
+  <div class="corpo">
+    ${campo('Novo nome', `<input data-f="nome" list="tags2" value="${esc(md.r)}"><datalist id="tags2">${D.tags(S).filter(t=>t!==md.de).map(t=>`<option value="${esc(t)}">`).join('')}</datalist>`)}
+    <div id="tag-nota">${existe ? `<div class="aviso">#${esc(alvo)} já existe em ${n} lançamento(s). As duas viram uma só, e não há como separar depois.</div>` : ''}</div>
+    ${md.erro ? `<div class="aviso bad">${esc(md.erro)}</div>` : ''}
+  </div>
+  <footer><span class="spacer"></span><button class="btn" data-fechar-modal>Cancelar</button>
+    <button class="btn pri" data-acao="salvar-tag">${existe?'Fundir':'Renomear'}</button></footer>`;
+}
+
+function formLixeira(){
+  return `<header><h2 style="font-size:19px">Lixeira ${flag('B2')}</h2>
+    <div class="dim" style="font-size:12.5px;margin-top:3px">O que foi apagado volta como estava.</div></header>
+  <div class="corpo">${S.lixeira.map((x,i)=>{
+      const it = x.item, nome = it.desc || it.vigencias[0].desc;
+      const det = x.tipo==='entrada' ? `entrada · ${dataBR(it.data)} · ${brl(it.valor)}`
+        : it.forma==='parcelado' ? `compra · ${dataBR(it.data)} · ${brl(it.total)} em ${it.n}×`
+        : it.forma==='recorrente' ? `recorrente desde ${D.curto(it.vigencias[0].desde)}` : `à vista · ${dataBR(it.data)} · ${dinheiro(it.valor)}`;
+      return `<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:8px">
+        <div><div>${esc(nome)}</div><div class="dim" style="font-size:12.5px">${det} · ${x.quando}</div></div>
+        <button class="btn" data-restaurar="${i}">Restaurar</button></div>`;
+    }).join('') || '<div class="dim">Vazia.</div>'}</div>
+  <footer><span class="spacer"></span><button class="btn" data-fechar-modal>Fechar</button></footer>`;
+}
+
+function renderModal(){
+  const md = ui.modal; if (!md) return '';
+  const f = {gasto:formGasto, entrada:formEntrada, pcts:formPcts, tag:formTag, lixeira:formLixeira}[md.tipo];
+  return `<div class="scrim" data-scrim><div class="modal">${f(md)}</div></div>`;
+}
+
+/* -------------------------------- salvar -------------------------------- */
+function tentar(fn){ try { fn(); } catch(e){ ui.modal.erro = e.message; render(); } }
+function depoisDeSalvar(mesAlvo, titulo){
+  ui.modal = null;
+  if (mesAlvo && mesAlvo!==ui.M) avisar(`${titulo} em ${D.curto(mesAlvo)}. A tela continua em ${D.curto(ui.M)}.`, mesAlvo);
+  render();
+}
+
+function salvarGasto(){ tentar(()=>{
+  const md = ui.modal, r = md.r;
+  const v = (Number(r.valor)||0) * (r.reembolso ? -1 : 1);
+  const c = {desc:r.desc, pote:r.pote, pgto: r.forma==='parcelado' ? D.CARTAO : r.pgto, valor:v, tag:r.tag};
+  if (md.modo==='novo'){
+    if (r.forma==='recorrente'){ aplicar(D.criarRecorrente(S, {...c, data:r.data}), `Novo recorrente: ${r.desc}`); }
+    else aplicar(D.salvarCompra(S, {...c, forma:r.forma, data:r.data, n:Number(r.n)}), `Novo gasto: ${r.desc}`);
+    return depoisDeSalvar(D.mesDe(r.data), 'Salvo');
+  }
+  const l = S.lancamentos.find(x=>x.id===md.id);
+  if (l.forma==='recorrente'){ aplicar(D.mudarRecorrente(S, md.id, md.M, c), `Mudou ${r.desc} a partir de ${D.curto(md.M)}`); return depoisDeSalvar(null); }
+  aplicar(D.salvarCompra(S, {...c, id:md.id, forma:r.forma, data:r.data, n:Number(r.n)}), `Corrigiu ${r.desc}`);
+  depoisDeSalvar(D.mesDe(r.data)===md.M || r.forma==='parcelado' ? null : D.mesDe(r.data), 'Movido');
+});}
+
+function salvarEntrada(){ tentar(()=>{
+  const md = ui.modal, r = md.r;
+  aplicar(D.salvarEntrada(S, {...r, id:md.id, valor:Number(r.valor)}), md.id ? `Corrigiu entrada: ${r.desc}` : `Nova entrada: ${r.desc}`);
+  depoisDeSalvar(D.mesDe(r.data), md.id ? 'Movida' : 'Salva');
+});}
+
+function abrirPcts(pre){ ui.modal = {tipo:'pcts', M:ui.M, erro:null, r: pre || [...D.percentuais(S,ui.M).pcts]}; render(); }
+function abrirTag(de, r=de){ ui.modal = {tipo:'tag', de, r, erro:null}; render(); }
+
+/* -------------------------------- barra do protótipo -------------------------------- */
+// Cenas: atalhos para os estados em que a direção visual é posta à prova.
+const CENAS = [
+  ['Setembro · os seis potes',            ()=>({M:'2026-09', eixo:'pote', sel:null})],
+  ['Conforto estourado, aberto',          ()=>({M:'2026-09', eixo:'pote', sel:'conforto'})],
+  ['Tipo de pagamento · PIX negativo',    ()=>({M:'2026-09', eixo:'pgto', sel:'PIX'})],
+  ['Tag · #farmácia, só reembolso',       ()=>({M:'2026-09', eixo:'tag',  sel:'farmácia'})],
+  ['Todos os gastos do mês',              ()=>({M:'2026-09', eixo:'pote', sel:'*'})],
+  ['Outubro · sem receita, sem limite',   ()=>({M:'2026-10', eixo:'pote', sel:null})],
+  ['Formulário · aluguel em setembro',    ()=>{ ui.M='2026-09'; abrirEdicao('aluguel','2026-09'); return {}; }],
+  ['Formulário · novo gasto',             ()=>{ ui.M='2026-09'; abrirNovoGasto(); return {}; }],
+];
+
+function trocarVariante(passo){
+  const ks = Object.keys(VARIANTES);
+  ui.v = ks[(ks.indexOf(ui.v)+passo+ks.length) % ks.length]; ui.fab = false; render();
+}
+
+function renderSwitcher(){
+  return `<button data-var="-1" aria-label="Direção anterior">‹</button>
+    <span class="lbl">${ui.v} · ${VARIANTES[ui.v]}</span>
+    <button data-var="1" aria-label="Próxima direção">›</button>
+    <span class="sep"></span>
+    <button data-tela="larga" class="${ui.celular?'':'on'}">Tela larga</button>
+    <button data-tela="celular" class="${ui.celular?'on':''}">Celular</button>
+    <span class="sep"></span>
+    <select id="cena" aria-label="Cena"><option value="">Ir para uma cena…</option>${CENAS.map((c,i)=>`<option value="${i}">${c[0]}</option>`).join('')}</select>`;
+}
+
+/* -------------------------------- render e fiação -------------------------------- */
+function render(){
+  document.body.dataset.v = ui.v;
+  document.body.classList.toggle('celular', ui.celular);
+  $('tese').textContent = TESES[ui.v];
+  $('app').innerHTML = renderApp();
+  $('overlay').innerHTML = renderModal() + (ui.toast ? `<div class="toast"><span>${esc(ui.toast.msg)}</span>${ui.toast.irM ? `<button data-ir="${ui.toast.irM}">Ir para ${D.curto(ui.toast.irM)}</button>` : ''}</div>` : '');
+  $('switcher').innerHTML = renderSwitcher();
+  try {
+    const u = new URL(location.href);
+    u.searchParams.set('variant', ui.v);
+    ui.celular ? u.searchParams.set('tela','celular') : u.searchParams.delete('tela');
+    history.replaceState(null, '', u);
+  } catch(e) { /* file:// em alguns navegadores */ }
+}
+
+document.addEventListener('click', ev => {
+  const t = ev.target.closest('button, [data-drill], [data-abrir-lanc], [data-abrir-ent], [data-scrim], [data-fechar]');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.var){ trocarVariante(+d.var); return; }
+  if (d.tela){ ui.celular = d.tela==='celular'; render(); return; }
+  if (d.scrim!==undefined){ if (ev.target===t){ ui.modal=null; render(); } return; }
+  if (d.ir){ ui.toast=null; irPara(d.ir); return; }
+  if (d.eixo){ ui.eixo=d.eixo; ui.sel=null; render(); return; }
+  if (d.drill){ const k=decodeURIComponent(d.drill); ui.sel = ui.sel===k ? null : k; render(); return; }
+  if (d.fechar!==undefined){ ui.sel=null; render(); return; }
+  if (d.abrirLanc){ abrirEdicao(d.abrirLanc, ui.M); return; }
+  if (d.abrirEnt){ abrirEntrada(d.abrirEnt); return; }
+  if (d.fecharModal!==undefined){ ui.modal=null; render(); return; }
+  if (d.forma){ ui.modal.r.forma=d.forma; if (d.forma==='parcelado') ui.modal.r.pgto=D.CARTAO; render(); return; }
+  if (d.restaurar){ aplicar(D.restaurar(S, +d.restaurar)); render(); return; }
+  const a = d.acao;
+  if (a==='fab'){ ui.fab=!ui.fab; render(); return; }
+  if (a==='novo-gasto' || a==='nova-entrada') ui.fab = false;
+  if (a==='novo-gasto') abrirNovoGasto();
+  else if (a==='nova-entrada') abrirEntrada(null);
+  else if (a==='pcts') abrirPcts();
+  else if (a==='lixeira'){ ui.modal={tipo:'lixeira'}; render(); }
+  else if (a==='renomear-tag') abrirTag(d.tag);
+  else if (a==='salvar-gasto') salvarGasto();
+  else if (a==='salvar-entrada') salvarEntrada();
+  else if (a==='salvar-pcts') tentar(()=>{ aplicar(D.salvarPercentuais(S, ui.modal.M, ui.modal.r.map(Number))); ui.modal=null; render(); });
+  else if (a==='salvar-tag') tentar(()=>{ const de=ui.modal.de; aplicar(D.renomearTag(S, de, ui.modal.r));
+      const novo=D.normTag(ui.modal.r); if (ui.sel===de) ui.sel=novo; ui.modal=null; render(); });
+  else if (a==='apagar-lanc'){ const md=ui.modal; aplicar(D.apagar(S,'lancamento',md.id)); ui.modal=null; ui.sel=null; render(); }
+  else if (a==='apagar-ent'){ const md=ui.modal; aplicar(D.apagar(S,'entrada',md.id)); ui.modal=null; render(); }
+  else if (a==='encerrar') tentar(()=>{ const md=ui.modal; aplicar(D.encerrarRecorrente(S, md.id, md.M)); ui.modal=null; ui.sel=null; render(); });
+});
+
+// Digitar não re-renderiza (perderia o foco); só atualiza o rascunho e as prévias.
+document.addEventListener('input', ev => {
+  const el = ev.target, md = ui.modal; if (!md) return;
+  if (el.dataset.pct!==undefined){
+    md.r[+el.dataset.pct] = el.value;
+    const s = md.r.reduce((a,b)=>a+(Number(b)||0),0);
+    $('soma-pcts').textContent = s+'%'; $('pcts-nota').innerHTML = notaPcts(s);
+    document.querySelector('[data-acao="salvar-pcts"]').disabled = s>100;
+    return;
+  }
+  const f = el.dataset.f; if (!f) return;
+  if (md.tipo==='tag'){ md.r = el.value; return; }
+  md.r[f] = el.type==='checkbox' ? el.checked : el.value;
+});
+document.addEventListener('change', ev => {
+  if (ev.target.id==='cena'){
+    const c = CENAS[+ev.target.value]; if (!c) return;
+    ui.modal = null; ui.toast = null;
+    Object.assign(ui, c[1]()); render(); return;
+  }
+  const md = ui.modal; if (!md || !ev.target.dataset.f) return;
+  if (md.tipo==='gasto' || md.tipo==='tag'){ const id = ev.target.dataset.f; render(); const el=document.querySelector(`[data-f="${id}"]`); el && el.focus && el.type!=='checkbox' && el.focus(); }
+});
+document.addEventListener('keydown', ev => {
+  const digitando = ev.target.closest && ev.target.closest('input, textarea, select, [contenteditable]');
+  if ((ev.key==='ArrowLeft' || ev.key==='ArrowRight') && !digitando && !ui.modal){ trocarVariante(ev.key==='ArrowLeft' ? -1 : 1); return; }
+  if (ev.key==='Escape'){ if (ui.modal) ui.modal=null; else ui.sel=null; ui.fab=false; render(); }
+});
+$('reset').addEventListener('click', ()=>{ S=semente(); ui={...ui, M:'2026-09', eixo:'pote', sel:null, modal:null, toast:null}; render(); });
+
+render();
+</script>
+</body>
+</html>
