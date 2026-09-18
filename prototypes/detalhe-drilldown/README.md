@@ -20,8 +20,14 @@ Parte da tela composta vencedora de [#10](https://github.com/LucianoAMagalhaes/f
 ## Pergunta 2: Fonte ganha drill-down? (botão na faixa preta)
 
 Desligado: as entradas são uma lista com a Fonte como coluna. Ligado: G e H ganham chips de Fonte
-no card Receitas; I põe Fonte no seletor como "quase eixo", separado por um traço, com a coluna
-somando a receita em vez das despesas.
+no card Receitas.
+
+Depois que I ganhou a primeira pergunta, a segunda virou duas variantes no seletor, para serem
+comparadas lado a lado sem o interruptor:
+
+- **I — Mestre-detalhe, Fonte só como coluna.**
+- **J — Mestre-detalhe + Fonte como eixo.** Fonte entra no seletor como "quase eixo", separada
+  por um traço, e a coluna soma a receita em vez das despesas. Abre já em Fonte › Salário.
 
 ## Dados
 

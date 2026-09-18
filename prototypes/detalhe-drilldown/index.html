@@ -638,12 +638,20 @@ function renderI(){
 const V = {
   G:{nome:'Um painel só',         render:renderG, overlay:painelG, chipsFonte:true},
   H:{nome:'Pote tem página',      render:renderH, overlay:()=>'',  chipsFonte:true},
-  I:{nome:'Mestre-detalhe',       render:renderI, overlay:()=>'',  chipsFonte:false},
+  // I e J são a mesma variante, sem e com drill-down por Fonte — a segunda pergunta do
+  // ticket, posta lado a lado depois que I ganhou a primeira. O interruptor não vale aqui.
+  I:{nome:'Mestre-detalhe, Fonte só como coluna', render:renderI, overlay:()=>'', chipsFonte:false, fonte:false},
+  J:{nome:'Mestre-detalhe + Fonte como eixo',     render:renderI, overlay:()=>'', chipsFonte:false, fonte:true},
 };
 const K = Object.keys(V);
 const atual = () => { const v=(new URLSearchParams(location.search).get('variant')||'G').toUpperCase(); return V[v]?v:'G'; };
+function entrar(v){
+  sel=null; fonteSel=null; if (eixo==='fonte') eixo='pote';
+  if ('fonte' in V[v]) fonteOn = V[v].fonte;
+  if (v==='J'){ eixo='fonte'; fonteSel='Salário'; }   // chega já mostrando o que muda
+}
 function irPara(v){ const u=new URL(location); u.searchParams.set('variant',v); history.replaceState(null,'',u);
-  sel=null; fonteSel=null; if (eixo==='fonte') eixo='pote'; render(); }
+  entrar(v); render(); }
 const ciclar = p => irPara(K[(K.indexOf(atual())+p+K.length)%K.length]);
 
 function render(){
@@ -653,6 +661,7 @@ function render(){
   document.getElementById('vlabel').textContent = `${v} — ${V[v].nome}`;
   const ft = document.getElementById('fonte-toggle');
   ft.textContent = `Fonte com drill-down: ${fonteOn?'sim':'não'}`; ft.classList.toggle('on',fonteOn);
+  ft.style.display = 'fonte' in V[v] ? 'none' : '';
   wire();
 }
 function fechar(){ sel=null; fonteSel=null; render(); }
@@ -689,6 +698,7 @@ document.addEventListener('keydown',e=>{
   if (e.key==='ArrowRight') ciclar(1);
 });
 
+entrar(atual());
 render();
 </script>
 </body>
