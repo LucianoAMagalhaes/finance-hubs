@@ -25,7 +25,8 @@ recorrência indefinida: precisa saber quantas linhas gravar.
 - Não existe onde pendurar exceção por ocorrência. "Antecipei a parcela de agosto" e "essa foi
   estornada" não cabem no modelo como está. Se um dia vierem, entram como **ajuste esparso** por
   (lançamento, mês) por cima da derivação — como o KMyMoney e o Actual fizeram — sem trocar de
-  modelo.
+  modelo. _Revisto no ADR-0005: quando os casos chegaram, a antecipação virou um evento do
+  parcelado e o estorno de parcela virou reembolso, e nenhum dos dois precisou do ajuste esparso._
 - **Não há horizonte.** A pergunta é sempre "o que cai no mês M", respondida por lançamento com uma
   conta fechada (o mês está dentro da série?), nunca listando ocorrências. Um recorrente sem fim
   não custa nada.

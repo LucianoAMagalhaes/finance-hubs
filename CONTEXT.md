@@ -61,7 +61,8 @@ _Avoid_: Transação, despesa, movimento, gasto
 
 **Reembolso**:
 Dinheiro voltando de um gasto já lançado, registrado como um lançamento de valor negativo no pote
-de origem. Não é uma entrada e não move a receita do mês.
+de origem. Não é uma entrada e não move a receita do mês. O estorno de uma parcela também é um
+reembolso: a parcela continua no seu mês, e o dinheiro de volta entra no mês do estorno.
 _Avoid_: Estorno, devolução, crédito
 
 **Ocorrência**:
@@ -75,10 +76,19 @@ A ocorrência de um lançamento parcelado, valendo o total dividido pelo número
 centavo que sobra da divisão cai na primeira. A primeira parcela cai no mês da data da compra. O
 parcelado é uma compra só: corrigi-lo ou apagá-lo em qualquer mês vale para todas as parcelas.
 
+**Antecipação**:
+O pagamento adiantado das **últimas** parcelas de um parcelado, feito num mês por um valor que a
+pessoa informa, em geral com desconto. As parcelas antecipadas saem dos seus meses, e o valor pago
+vira uma ocorrência no mês da antecipação, com o pote, o tipo de pagamento e a tag do parcelado.
+Só se antecipam parcelas de meses posteriores ao da antecipação. Um parcelado aceita várias, e
+cada uma leva as últimas que ainda sobram. Quitar é antecipar todas as que faltam.
+_Avoid_: Adiantamento, quitação, ajuste
+
 **Recorrência**:
 Um lançamento cujo valor se **repete** todo mês em vez de ser **dividido** entre meses, sem fim
 até ser apagado. Mudá-lo num mês vale dali para frente, até a próxima mudança; apagá-lo num mês
-apaga dali para frente — é assim que um recorrente termina.
+apaga dali para frente — é assim que um recorrente termina. Não existe pular um mês só: quem
+pausa encerra e lança de novo.
 _Avoid_: Assinatura, gasto fixo
 
 **Vigência**:
