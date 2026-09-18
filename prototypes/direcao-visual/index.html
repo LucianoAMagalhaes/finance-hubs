@@ -217,14 +217,19 @@
   .bcard.sel{outline:2px solid var(--accent);outline-offset:1px}
   .b-head{display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink-2);font-weight:500}
   .b-total{font-size:27px;font-weight:500;letter-spacing:-.01em;line-height:1.15}
-  .b-meter{height:10px;background:var(--sunken);border-radius:999px;position:relative}
+  .b-meter{height:6px;background:var(--sunken);border-radius:999px;position:relative}
   .b-meter i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--pote,var(--ink-3))}
   .b-dot{display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--pote);margin-right:7px;vertical-align:1px}
   .bcard.pote{box-shadow:inset 0 3px 0 var(--pote),0 1px 2px rgba(14,23,38,.05)}
   .bcard.pote.over{box-shadow:inset 0 3px 0 var(--bad)}
+  /* tag: cor derivada do nome (--th é o matiz). Pílula tingida, para não parecer pote */
+  [data-v="B"] .tag.tc{background:hsl(var(--th) 75% 93%);color:hsl(var(--th) 65% 28%);border-color:transparent}
+  [data-v="B"] .bcard.tagc,[data-v="B"] .b-dot.tagd{--pote:hsl(var(--th) 60% 45%)}
+  [data-v="B"][data-tema="escuro"] .tag.tc{background:hsl(var(--th) 60% 60% / .16);color:hsl(var(--th) 75% 76%)}
+  [data-v="B"][data-tema="escuro"] .bcard.tagc,[data-v="B"][data-tema="escuro"] .b-dot.tagd{--pote:hsl(var(--th) 70% 65%)}
   .bcard.over .b-meter i{background:var(--bad)}
   .b-meter.nolim i{background:var(--pote,var(--ink-3));opacity:.5} .b-meter.free i{background:var(--accent)} .b-meter.neg i{background:var(--neg)}
-  .b-meter b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);border-radius:1px}
+  .b-meter b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);border-radius:1px}
   .b-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3)}
   [data-v="B"] .md-det{box-shadow:0 1px 2px rgba(14,23,38,.05)}
   [data-v="B"] .tag.neg{background:var(--neg-bg);border-color:transparent}
@@ -344,7 +349,7 @@
     [data-v="B"] .bcard{padding:12px;gap:6px;border-radius:14px}
     [data-v="B"] .b-head{font-size:12.5px}
     [data-v="B"] .b-total{font-size:19px}
-    [data-v="B"] .b-meter{height:7px}
+    [data-v="B"] .b-meter{height:5px}
     [data-v="B"] .b-foot .lim{display:none}
     [data-v="B"] .v-bad,[data-v="B"] .v-ok,[data-v="B"] .v-none{font-size:11.5px;padding:2px 8px}
     [data-v="B"] .sheet-scrim{display:block;position:fixed;inset:0;background:rgba(14,23,38,.45);z-index:250}
@@ -751,6 +756,13 @@ function gravarTema(t){ try { localStorage.setItem('fh-tema', t); } catch(e){} }
 const escuroNoSistema = matchMedia('(prefers-color-scheme: dark)');
 const temaEfetivo = () => ui.tema==='sistema' ? (escuroNoSistema.matches ? 'escuro' : 'claro') : ui.tema;
 const ROTULO_TEMA = {sistema:'◐ Sistema', claro:'☀ Claro', escuro:'☾ Escuro'};
+// Tag não tem cadastro, então a cor sai do nome: mesma tag, mesma cor, em qualquer mês.
+// Matizes sem vermelho (estouro), verde (entrada) e violeta (reembolso).
+const MATIZES_TAG = [28, 45, 170, 190, 208, 225, 318, 338];
+function matizTag(t){ let h = 0; for (const c of t) h = (h*31 + c.codePointAt(0)) >>> 0; return MATIZES_TAG[h % MATIZES_TAG.length]; }
+const tagChip = t => !t ? '<span class="tag">sem tag</span>'
+  : ui.v==='B' ? `<span class="tag tc" style="--th:${matizTag(t)}">#${esc(t)}</span>` : `<span class="tag">#${esc(t)}</span>`;
+const dotTag = t => ui.v==='B' && t ? `<span class="b-dot tagd" style="--th:${matizTag(t)}"></span>` : '';
 const dot = id => ui.v==='B' ? `<span class="b-dot" style="--pote:var(--p-${id})"></span>` : '';
 
 const $ = id => document.getElementById(id);
@@ -864,9 +876,10 @@ function cartao(g, gs){
   const esc_ = temL ? Math.max(g.limite, g.total) : escalaSemLimite(gs);
   const w = Math.min(Math.abs(temL ? Math.max(g.total,0) : g.total)/esc_*100, 100);
   const tick = temL ? g.limite/esc_*100 : null;
-  const tipo = temL ? '' : ehPote ? 'nolim' : g.total<0 ? 'neg' : 'free';
-  return `<button class="bcard ${ehPote?'pote':''} ${over?'over':''} ${ehPote&&!temL?'nolim':''} ${sel?'sel':''}" ${drill} ${ehPote?`style="--pote:var(--p-${g.chave})"`:''}>
-    <div class="b-head"><span>${ehPote?dot(g.chave):''}${esc(g.nome)}</span>${ehPote ? `<span class="num">${g.pct}%</span>` : ''}</div>
+  const ehTag = ui.eixo==='tag' && g.chave;
+  const tipo = temL ? '' : ehPote ? 'nolim' : g.total<0 ? 'neg' : ehTag ? '' : 'free';
+  return `<button class="bcard ${ehPote?'pote':''} ${ehTag?'tagc':''} ${over?'over':''} ${ehPote&&!temL?'nolim':''} ${sel?'sel':''}" ${drill} ${ehPote?`style="--pote:var(--p-${g.chave})"`:ehTag?`style="--th:${matizTag(g.chave)}"`:''}>
+    <div class="b-head"><span>${ehPote?dot(g.chave):ehTag?'<span class="b-dot"></span>':''}${esc(g.nome)}</span>${ehPote ? `<span class="num">${g.pct}%</span>` : ''}</div>
     <div class="b-total num">${valor(g.total)}</div>
     <div class="b-meter ${tipo}"><i style="width:${w}%"></i>${tick!=null ? `<b style="left:calc(${tick}% - 1px)"></b>` : ''}</div>
     <div class="b-foot">${ehPote ? veredito(g) : ''}<span class="lim">${ehPote ? (temL ? 'limite '+brl(g.limite) : 'sem limite') : sub}</span></div></button>`;
@@ -919,7 +932,7 @@ function detalhe(g, m, todos){
     <button class="voltar" data-fechar>‹ ${volta}</button>
     <button class="close" data-fechar aria-label="Fechar">✕</button>
     <div class="kicker">${todos ? 'Despesas' : EIXOS[ui.eixo]}</div>
-    <h2 class="det-t">${ehPote?dot(g.chave):''}${esc(g.nome)}${ui.eixo==='tag' && !todos && g.chave ? `<button class="btn mini" data-acao="renomear-tag" data-tag="${esc(g.chave)}">Renomear</button>` : ''}</h2>
+    <h2 class="det-t">${ehPote?dot(g.chave):ui.eixo==='tag'&&!todos?dotTag(g.chave):''}${esc(g.nome)}${ui.eixo==='tag' && !todos && g.chave ? `<button class="btn mini" data-acao="renomear-tag" data-tag="${esc(g.chave)}">Renomear</button>` : ''}</h2>
     <div class="det-l"><span class="det-total num">${valor(g.total)}</span>${ehPote ? veredito(g) : ''}<span class="dim">${nOc(g)}</span></div>
     ${ehPote && g.limite!=null ? `<div class="dim det-s">${g.pct}% de ${brl(m.receita)} · limite ${brl(g.limite)}</div>` : ''}
     ${g.total<0 ? '<div class="aviso neg">Total negativo: neste grupo voltou mais dinheiro do que saiu. Reembolso não é entrada e não move a receita.</div>' : ''}
@@ -933,7 +946,7 @@ function linhaOc(o, eixo){
   const meta = [
     eixo!=='pote' ? `<span>${dot(o.pote)}${nomePote(o.pote)}</span>` : '',
     eixo!=='pgto' ? `<span>${o.pgto}</span>` : '',
-    eixo!=='tag' ? `<span class="tag">${o.tag ? '#'+esc(o.tag) : 'sem tag'}</span>` : '',
+    eixo!=='tag' ? tagChip(o.tag) : '',
     o.forma==='parcelado' ? '<span class="tag">parcela</span>' : o.forma==='recorrente' ? '<span class="tag">recorrente</span>' : '',
     o.valor<0 ? '<span class="tag neg">reembolso</span>' : '',
   ].join('');
