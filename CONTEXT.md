@@ -67,11 +67,21 @@ lançamento tem ocorrência: uma entrada impacta um mês só, o da sua própria 
 _Avoid_: Linha, item
 
 **Parcela**:
-A ocorrência de um lançamento parcelado, valendo o total dividido pelo número de parcelas.
+A ocorrência de um lançamento parcelado, valendo o total dividido pelo número de parcelas; o
+centavo que sobra da divisão cai na primeira. A primeira parcela cai no mês da data da compra. O
+parcelado é uma compra só: corrigi-lo ou apagá-lo em qualquer mês vale para todas as parcelas.
 
 **Recorrência**:
-Um lançamento cujo valor se **repete** todo mês em vez de ser **dividido** entre meses.
+Um lançamento cujo valor se **repete** todo mês em vez de ser **dividido** entre meses, sem fim
+até ser apagado. Mudá-lo num mês vale dali para frente, até a próxima mudança; apagá-lo num mês
+apaga dali para frente — é assim que um recorrente termina.
 _Avoid_: Assinatura, gasto fixo
+
+**Vigência**:
+Um trecho de uma recorrência em que valor, pote, tipo de pagamento e descrição ficaram iguais. O
+aluguel de R$ 1.500 que passou a R$ 1.650 em julho é uma recorrência com duas vigências, não dois
+lançamentos.
+_Avoid_: Versão, período, trecho
 
 **Tipo de pagamento**:
 O meio pelo qual um lançamento foi pago, escolhido de uma lista fixa de sete. Só Cartão de Crédito
