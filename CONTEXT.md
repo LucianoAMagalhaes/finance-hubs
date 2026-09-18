@@ -19,7 +19,8 @@ uma entrada move todos os limites daquele mês.
 _Avoid_: Renda, salário, faturamento
 
 **Percentual**:
-A fatia da receita do mês que um pote reivindica. É o número que a pessoa edita.
+A fatia da receita do mês que um pote reivindica, um inteiro de 0 a 100. É o número que a pessoa
+edita. Os seis percentuais de um mês somam no máximo 100.
 _Avoid_: Alocação, proporção, fatia
 
 **Limite**:
@@ -28,11 +29,13 @@ Nunca é digitado diretamente.
 _Avoid_: Teto, valor orçado, budget
 
 **Não alocado**:
-A parte da receita do mês que nenhum pote reivindica — 100% menos a soma dos percentuais.
+A parte da receita do mês que nenhum pote reivindica — 100% menos a soma dos percentuais. Nunca é
+negativo.
 
 **Orçamento do mês**:
 A fotografia de um mês: seus seis percentuais. Cada mês tem o seu, independente de todos os outros.
-A receita não está na fotografia porque é derivada das entradas.
+A receita não está na fotografia porque é derivada das entradas. Nasce no primeiro registro do mês,
+copiando o mês anterior mais recente que já tem o seu; antes disso, o mês só mostra o que herdaria.
 _Avoid_: Configuração, plano, snapshot
 
 ### As entradas
