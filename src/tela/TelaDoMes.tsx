@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  antecipacaoEm,
   aplicar,
   dataProposta,
   formatarReais,
@@ -16,6 +17,7 @@ import {
   type AgregadosDoMes,
   type Centavos,
   type Comando,
+  type Compra,
   type Data,
   type Eixo,
   type Entrada,
@@ -31,6 +33,7 @@ import {
 import { executar } from "@/servidor/acoes";
 import { AlternadorDeTema } from "./AlternadorDeTema";
 import { EditorDePercentuais, percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./EditorDePercentuais";
+import { FormularioDeAntecipacao } from "./FormularioDeAntecipacao";
 import { FormularioDeEntrada } from "./FormularioDeEntrada";
 import { FormularioDeLancamento } from "./FormularioDeLancamento";
 import { Lixeira } from "./Lixeira";
@@ -40,7 +43,11 @@ import { Valor } from "./pecas";
 type Props = { estadoInicial: Estado; hoje: Data };
 
 /** O formulário aberto: um registro novo (null), ou o que se corrige. */
-type Formulario = { registro: "entrada"; entrada: Entrada | null } | { registro: "lancamento"; lancamento: Lancamento | null };
+type Formulario =
+  | { registro: "entrada"; entrada: Entrada | null }
+  | { registro: "lancamento"; lancamento: Lancamento | null }
+  /** A antecipação de um parcelado: nova (null) ou a que se revê. */
+  | { registro: "antecipacao"; parcelado: number; antecipacao: number | null };
 
 /** Depois de salvar algo com data em outro mês, a tela fica onde está e aponta para lá. */
 type Aviso = { texto: string; mes: Mes };
@@ -118,8 +125,13 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
     setAberto((a) => (a?.tipo === "todos" ? a : null));
   }
 
+  /** A ocorrência da antecipação abre a própria antecipação; as outras, o lançamento. */
   const abrirOcorrencia = (o: Ocorrencia) =>
-    setFormulario({ registro: "lancamento", lancamento: estado.lancamentos.find((l) => l.id === o.lancamento)! });
+    setFormulario(
+      o.antecipacao
+        ? { registro: "antecipacao", parcelado: o.lancamento, antecipacao: o.antecipacao.id }
+        : { registro: "lancamento", lancamento: estado.lancamentos.find((l) => l.id === o.lancamento)! },
+    );
 
   const novaEntrada = () => setFormulario({ registro: "entrada", entrada: null });
   const novoLancamento = () => setFormulario({ registro: "lancamento", lancamento: null });
@@ -254,6 +266,18 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           salvar={(comando, destino) => salvarRegistro(comando, destino, formulario.lancamento ? "Gasto salvo" : "Gasto lançado")}
           apagar={() => apagar("lancamento", formulario.lancamento!.id)}
           encerrar={() => encerrar(formulario.lancamento!.id)}
+          antecipar={() => setFormulario({ registro: "antecipacao", parcelado: formulario.lancamento!.id, antecipacao: null })}
+          fechar={() => setFormulario(null)}
+        />
+      )}
+      {formulario?.registro === "antecipacao" && (
+        <FormularioDeAntecipacao
+          parcelado={parceladoDe(estado, formulario.parcelado)}
+          antecipacao={formulario.antecipacao === null ? null : antecipacaoEm(estado, formulario.antecipacao)!.antecipacao}
+          dataProposta={dataProposta(mes, hoje)}
+          hoje={hoje}
+          salvar={(comando, destino) => salvarRegistro(comando, destino, formulario.antecipacao ? "Antecipação salva" : "Parcelas antecipadas")}
+          desfazer={() => apagar("antecipacao", formulario.antecipacao!)}
           fechar={() => setFormulario(null)}
         />
       )}
@@ -374,3 +398,5 @@ function Saldo({ centavos }: { centavos: Centavos }) {
 }
 
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const parceladoDe = (estado: Estado, id: number) => estado.lancamentos.find((l) => l.id === id) as Compra;

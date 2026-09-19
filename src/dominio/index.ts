@@ -12,17 +12,26 @@ export {
   type NovaEntrada,
 } from "./entradas";
 export { todosOsGastos, grupos, type Eixo, type Grupo } from "./eixos";
-export { estadoVazio, type Estado } from "./estado";
+export { antecipacaoEm, compras, estadoVazio, type Estado } from "./estado";
 export {
+  antecipacoesDe,
   divisaoEmParcelas,
   inicioDe,
+  maximoAntecipavel,
+  mesDaParcela,
+  parcelasAntecipadas,
+  somaDasParcelas,
   vigenciaEm,
   vigenciasComFim,
+  type Antecipacao,
+  type AntecipacaoASalvar,
   type Compra,
+  type Corte,
   type Lancamento,
   type LancamentoASalvar,
   type NovoLancamento,
   type Ocorrencia,
+  type ParcelasAntecipadas,
   type Recorrente,
   type RecorrenteACriar,
   type Vigencia,

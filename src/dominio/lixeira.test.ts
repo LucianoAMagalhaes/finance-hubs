@@ -107,12 +107,12 @@ describe("lixeira", () => {
     expect(aplicar(estado, { tipo: "apagar", registro: "entrada", id: 1 }, HOJE).ok).toBe(false);
   });
 
-  it("o comando chega do navegador: registro que não é entrada nem lançamento é recusado", () => {
+  it("o comando chega do navegador: registro que não é um dos três é recusado", () => {
     const estado = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-09-12", valor: 42_050 }));
 
     const resultado = aplicar(estado, { tipo: "apagar", registro: "orcamento" as never, id: 1 }, HOJE);
 
-    expect(resultado).toEqual({ ok: false, erro: "Só entrada ou lançamento vão para a lixeira." });
+    expect(resultado).toEqual({ ok: false, erro: "Só entrada, lançamento ou antecipação vão para a lixeira." });
   });
 
   it("um item na lixeira não pode ser corrigido: volta primeiro, corrige depois", () => {
@@ -138,7 +138,7 @@ describe("lixeira", () => {
     const estado: Estado = {
       ...estadoVazio(),
       lancamentos: [
-        { id: 1, forma: "compra", data: "2026-09-12", descricao: "Café", pote: "conforto", tipo: "pix", valor: 1_000, parcelas: 1, tag: null, apagadoEm: null },
+        { id: 1, forma: "compra", data: "2026-09-12", descricao: "Café", pote: "conforto", tipo: "pix", valor: 1_000, parcelas: 1, tag: null, antecipacoes: [], apagadoEm: null },
       ],
     };
 

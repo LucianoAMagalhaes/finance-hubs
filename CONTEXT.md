@@ -84,6 +84,12 @@ Só se antecipam parcelas de meses posteriores ao da antecipação. Um parcelado
 cada uma leva as últimas que ainda sobram. Quitar é antecipar todas as que faltam.
 _Avoid_: Adiantamento, quitação, ajuste
 
+**Corte**:
+As parcelas que uma antecipação levou — "da 8ª à 10ª" — e o pedaço da série que ela tirou do fim.
+Nunca é gravado: sai de aplicar as antecipações em ordem de data sobre o parcelado. É o que diz
+"Antecipação 8–10/10" no detalhe do mês.
+_Avoid_: Intervalo, faixa, range
+
 **Recorrência**:
 Um lançamento cujo valor se **repete** todo mês em vez de ser **dividido** entre meses, sem fim
 até ser encerrado. Mudá-lo num mês vale dali para frente, até a próxima mudança; **encerrá-lo**
@@ -129,11 +135,13 @@ _Avoid_: Excesso, furo, overflow
 ### A lixeira
 
 **Lixeira**:
-Para onde vai uma entrada ou um lançamento apagado. É uma marca no registro, com o dia em que foi
-apagado, não uma remoção: o registro volta intacto ao ser restaurado. Na lixeira ele não gera
-receita nem ocorrência, e não pode ser corrigido sem antes voltar. Apagar nunca leva o orçamento
-do mês junto, e a lixeira não se esvazia: nada é destruído de vez. A única exceção são as
-vigências que um encerramento descarta: elas somem de vez, sem passar pela lixeira.
+Para onde vai uma entrada, um lançamento ou uma antecipação apagados. É uma marca no registro, com
+o dia em que foi apagado, não uma remoção: o registro volta intacto ao ser restaurado. Na lixeira
+ele não gera receita nem ocorrência, e não pode ser corrigido sem antes voltar. Apagar um parcelado
+leva as suas antecipações junto, e elas voltam com ele; restaurar uma antecipação sozinha revalida
+contra o parcelado como ele está, e é recusado se as parcelas não couberem mais. Apagar nunca leva
+o orçamento do mês junto, e a lixeira não se esvazia: nada é destruído de vez. A única exceção são
+as vigências que um encerramento descarta: elas somem de vez, sem passar pela lixeira.
 _Avoid_: Excluídos, arquivo, histórico
 
 ### Os agregados do mês

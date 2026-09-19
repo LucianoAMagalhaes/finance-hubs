@@ -199,6 +199,62 @@ describe("persistência", () => {
     expect(carregarEstado(abrir()).lancamentos[0]!.apagadoEm).toBeNull();
   });
 
+  it("as antecipações de um parcelado voltam idênticas ao recarregar, com a série já cortada", () => {
+    let estado = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-01-15", pote: "conforto", valor: 389_900, parcelas: 10 }));
+    estado = aplicarOk(estado, antecipar({ data: "2026-07-20", parcelas: 1, valor: 36_000 }));
+    estado = aplicarOk(estado, antecipar({ data: "2026-08-10", parcelas: 1, valor: 35_000 }));
+    gravarEstado(abrir(), estado);
+
+    const recarregado = carregarEstado(abrir());
+
+    expect(recarregado).toEqual(estado);
+    expect((recarregado.lancamentos[0] as Compra).antecipacoes).toEqual([
+      { id: 1, data: "2026-07-20", parcelas: 1, valor: 36_000, apagadoEm: null },
+      { id: 2, data: "2026-08-10", parcelas: 1, valor: 35_000, apagadoEm: null },
+    ]);
+    for (const mes of ["2026-07", "2026-08", "2026-09", "2026-10"] as const) {
+      expect(projetarMes(recarregado, mes), mes).toEqual(projetarMes(estado, mes));
+    }
+    expect(projetarMes(recarregado, "2026-09").ocorrencias).toEqual([]);
+  });
+
+  it("corrigir uma antecipação não muda o lugar dela: o estado gravado volta idêntico", () => {
+    const banco = abrir();
+    let antes = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-01-15", pote: "conforto", valor: 389_900, parcelas: 10 }));
+    antes = aplicarOk(antes, antecipar({ data: "2026-07-20", parcelas: 1, valor: 36_000 }));
+    antes = aplicarOk(antes, antecipar({ data: "2026-08-10", parcelas: 1, valor: 35_000 }));
+    gravarEstado(banco, antes);
+
+    const depois = aplicarOk(carregarEstado(banco), antecipar({ id: 1, data: "2026-07-20", parcelas: 1, valor: 30_000 }));
+    gravarEstado(banco, depois);
+
+    const recarregado = carregarEstado(abrir());
+    expect(recarregado).toEqual(depois);
+    expect((recarregado.lancamentos[0] as Compra).antecipacoes.map((a) => [a.id, a.valor])).toEqual([
+      [1, 30_000],
+      [2, 35_000],
+    ]);
+  });
+
+  it("uma antecipação desfeita volta da lixeira pelo banco, e as parcelas voltam com ela", () => {
+    const banco = abrir();
+    let antes = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-01-15", pote: "conforto", valor: 389_900, parcelas: 10 }));
+    antes = aplicarOk(antes, antecipar({ data: "2026-07-20", parcelas: 3, valor: 300_000 }));
+    const desfeita = aplicarOk(antes, { tipo: "apagar", registro: "antecipacao", id: 1 });
+    gravarEstado(banco, desfeita);
+
+    const recarregado = carregarEstado(abrir());
+
+    expect(recarregado).toEqual(desfeita);
+    expect((recarregado.lancamentos[0] as Compra).antecipacoes[0]!.apagadoEm).toBe("2026-09-18");
+    expect(projetarMes(recarregado, "2026-10").ocorrencias).toHaveLength(1);
+
+    const restaurada = aplicarOk(recarregado, { tipo: "restaurar", registro: "antecipacao", id: 1 });
+    gravarEstado(banco, restaurada);
+
+    expect(carregarEstado(abrir())).toEqual(antes);
+  });
+
   it("um recorrente com várias vigências, inclusive encerrado ou reembolso, volta idêntico ao recarregar", () => {
     let estado = aplicarOk(estadoVazio(), criarRecorrente({ data: "2026-01-31", valor: 150_000, tag: "casa" }));
     estado = aplicarOk(estado, mudarRecorrente(1, "2026-03", { valor: 155_000, pote: "metas", tag: null }));
@@ -279,6 +335,10 @@ function salvarEntrada(campos: { id?: number; data: `${number}-${number}-${numbe
     tipo: "salvar-entrada",
     entrada: { descricao: "Salário", fonte: "salario", tipo: "transferencia", valor: 720_000, ...campos },
   };
+}
+
+function antecipar(campos: { id?: number; data: `${number}-${number}-${number}`; parcelas: number; valor: number }): Comando {
+  return { tipo: "salvar-antecipacao", antecipacao: { lancamento: 1, ...campos } };
 }
 
 function salvarLancamento(campos: {

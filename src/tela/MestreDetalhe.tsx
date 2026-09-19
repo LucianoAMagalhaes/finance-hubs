@@ -13,7 +13,7 @@ import {
   type PoteNaVista,
   type VistaDoMes,
 } from "@/dominio";
-import { corDaTag, corDoPote, PilulaDaTag, Valor } from "./pecas";
+import { corDaTag, corDoPote, faixaDeParcelas, PilulaDaTag, Valor } from "./pecas";
 
 export const NOME_DO_EIXO: Record<Eixo, string> = { pote: "Pote", tipo: "Tipo de pagamento", tag: "Tag" };
 
@@ -202,7 +202,14 @@ function Detalhe({ vista, grupo, eixo, fechar, abrirOcorrencia }: PropsDoDetalhe
         {grupo.total < 0 && <p className="nota-reembolso">Só reembolso neste mês; não é entrada e não move a receita.</p>}
       </header>
       {grupo.ocorrencias.map((o) => (
-        <button type="button" key={o.lancamento} className="ocorrencia" onClick={() => abrirOcorrencia(o)} title="Corrigir o gasto">
+        // Num mês pode cair a parcela e a antecipação do mesmo parcelado: a chave distingue as duas.
+        <button
+          type="button"
+          key={o.antecipacao ? `antecipacao-${o.antecipacao.id}` : o.lancamento}
+          className="ocorrencia"
+          onClick={() => abrirOcorrencia(o)}
+          title={o.antecipacao ? "Rever a antecipação" : "Corrigir o gasto"}
+        >
           <span className="data num">
             {o.data.slice(8)}/{o.data.slice(5, 7)}
           </span>
@@ -225,6 +232,11 @@ function Detalhe({ vista, grupo, eixo, fechar, abrirOcorrencia }: PropsDoDetalhe
               <span className="anotacao">
                 ⤷ recorrente desde {nomeDoMes(o.recorrente.desde)}
                 {o.recorrente.vigenciaDesde !== o.recorrente.desde && ` · valor desde ${nomeDoMes(o.recorrente.vigenciaDesde)}`}
+              </span>
+            )}
+            {o.antecipacao && (
+              <span className="anotacao num">
+                ⤷ Antecipação {faixaDeParcelas(o.antecipacao)}/{o.antecipacao.de} de {formatarReais(o.antecipacao.total)}
               </span>
             )}
           </span>

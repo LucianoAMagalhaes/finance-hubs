@@ -49,6 +49,26 @@ export const lancamento = sqliteTable("lancamento", {
 });
 
 /**
+ * A antecipação das últimas parcelas de um parcelado (ADR-0005). Não tem pote,
+ * tipo nem tag: herda os do parcelado. Nunca apagada de vez: a lixeira é uma
+ * marca, e apagar o parcelado não apaga a linha.
+ */
+export const antecipacao = sqliteTable("antecipacao", {
+  id: integer("id").primaryKey(),
+  lancamento: integer("lancamento")
+    .notNull()
+    .references(() => lancamento.id),
+  /** "AAAA-MM-DD" do pagamento; o mês dele é o que recebe a ocorrência. */
+  data: text("data").notNull(),
+  /** Quantas parcelas ela leva, da última para trás. */
+  parcelas: integer("parcelas").notNull(),
+  /** Centavos inteiros do valor pago, sempre positivo. */
+  valor: integer("valor").notNull(),
+  /** A marca de lixeira: "AAAA-MM-DD" do dia em que foi desfeita; null enquanto vale. */
+  apagadoEm: text("apagado_em"),
+});
+
+/**
  * Um gasto em forma de recorrente. O que muda com o tempo está nas suas
  * vigências. Divide a numeração com `lancamento`: o domínio dá o id.
  */

@@ -43,6 +43,13 @@
       "when": 1789847627553,
       "tag": "0005_recorrente",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789858091564,
+      "tag": "0006_antecipacao",
+      "breakpoints": true
     }
   ]
 }

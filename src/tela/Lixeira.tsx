@@ -88,8 +88,16 @@ export function Lixeira({ itens, restaurar, fechar }: Props) {
   );
 }
 
-const descricaoDe = (item: ItemNaLixeira) =>
-  item.registro === "entrada" ? item.entrada.descricao : camposDe(item.lancamento).descricao;
+function descricaoDe(item: ItemNaLixeira): string {
+  switch (item.registro) {
+    case "entrada":
+      return item.entrada.descricao;
+    case "lancamento":
+      return camposDe(item.lancamento).descricao;
+    case "antecipacao":
+      return item.parcelado.descricao;
+  }
+}
 
 /** O que o lançamento mostra: a compra, ou a última vigência do recorrente. */
 const camposDe = (l: Lancamento) => (l.forma === "compra" ? l : l.vigencias.at(-1)!);
@@ -99,6 +107,11 @@ function ondeCai(item: ItemNaLixeira): string {
   if (item.registro === "entrada") {
     const e = item.entrada;
     return `Entrada · ${nomeDaFonte(e.fonte)} · ${nomeDoMes(mesDaData(e.data))}`;
+  }
+  if (item.registro === "antecipacao") {
+    const a = item.antecipacao;
+    const quantas = a.parcelas === 1 ? "1 parcela" : `${a.parcelas} parcelas`;
+    return `Antecipação de ${quantas} · ${nomeDoMes(mesDaData(a.data))} · volta a cortar as últimas que sobrarem`;
   }
   const l = item.lancamento;
   const forma =
@@ -112,6 +125,7 @@ function ondeCai(item: ItemNaLixeira): string {
 
 function valorDe(item: ItemNaLixeira) {
   if (item.registro === "entrada") return <span className="val entrada">+ {formatarReais(item.entrada.valor)}</span>;
+  if (item.registro === "antecipacao") return <Valor centavos={item.antecipacao.valor} />;
   return <Valor centavos={camposDe(item.lancamento).valor} />;
 }
 
