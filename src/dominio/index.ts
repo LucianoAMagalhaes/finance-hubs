@@ -42,6 +42,7 @@ export {
   type TipoDeEntrada,
   type TipoDePagamento,
 } from "./pagamento";
+export { itensNaLixeira, type ItemNaLixeira, type Registro } from "./lixeira";
 export {
   ehPote,
   nomeDoPote,

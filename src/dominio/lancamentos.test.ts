@@ -20,7 +20,7 @@ function comReceita(valor = 1_000_000): Estado {
   return {
     ...estadoVazio(),
     orcamentos: { "2026-09": pcts(30, 25, 15, 15, 10, 5) },
-    entradas: [{ id: 1, data: "2026-09-05", descricao: "Salário", fonte: "salario", tipo: "transferencia", valor }],
+    entradas: [{ id: 1, data: "2026-09-05", descricao: "Salário", fonte: "salario", tipo: "transferencia", valor, apagadoEm: null }],
   };
 }
 

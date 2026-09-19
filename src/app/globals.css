@@ -877,3 +877,52 @@ button.agregado:hover {
   border: 1px solid var(--line-2);
   color: var(--ink-3);
 }
+
+/* ============ lixeira: apagar é reversível, então só o texto é vermelho ============ */
+.btn.apagar {
+  color: var(--bad);
+  margin-right: auto;
+}
+.btn .contagem {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--sunken);
+  font-size: 12px;
+}
+dialog.folha.lixeira {
+  width: min(560px, calc(100vw - 32px));
+}
+.lixeira-vazia {
+  margin: 0;
+  padding: 18px 0;
+  text-align: center;
+  color: var(--ink-3);
+}
+.lixeira-itens {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.lixeira-itens li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.lixeira-itens li:first-child {
+  border-top: 0;
+}
+.lixeira-texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lixeira-descricao {
+  overflow-wrap: anywhere;
+}

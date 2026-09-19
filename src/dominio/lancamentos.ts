@@ -19,10 +19,12 @@ export type Lancamento = {
   parcelas: number;
   /** No máximo uma, normalizada (ver `normalizarTag`); null é sem tag. */
   tag: string | null;
+  /** A marca de lixeira: o dia em que foi apagado; null enquanto está vivo. */
+  apagadoEm: Data | null;
 };
 
 /** O que a pessoa preenche no formulário; o id vem do domínio num lançamento novo. */
-export type NovoLancamento = Omit<Lancamento, "id">;
+export type NovoLancamento = Omit<Lancamento, "id" | "apagadoEm">;
 
 /**
  * O que se manda salvar: sem id, é um lançamento novo; com id, corrige o que já

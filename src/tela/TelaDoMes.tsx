@@ -5,6 +5,7 @@ import {
   aplicar,
   dataProposta,
   formatarReais,
+  itensNaLixeira,
   mesDaData,
   nomeDaFonte,
   nomeDoMes,
@@ -25,6 +26,7 @@ import {
   type Mes,
   type Ocorrencia,
   type Percentuais,
+  type Registro,
   type VistaDoMes,
 } from "@/dominio";
 import { executar } from "@/servidor/acoes";
@@ -32,6 +34,7 @@ import { AlternadorDeTema } from "./AlternadorDeTema";
 import { EditorDePercentuais, percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./EditorDePercentuais";
 import { FormularioDeEntrada } from "./FormularioDeEntrada";
 import { FormularioDeLancamento } from "./FormularioDeLancamento";
+import { Lixeira } from "./Lixeira";
 import { MestreDetalhe, NOME_DO_EIXO, type Aberto } from "./MestreDetalhe";
 import { Valor } from "./pecas";
 
@@ -59,6 +62,8 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
   const [eixo, setEixoDaTela] = useState<Eixo>("pote");
   /** O grupo aberto no mestre-detalhe; continua aberto ao trocar de mês, se existir lá. */
   const [aberto, setAberto] = useState<Aberto | null>(null);
+  const [lixeiraAberta, setLixeiraAberta] = useState(false);
+  const lixeira = useMemo(() => itensNaLixeira(estado), [estado]);
   const vista = useMemo(
     () => projetarMes(estado, mes, rascunho ? percentuaisParaPrevia(rascunho) : undefined),
     [estado, mes, rascunho],
@@ -95,6 +100,15 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
 
   const salvarLancamento = (lancamento: LancamentoASalvar, rotulo: string) =>
     salvarRegistro({ tipo: "salvar-lancamento", lancamento }, lancamento.data, rotulo);
+
+  /** Apagar manda para a lixeira e fecha o formulário; os meses afetados recalculam com o estado novo. */
+  async function apagar(registro: Registro, id: number): Promise<string | null> {
+    const erro = await mandar({ tipo: "apagar", registro, id });
+    if (!erro) setFormulario(null);
+    return erro;
+  }
+
+  const restaurar = (registro: Registro, id: number) => mandar({ tipo: "restaurar", registro, id });
 
   /** Um eixo por vez. Trocar de eixo fecha o grupo aberto, mas não o feed do mês. */
   function setEixo(novo: Eixo) {
@@ -142,6 +156,9 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         </div>
         <div className="acoes">
           <AlternadorDeTema />
+          <button type="button" className="btn" onClick={() => setLixeiraAberta(true)} title="O que foi apagado, para restaurar">
+            Lixeira{lixeira.length > 0 && <span className="contagem num">{lixeira.length}</span>}
+          </button>
           <button type="button" className="btn entrada" onClick={novaEntrada}>
             + Entrada
           </button>
@@ -222,6 +239,7 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           entrada={formulario.entrada}
           dataProposta={dataProposta(mes, hoje)}
           salvar={(entrada) => salvarEntrada(entrada, formulario.entrada ? "Entrada salva" : "Entrada lançada")}
+          apagar={() => apagar("entrada", formulario.entrada!.id)}
           fechar={() => setFormulario(null)}
         />
       )}
@@ -231,9 +249,11 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           tags={tagsEmUso(estado)}
           dataProposta={dataProposta(mes, hoje)}
           salvar={(lancamento) => salvarLancamento(lancamento, formulario.lancamento ? "Gasto salvo" : "Gasto lançado")}
+          apagar={() => apagar("lancamento", formulario.lancamento!.id)}
           fechar={() => setFormulario(null)}
         />
       )}
+      {lixeiraAberta && <Lixeira itens={lixeira} restaurar={restaurar} fechar={() => setLixeiraAberta(false)} />}
     </main>
   );
 }

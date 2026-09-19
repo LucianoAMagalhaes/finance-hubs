@@ -1,6 +1,7 @@
 import { ehFonte, type EntradaASalvar } from "./entradas";
 import type { Estado } from "./estado";
 import type { LancamentoASalvar } from "./lancamentos";
+import { ehRegistro, type Registro } from "./lixeira";
 import { ehDataValida, ehMesValido, mesDaData, type Data, type Mes } from "./mes";
 import { ehTipoDeEntrada, ehTipoDePagamento } from "./pagamento";
 import { ehPote, validarPercentuais, type Percentuais } from "./potes";
@@ -13,7 +14,9 @@ import { normalizarTag } from "./tags";
 export type Comando =
   | { tipo: "salvar-entrada"; entrada: EntradaASalvar }
   | { tipo: "salvar-lancamento"; lancamento: LancamentoASalvar }
-  | { tipo: "salvar-percentuais"; mes: Mes; percentuais: Percentuais };
+  | { tipo: "salvar-percentuais"; mes: Mes; percentuais: Percentuais }
+  | { tipo: "apagar"; registro: Registro; id: number }
+  | { tipo: "restaurar"; registro: Registro; id: number };
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
 
@@ -21,7 +24,7 @@ export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
  * Aplica um comando e devolve o estado novo ou o erro de validação. Puro:
  * nunca muda o estado recebido, e `hoje` entra de fora para o domínio não ler o relógio.
  */
-export function aplicar(estado: Estado, comando: Comando, _hoje: Data): Resultado<Estado> {
+export function aplicar(estado: Estado, comando: Comando, hoje: Data): Resultado<Estado> {
   switch (comando.tipo) {
     case "salvar-entrada":
       return salvarEntrada(estado, comando.entrada);
@@ -29,7 +32,29 @@ export function aplicar(estado: Estado, comando: Comando, _hoje: Data): Resultad
       return salvarLancamento(estado, comando.lancamento);
     case "salvar-percentuais":
       return salvarPercentuais(estado, comando.mes, comando.percentuais);
+    case "apagar":
+      return marcarLixeira(estado, comando.registro, comando.id, hoje);
+    case "restaurar":
+      return marcarLixeira(estado, comando.registro, comando.id, null);
   }
+}
+
+/**
+ * Troca a marca de lixeira: apagar a põe com o dia de hoje; restaurar (null) a
+ * tira, e o registro volta intacto. Nenhum dos dois faz mês nascer nem mexe em
+ * orçamento: apagar a última coisa de um mês deixa os percentuais gravados.
+ */
+function marcarLixeira(estado: Estado, registro: Registro, id: number, apagadoEm: Data | null): Resultado<Estado> {
+  // O comando chega do navegador: nenhum campo é confiado ao tipo.
+  if (!ehRegistro(registro)) return { ok: false, erro: "Só entrada ou lançamento vão para a lixeira." };
+  const chave = registro === "entrada" ? "entradas" : "lancamentos";
+  const lista: { id: number; apagadoEm: Data | null }[] = estado[chave];
+  const alvo = lista.find((r) => r.id === id);
+  const nome = registro === "entrada" ? "Essa entrada" : "Esse lançamento";
+  if (!alvo) return { ok: false, erro: `${nome} não existe mais.` };
+  if (apagadoEm !== null && alvo.apagadoEm !== null) return { ok: false, erro: `${nome} já está na lixeira.` };
+  if (apagadoEm === null && alvo.apagadoEm === null) return { ok: false, erro: `${nome} não está na lixeira.` };
+  return { ok: true, valor: { ...estado, [chave]: lista.map((r) => (r.id === id ? { ...r, apagadoEm } : r)) } };
 }
 
 /**
@@ -65,16 +90,20 @@ function salvarLancamento(estado: Estado, dados: LancamentoASalvar): Resultado<E
 }
 
 /**
- * Sem id, acrescenta com o próximo id; com id, troca o registro que o tem.
- * Null quando o id não existe mais.
+ * Sem id, acrescenta com o próximo id, contando os da lixeira; com id, troca o
+ * registro que o tem. Null quando o id não existe mais ou está na lixeira:
+ * corrigir exige restaurar antes.
  */
-function gravarNaLista<T extends { id: number }>(lista: T[], { id, ...campos }: Omit<T, "id"> & { id?: number }): T[] | null {
+function gravarNaLista<T extends { id: number; apagadoEm: Data | null }>(
+  lista: T[],
+  { id, ...campos }: Omit<T, "id" | "apagadoEm"> & { id?: number },
+): T[] | null {
   if (id === undefined) {
     const proximo = Math.max(0, ...lista.map((r) => r.id)) + 1;
-    return [...lista, { id: proximo, ...campos } as T];
+    return [...lista, { id: proximo, ...campos, apagadoEm: null } as T];
   }
-  if (!lista.some((r) => r.id === id)) return null;
-  return lista.map((r) => (r.id === id ? ({ id, ...campos } as T) : r));
+  if (!lista.some((r) => r.id === id && r.apagadoEm === null)) return null;
+  return lista.map((r) => (r.id === id ? ({ id, ...campos, apagadoEm: null } as T) : r));
 }
 
 // O comando chega do navegador: nenhum campo é confiado ao tipo.

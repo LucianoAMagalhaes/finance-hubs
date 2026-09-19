@@ -125,6 +125,15 @@ _Avoid_: Caixinha, bucket, categoria
 O quanto a soma das ocorrências de um pote num mês excede o limite daquele pote.
 _Avoid_: Excesso, furo, overflow
 
+### A lixeira
+
+**Lixeira**:
+Para onde vai uma entrada ou um lançamento apagado. É uma marca no registro, com o dia em que foi
+apagado, não uma remoção: o registro volta intacto ao ser restaurado. Na lixeira ele não gera
+receita nem ocorrência, e não pode ser corrigido sem antes voltar. Apagar nunca leva o orçamento
+do mês junto, e a lixeira não se esvazia: nada é destruído de vez.
+_Avoid_: Excluídos, arquivo, histórico
+
 ### Os agregados do mês
 
 **Despesas do mês**:

@@ -29,6 +29,8 @@ type Props = {
   dataProposta: Data;
   /** Devolve o erro de validação, ou null se salvou. */
   salvar: (lancamento: LancamentoASalvar) => Promise<string | null>;
+  /** Manda o lançamento que se corrige para a lixeira. Devolve o erro, ou null se apagou. */
+  apagar: () => Promise<string | null>;
   fechar: () => void;
 };
 
@@ -44,7 +46,7 @@ const FORMAS: { id: Forma; nome: string }[] = [
  * mesmo depois de salva. O recorrente chega no seu ticket. O reembolso é
  * digitado positivo e gravado negativo, em qualquer forma.
  */
-export function FormularioDeLancamento({ lancamento, tags, dataProposta, salvar, fechar }: Props) {
+export function FormularioDeLancamento({ lancamento, tags, dataProposta, salvar, apagar, fechar }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [data, setData] = useState<string>(lancamento?.data ?? dataProposta);
   const [descricao, setDescricao] = useState(lancamento?.descricao ?? "");
@@ -94,6 +96,13 @@ export function FormularioDeLancamento({ lancamento, tags, dataProposta, salvar,
       parcelas: parcelado ? n : 1,
       tag,
     });
+    setSalvando(false);
+    setErro(recusa);
+  }
+
+  async function mandarParaLixeira() {
+    setSalvando(true);
+    const recusa = await apagar();
     setSalvando(false);
     setErro(recusa);
   }
@@ -225,6 +234,21 @@ export function FormularioDeLancamento({ lancamento, tags, dataProposta, salvar,
           )}
         </div>
         <footer>
+          {lancamento && (
+            <button
+              type="button"
+              className="btn apagar"
+              disabled={salvando}
+              onClick={mandarParaLixeira}
+              title={
+                eraParcelado
+                  ? "A compra inteira vai para a lixeira, com todas as parcelas, e volta intacta"
+                  : "Vai para a lixeira, de onde volta intacto"
+              }
+            >
+              {eraParcelado ? `Apagar as ${lancamento.parcelas} parcelas` : "Apagar"}
+            </button>
+          )}
           <button type="button" className="btn" onClick={fechar}>
             Cancelar
           </button>

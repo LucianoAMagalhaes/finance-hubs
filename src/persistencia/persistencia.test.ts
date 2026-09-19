@@ -159,6 +159,33 @@ describe("persistência", () => {
     expect(projetarMes(recarregado, "2026-09")).toEqual(projetarMes(estado, "2026-09"));
   });
 
+  it("a marca de lixeira sobrevive a recarregar, e restaurar a tira do banco", () => {
+    const banco = abrir();
+    let estado = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
+    estado = aplicarOk(estado, salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 100_000, parcelas: 3 }));
+    const antes = aplicarOk(estado, { tipo: "apagar", registro: "entrada", id: 1 });
+    const apagado = aplicarOk(antes, { tipo: "apagar", registro: "lancamento", id: 1 });
+    gravarEstado(banco, apagado);
+
+    const recarregado = carregarEstado(abrir());
+
+    expect(recarregado).toEqual(apagado);
+    expect(recarregado.entradas[0]!.apagadoEm).toBe("2026-09-18");
+    expect(recarregado.lancamentos[0]!.apagadoEm).toBe("2026-09-18");
+    for (const mes of ["2026-09", "2026-10", "2026-11"] as const) {
+      expect(projetarMes(recarregado, mes)).toEqual(projetarMes(apagado, mes));
+      expect(projetarMes(recarregado, mes).ocorrencias).toEqual([]);
+    }
+    expect(projetarMes(recarregado, "2026-09").receita).toBe(0);
+    expect(recarregado.orcamentos["2026-09"]).toBeDefined();
+
+    const restaurado = aplicarOk(recarregado, { tipo: "restaurar", registro: "lancamento", id: 1 });
+    gravarEstado(banco, restaurado);
+
+    expect(carregarEstado(abrir())).toEqual(restaurado);
+    expect(carregarEstado(abrir()).lancamentos[0]!.apagadoEm).toBeNull();
+  });
+
   it("o orçamento nascido e a entrada entram na mesma transação: ou os dois, ou nenhum", () => {
     const estado = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
     // Uma entrada que o banco recusa (descrição nula), gravada depois do orçamento.

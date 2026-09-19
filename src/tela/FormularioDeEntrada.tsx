@@ -20,10 +20,12 @@ type Props = {
   dataProposta: Data;
   /** Devolve o erro de validação, ou null se salvou. */
   salvar: (entrada: EntradaASalvar) => Promise<string | null>;
+  /** Manda a entrada que se corrige para a lixeira. Devolve o erro, ou null se apagou. */
+  apagar: () => Promise<string | null>;
   fechar: () => void;
 };
 
-export function FormularioDeEntrada({ entrada, dataProposta, salvar, fechar }: Props) {
+export function FormularioDeEntrada({ entrada, dataProposta, salvar, apagar, fechar }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [data, setData] = useState<string>(entrada?.data ?? dataProposta);
   const [descricao, setDescricao] = useState(entrada?.descricao ?? "");
@@ -52,6 +54,13 @@ export function FormularioDeEntrada({ entrada, dataProposta, salvar, fechar }: P
       tipo,
       valor: centavos,
     });
+    setSalvando(false);
+    setErro(recusa);
+  }
+
+  async function mandarParaLixeira() {
+    setSalvando(true);
+    const recusa = await apagar();
     setSalvando(false);
     setErro(recusa);
   }
@@ -120,6 +129,11 @@ export function FormularioDeEntrada({ entrada, dataProposta, salvar, fechar }: P
           )}
         </div>
         <footer>
+          {entrada && (
+            <button type="button" className="btn apagar" disabled={salvando} onClick={mandarParaLixeira} title="Vai para a lixeira, de onde volta intacta">
+              Apagar
+            </button>
+          )}
           <button type="button" className="btn" onClick={fechar}>
             Cancelar
           </button>

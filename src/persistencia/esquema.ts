@@ -12,7 +12,7 @@ export const orcamentoDoMes = sqliteTable("orcamento_do_mes", {
   prazeres: integer("prazeres").notNull(),
 });
 
-/** Dinheiro entrando (ADR-0003). Nunca apagada de vez: a lixeira será uma marca. */
+/** Dinheiro entrando (ADR-0003). Nunca apagada de vez: a lixeira é uma marca. */
 export const entrada = sqliteTable("entrada", {
   id: integer("id").primaryKey(),
   /** "AAAA-MM-DD" */
@@ -22,9 +22,14 @@ export const entrada = sqliteTable("entrada", {
   tipoDePagamento: text("tipo_de_pagamento").notNull(),
   /** Centavos inteiros, sempre positivo. */
   valor: integer("valor").notNull(),
+  /** A marca de lixeira: "AAAA-MM-DD" do dia em que foi apagada; null enquanto está viva. */
+  apagadoEm: text("apagado_em"),
 });
 
-/** Um gasto (ADR-0003). Grava o total da compra; as ocorrências são derivadas (ADR-0002). */
+/**
+ * Um gasto (ADR-0003). Grava o total da compra; as ocorrências são derivadas
+ * (ADR-0002). Nunca apagado de vez: a lixeira é uma marca.
+ */
 export const lancamento = sqliteTable("lancamento", {
   id: integer("id").primaryKey(),
   /** "AAAA-MM-DD" */
@@ -38,4 +43,6 @@ export const lancamento = sqliteTable("lancamento", {
   parcelas: integer("parcelas").notNull(),
   /** Já normalizada pelo domínio; null é sem tag. */
   tag: text("tag"),
+  /** A marca de lixeira: "AAAA-MM-DD" do dia em que foi apagado; null enquanto está vivo. */
+  apagadoEm: text("apagado_em"),
 });

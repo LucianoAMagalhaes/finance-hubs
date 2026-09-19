@@ -1,4 +1,5 @@
 import type { Estado } from "./estado";
+import { vivos } from "./lixeira";
 
 /**
  * A tag como é gravada: minúsculas, sem "#", espaços viram hífen, acento
@@ -11,9 +12,12 @@ export function normalizarTag(texto: string): string | null {
   return tag || null;
 }
 
-/** As tags que algum lançamento usa, sem repetir, em ordem alfabética: uma tag existe enquanto é usada. */
+/**
+ * As tags que algum lançamento fora da lixeira usa, sem repetir, em ordem
+ * alfabética: uma tag existe enquanto é usada.
+ */
 export function tagsEmUso(estado: Estado): string[] {
-  return tagsDistintas(estado.lancamentos);
+  return tagsDistintas(vivos(estado.lancamentos));
 }
 
 /** As tags de uma lista de lançamentos ou ocorrências, sem repetir, em ordem alfabética. */

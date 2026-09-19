@@ -2,6 +2,7 @@ import type { Centavos } from "./dinheiro";
 import type { Entrada } from "./entradas";
 import type { Estado } from "./estado";
 import { ocorrenciasNoMes, type Ocorrencia } from "./lancamentos";
+import { vivos } from "./lixeira";
 import { mesDaData, type Mes } from "./mes";
 import { PERCENTUAIS_PADRAO, POTES, somaDosPercentuais, type Percentuais, type PoteId } from "./potes";
 
@@ -57,6 +58,7 @@ export type VistaDoMes = {
 
 /**
  * Tudo que a tela do mês mostra, derivado do estado. Ler nunca faz um mês nascer.
+ * O que está na lixeira não gera receita nem ocorrência.
  * `percentuaisEmEdicao` são os que a pessoa está digitando: a vista é
  * recalculada com eles, sem que nada seja gravado, e o mês continua nascido ou não.
  */
@@ -64,11 +66,11 @@ export function projetarMes(estado: Estado, mes: Mes, percentuaisEmEdicao?: Perc
   const { percentuais: efetivos, ...orcamento } = percentuaisEfetivos(estado, mes);
   const percentuais = percentuaisEmEdicao ?? efetivos;
   const entradas = emOrdemDeData(
-    estado.entradas.filter((e) => mesDaData(e.data) === mes),
+    vivos(estado.entradas).filter((e) => mesDaData(e.data) === mes),
     (e) => e.id,
   );
   const ocorrencias = emOrdemDeData(
-    estado.lancamentos.flatMap((l) => ocorrenciasNoMes(l, mes)),
+    vivos(estado.lancamentos).flatMap((l) => ocorrenciasNoMes(l, mes)),
     (o) => o.lancamento,
   );
   const receita = somar(entradas);

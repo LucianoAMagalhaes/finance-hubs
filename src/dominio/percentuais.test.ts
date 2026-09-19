@@ -112,7 +112,7 @@ describe("projeção com os percentuais que se digitam", () => {
   const comReceita = (): Estado => ({
     ...estadoVazio(),
     orcamentos: { "2026-10": pcts(30, 25, 15, 15, 10, 5) },
-    entradas: [{ id: 1, data: "2026-10-05", descricao: "Salário", fonte: "salario", tipo: "transferencia", valor: 1_000_000 }],
+    entradas: [{ id: 1, data: "2026-10-05", descricao: "Salário", fonte: "salario", tipo: "transferencia", valor: 1_000_000, apagadoEm: null }],
   });
 
   it("recalcula limites e não alocado com o rascunho, sem gravar nada", () => {

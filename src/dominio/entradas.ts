@@ -32,10 +32,12 @@ export type Entrada = {
   tipo: TipoDeEntrada;
   /** Sempre positivo. Dinheiro de volta de um lançamento é reembolso, não entrada. */
   valor: Centavos;
+  /** A marca de lixeira: o dia em que foi apagada; null enquanto está viva. */
+  apagadoEm: Data | null;
 };
 
 /** O que a pessoa preenche no formulário; o id vem do domínio numa entrada nova. */
-export type NovaEntrada = Omit<Entrada, "id">;
+export type NovaEntrada = Omit<Entrada, "id" | "apagadoEm">;
 
 /** O que se manda salvar: sem id, é uma entrada nova; com id, corrige a que já existe. */
 export type EntradaASalvar = NovaEntrada & { id?: number };
