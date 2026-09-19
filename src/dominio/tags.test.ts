@@ -152,6 +152,20 @@ describe("fundir duas tags", () => {
     expect(tagsEmUso(estado)).toEqual(["uber"]);
   });
 
+  it("um nome que só dorme na lixeira também pede confirmação: ele volta ao restaurar", () => {
+    let estado = salvar(estadoVazio(), gasto({ tag: "transporte" }));
+    estado = salvar(estado, gasto({ data: "2026-09-13", tag: "uber" }));
+    estado = aplicarOk(estado, { tipo: "apagar", registro: "lancamento", id: 2 });
+
+    expect(tagsEmUso(estado)).toEqual(["transporte"]);
+    expect(aplicar(estado, renomearTag("transporte", "uber", false), HOJE).ok).toBe(false);
+
+    const fundido = aplicarOk(estado, renomearTag("transporte", "uber", true));
+    const restaurado = aplicarOk(fundido, { tipo: "restaurar", registro: "lancamento", id: 2 });
+
+    expect(tagsEmUso(restaurado)).toEqual(["uber"]);
+  });
+
   it("confirmar a fusão sem que o nome novo exista renomeia como sempre", () => {
     const estado = aplicarOk(duasTags(), renomearTag("transporte", "mobilidade", true));
 

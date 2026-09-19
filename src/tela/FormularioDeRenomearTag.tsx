@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { normalizarTag, type Comando } from "@/dominio";
-import { PilulaDaTag } from "./pecas";
+import { fusaoAoRenomear, normalizarTag } from "@/dominio";
+import { plural, PilulaDaTag } from "./pecas";
 
 type Props = {
   /** A tag que se renomeia, como está gravada. */
   tag: string;
   /** As tags em uso, sugeridas enquanto se digita: escolher uma delas é fundir. */
   tags: string[];
+  /** As tags de todo o histórico, lixeira incluída: é contra elas que o nome novo funde. */
+  tagsDoHistorico: string[];
   /** Quantos lançamentos usam uma tag, para dizer o tamanho da renomeação e da fusão. */
-  gastosComATag: (tag: string) => number;
-  /** Manda o comando. Devolve o erro de validação, ou null se renomeou. */
-  renomear: (comando: Comando) => Promise<string | null>;
+  lancamentosComATag: (tag: string) => number;
+  /** Manda renomear. Devolve o erro de validação, ou null se renomeou. */
+  renomear: (para: string, fundir: boolean) => Promise<string | null>;
   fechar: () => void;
 };
 
@@ -21,16 +23,16 @@ type Props = {
  * que sai é uma fusão — as duas viram uma e nada mais separa as ocorrências —,
  * então ela só sai com a confirmação marcada, que é o que o comando exige.
  */
-export function FormularioDeRenomearTag({ tag, tags, gastosComATag, renomear, fechar }: Props) {
+export function FormularioDeRenomearTag({ tag, tags, tagsDoHistorico, lancamentosComATag, renomear, fechar }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [nome, setNome] = useState(tag);
   const [confirmada, setConfirmada] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const nova = normalizarTag(nome);
-  const gastos = gastosComATag(tag);
-  // A fusão só existe contra outra tag em uso: o nome novo igual ao atual é só um nome igual.
-  const fusao = nova !== null && nova !== tag && tags.includes(nova) ? nova : null;
+  const gastos = lancamentosComATag(tag);
+  // A mesma pergunta que o comando faz: a confirmação pedida aqui é a que ele exige.
+  const fusao = fusaoAoRenomear(tagsDoHistorico, tag, nome);
 
   // <dialog> modal: o navegador cuida do foco, do Esc e do fundo inerte.
   useEffect(() => dialogo.current?.showModal(), []);
@@ -38,7 +40,7 @@ export function FormularioDeRenomearTag({ tag, tags, gastosComATag, renomear, fe
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setSalvando(true);
-    const recusa = await renomear({ tipo: "renomear-tag", de: tag, para: nome, fundir: fusao !== null && confirmada });
+    const recusa = await renomear(nome, fusao !== null && confirmada);
     setSalvando(false);
     setErro(recusa);
   }
@@ -57,7 +59,7 @@ export function FormularioDeRenomearTag({ tag, tags, gastosComATag, renomear, fe
             Renomear <PilulaDaTag tag={tag} />
           </h2>
           <p className="dica">
-            O nome novo vale no histórico todo: em {contagem(gastos)}, em todos os meses, nas compras e nas vigências dos
+            O nome novo vale no histórico todo: em {plural(gastos, "gasto")}, em todos os meses, nas compras e nas vigências dos
             recorrentes. A cor muda junto, porque sai do nome.
           </p>
         </header>
@@ -91,9 +93,11 @@ export function FormularioDeRenomearTag({ tag, tags, gastosComATag, renomear, fe
           {fusao && (
             <>
               <p className="aviso">
-                Já existe a tag <PilulaDaTag tag={fusao} />, em {contagem(gastosComATag(fusao))}. Renomear <strong>funde as
-                duas</strong>: {contagem(gastos)} de #{tag} passam para #{fusao}, e #{tag} deixa de existir. Depois nada diz
-                de qual nome cada gasto veio.
+                Já existe a tag <PilulaDaTag tag={fusao} />,{" "}
+                {/* Zero é a tag que só dorme na lixeira: ela não está em nenhum gasto vivo, mas volta ao restaurar. */}
+                {lancamentosComATag(fusao) === 0 ? "num gasto que está na lixeira" : `em ${plural(lancamentosComATag(fusao), "gasto")}`}.
+                Renomear <strong>funde as duas</strong>: {plural(gastos, "gasto")} de #{tag} passam para #{fusao}, e #{tag}{" "}
+                deixa de existir. Depois nada diz de qual nome cada gasto veio.
               </p>
               <label className="check">
                 <input type="checkbox" checked={confirmada} onChange={(e) => setConfirmada(e.target.checked)} />
@@ -121,5 +125,3 @@ export function FormularioDeRenomearTag({ tag, tags, gastosComATag, renomear, fe
     </dialog>
   );
 }
-
-const contagem = (n: number) => (n === 1 ? "1 gasto" : `${n} gastos`);

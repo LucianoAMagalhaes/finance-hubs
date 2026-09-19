@@ -13,7 +13,7 @@ import {
   type PoteNaVista,
   type VistaDoMes,
 } from "@/dominio";
-import { corDaTag, corDoPote, faixaDeParcelas, PilulaDaTag, Valor } from "./pecas";
+import { corDaTag, corDoPote, faixaDeParcelas, PilulaDaTag, plural, Valor } from "./pecas";
 
 export const NOME_DO_EIXO: Record<Eixo, string> = { pote: "Pote", tipo: "Tipo de pagamento", tag: "Tag" };
 
@@ -268,4 +268,4 @@ function Detalhe({ vista, grupo, eixo, fechar, abrirOcorrencia, renomearTag }: P
   );
 }
 
-const contagem = (n: number) => (n === 1 ? "1 ocorrência" : `${n} ocorrências`);
+const contagem = (n: number) => plural(n, "ocorrência");

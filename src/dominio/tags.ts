@@ -1,4 +1,5 @@
 import type { Estado } from "./estado";
+import type { Lancamento } from "./lancamentos";
 import { vivos } from "./lixeira";
 
 /**
@@ -17,7 +18,30 @@ export function normalizarTag(texto: string): string | null {
  * recorrente, sem repetir, em ordem alfabética: uma tag existe enquanto é usada.
  */
 export function tagsEmUso(estado: Estado): string[] {
-  return tagsDistintas(vivos(estado.lancamentos).flatMap<{ tag: string | null }>((l) => (l.forma === "compra" ? [l] : l.vigencias)));
+  return tagsDe(vivos(estado.lancamentos));
+}
+
+/**
+ * As tags de todos os lançamentos, na lixeira ou não. É o alcance de uma
+ * renomeação, e portanto o universo da fusão: um nome que dorme na lixeira
+ * reaparece ao restaurar, e fundir com ele também precisa de confirmação.
+ */
+export function tagsNoHistorico(estado: Estado): string[] {
+  return tagsDe(estado.lancamentos);
+}
+
+const tagsDe = (lancamentos: Lancamento[]) =>
+  tagsDistintas(lancamentos.flatMap<{ tag: string | null }>((l) => (l.forma === "compra" ? [l] : l.vigencias)));
+
+/**
+ * Com que tag em uso o nome novo funde, ou null quando renomear é só trocar o
+ * nome. A tela pergunta antes de pedir a confirmação e o comando pergunta antes
+ * de exigi-la: a fusão que se confirma é a mesma que se faz.
+ */
+export function fusaoAoRenomear(emUso: string[], de: string, para: string): string | null {
+  const nova = normalizarTag(para);
+  if (nova === null || nova === normalizarTag(de)) return null;
+  return emUso.includes(nova) ? nova : null;
 }
 
 /**

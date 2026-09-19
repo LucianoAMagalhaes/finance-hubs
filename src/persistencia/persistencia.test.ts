@@ -7,6 +7,7 @@ import {
   estadoVazio,
   POTES,
   projetarMes,
+  tagsEmUso,
   type Comando,
   type Compra,
   type Estado,
@@ -358,7 +359,11 @@ describe("persistência", () => {
 
     expect(() => gravarEstado(banco, quebrado)).toThrow();
 
-    expect(carregarEstado(abrir())).toEqual(antes);
+    const recarregado = carregarEstado(abrir());
+    expect(recarregado).toEqual(antes);
+    // A compra é gravada antes do recorrente: sem a transação, ela teria ficado com o nome novo.
+    expect((recarregado.lancamentos[0] as Compra).tag).toBe("transporte");
+    expect(tagsEmUso(recarregado)).toEqual(["transporte"]);
   });
 
   it("o orçamento nascido e a entrada entram na mesma transação: ou os dois, ou nenhum", () => {

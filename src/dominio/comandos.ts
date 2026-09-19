@@ -19,7 +19,7 @@ import { ehDataValida, ehMesValido, mesDaData, nomeDoMes, type Data, type Mes } 
 import { ehTipoDeEntrada, ehTipoDePagamento } from "./pagamento";
 import { ehPote, validarPercentuais, type Percentuais } from "./potes";
 import { herdaria } from "./projecao";
-import { normalizarTag, tagsEmUso } from "./tags";
+import { fusaoAoRenomear, normalizarTag, tagsEmUso, tagsNoHistorico } from "./tags";
 
 /**
  * Tudo que a pessoa pode mandar fazer. Cada comando chega com o ticket que o usa.
@@ -113,12 +113,14 @@ function renomearTag(estado: Estado, de: string, para: string, fundir: boolean):
   const antiga = normalizarTag(de);
   const nova = normalizarTag(para);
   if (nova === null) return { ok: false, erro: "Informe o nome novo da tag." };
-  // Uma tag existe enquanto algum lançamento vivo a usa: a que só restou na lixeira já não se renomeia.
+  // Uma tag existe enquanto algum lançamento vivo a usa: a que só restou na
+  // lixeira não se renomeia, e não é com ela que um nome novo funde.
   const emUso = tagsEmUso(estado);
   if (antiga === null || !emUso.includes(antiga)) return { ok: false, erro: "Essa tag não é de nenhum gasto." };
   if (nova === antiga) return { ok: false, erro: `#${antiga} já é o nome desta tag.` };
-  if (emUso.includes(nova) && fundir !== true) {
-    return { ok: false, erro: `Já existe a tag #${nova}: confirme a fusão para juntar as duas numa só.` };
+  const fusao = fusaoAoRenomear(tagsNoHistorico(estado), antiga, nova);
+  if (fusao !== null && fundir !== true) {
+    return { ok: false, erro: `Já existe a tag #${fusao}: confirme a fusão para juntar as duas numa só.` };
   }
   const trocar = <T extends { tag: string | null }>(r: T): T => (r.tag === antiga ? { ...r, tag: nova } : r);
   const lancamentos = estado.lancamentos.map((l) => (l.forma === "compra" ? trocar(l) : { ...l, vigencias: l.vigencias.map(trocar) }));
