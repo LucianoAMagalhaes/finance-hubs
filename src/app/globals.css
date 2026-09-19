@@ -39,6 +39,10 @@
   --p-metas: #5f8a1c;
   --p-conhecimento: #b0409c;
   --p-prazeres: #8b6b4a;
+  /* tag: saturação e luminosidade; o matiz vem do nome (--matiz) */
+  --tag-cor: 60% 45%;
+  --tag-fundo: 75% 93%;
+  --tag-tinta: 65% 28%;
 }
 
 /* ============ tokens: escuro (pelo sistema, ou forçado no alternador) ============ */
@@ -72,6 +76,9 @@
     --p-metas: #9cc653;
     --p-conhecimento: #e27ccf;
     --p-prazeres: #c7a07a;
+    --tag-cor: 70% 65%;
+    --tag-fundo: 60% 60% / 0.16;
+    --tag-tinta: 75% 76%;
   }
 }
 :root[data-tema="escuro"] {
@@ -103,6 +110,9 @@
   --p-metas: #9cc653;
   --p-conhecimento: #e27ccf;
   --p-prazeres: #c7a07a;
+  --tag-cor: 70% 65%;
+  --tag-fundo: 60% 60% / 0.16;
+  --tag-tinta: 75% 76%;
 }
 
 /* ============ base ============ */
@@ -639,4 +649,210 @@ dialog.folha::backdrop {
 .editor-pe .soma.passou {
   color: var(--bad);
   font-weight: 600;
+}
+
+/* ============ seletor de eixo: um por vez ============ */
+.seletor-eixo {
+  display: inline-flex;
+  background: var(--sunken);
+  border-radius: var(--radius);
+  padding: 3px;
+  gap: 2px;
+}
+.seletor-eixo button {
+  border: 0;
+  background: none;
+  border-radius: calc(var(--radius) - 3px);
+  padding: 4px 11px;
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.seletor-eixo button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: var(--sombra);
+}
+
+/* ============ cards clicáveis: abrir só ganha contorno ============ */
+button.cartao {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+button.cartao:hover {
+  border-color: var(--line-2);
+}
+.cartao.aberto,
+.agregado.aberto {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cartao.grupo.tag {
+  box-shadow: inset 0 3px 0 var(--pote), var(--sombra);
+}
+.grade-vazia {
+  color: var(--ink-3);
+  font-size: 14px;
+  margin: 0;
+}
+button.agregado {
+  border: 0;
+  border-left: 1px solid var(--band-line);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.agregado:hover {
+  background: var(--band-line);
+}
+.agregado.aberto {
+  outline-color: var(--band-ink);
+  outline-offset: -4px;
+  border-radius: var(--radius-lg);
+}
+.agregado > span {
+  display: block;
+}
+
+/* ============ mestre-detalhe: a grade vira coluna, o detalhe fica ao lado ============ */
+.mestre-detalhe {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px;
+}
+.soma-despesas {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunken);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.detalhe {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--sombra);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.detalhe header {
+  padding: 18px 22px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.detalhe header .fechar {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+}
+.kicker {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.detalhe h2 {
+  font-size: 20px;
+  margin-top: 2px;
+  padding-right: 36px;
+}
+.detalhe-resumo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.detalhe-resumo .dica {
+  margin: 0;
+}
+.detalhe-total {
+  font-size: 22px;
+}
+.nota-reembolso {
+  font-size: 13px;
+  color: var(--neg);
+  background: color-mix(in srgb, var(--neg) 11%, transparent);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin: 12px 0 0;
+}
+.ocorrencia {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  width: 100%;
+  padding: 11px 22px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+.ocorrencia:last-of-type {
+  border-bottom: 0;
+}
+.ocorrencia:hover {
+  background: var(--sunken);
+}
+.ocorrencia .data {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  padding-top: 1px;
+}
+.ocorrencia-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.eixos-da-ocorrencia {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.detalhe-vazio {
+  padding: 30px 22px;
+  text-align: center;
+  color: var(--ink-3);
+  margin: 0;
+}
+@media (max-width: 860px) {
+  .mestre-detalhe {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============ tag: pílula tingida, para não parecer pote ============ */
+.pilula-tag {
+  display: inline-block;
+  font-size: 11.5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: hsl(var(--matiz) var(--tag-fundo));
+  color: hsl(var(--matiz) var(--tag-tinta));
+}
+.pilula-tag.sem {
+  background: none;
+  border: 1px solid var(--line-2);
+  color: var(--ink-3);
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   centavosParaCampo,
+  normalizarTag,
   POTES,
   reaisParaCentavos,
   TIPOS_DE_PAGAMENTO,
@@ -12,10 +13,13 @@ import {
   type PoteId,
   type TipoDePagamento,
 } from "@/dominio";
+import { PilulaDaTag } from "./pecas";
 
 type Props = {
   /** O lançamento que se corrige; null num gasto novo. */
   lancamento: Lancamento | null;
+  /** As tags já usadas, sugeridas enquanto se digita. */
+  tags: string[];
   /** A data que o formulário propõe num gasto novo. */
   dataProposta: Data;
   /** Devolve o erro de validação, ou null se salvou. */
@@ -27,7 +31,7 @@ type Props = {
  * Um gasto à vista. As outras formas (parcelado, recorrente) chegam em
  * tickets próprios. O reembolso é digitado positivo e gravado negativo.
  */
-export function FormularioDeLancamento({ lancamento, dataProposta, salvar, fechar }: Props) {
+export function FormularioDeLancamento({ lancamento, tags, dataProposta, salvar, fechar }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [data, setData] = useState<string>(lancamento?.data ?? dataProposta);
   const [descricao, setDescricao] = useState(lancamento?.descricao ?? "");
@@ -35,6 +39,8 @@ export function FormularioDeLancamento({ lancamento, dataProposta, salvar, fecha
   const [reembolso, setReembolso] = useState(lancamento ? lancamento.valor < 0 : false);
   const [pote, setPote] = useState<PoteId>(lancamento?.pote ?? "custos-fixos");
   const [tipo, setTipo] = useState<TipoDePagamento>(lancamento?.tipo ?? "pix");
+  const [tag, setTag] = useState(lancamento?.tag ?? "");
+  const tagNormalizada = normalizarTag(tag);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -57,6 +63,7 @@ export function FormularioDeLancamento({ lancamento, dataProposta, salvar, fecha
       tipo,
       valor: reembolso ? -centavos : centavos,
       parcelas: 1,
+      tag,
     });
     setSalvando(false);
     setErro(recusa);
@@ -123,6 +130,22 @@ export function FormularioDeLancamento({ lancamento, dataProposta, salvar, fecha
               </select>
             </label>
           </div>
+          <label className="campo">
+            <span>
+              Tag <span className="dica">— opcional, no máximo uma</span>
+            </span>
+            <input list="tags-em-uso" value={tag} onChange={(e) => setTag(e.target.value)} placeholder="sem tag" />
+            <datalist id="tags-em-uso">
+              {tags.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
+            {tagNormalizada && tagNormalizada !== tag && (
+              <span className="dica">
+                Grava como <PilulaDaTag tag={tagNormalizada} />
+              </span>
+            )}
+          </label>
           {erro && (
             <p className="aviso ruim" role="alert">
               {erro}

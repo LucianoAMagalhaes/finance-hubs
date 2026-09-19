@@ -47,7 +47,7 @@ describe("lançamento à vista", () => {
     const vista = projetarMes(estado, "2026-09");
 
     expect(vista.ocorrencias).toEqual([
-      { lancamento: 1, data: "2026-09-12", descricao: "Jantar", pote: "prazeres", tipo: "pix", valor: 18_990 },
+      { lancamento: 1, data: "2026-09-12", descricao: "Jantar", pote: "prazeres", tipo: "pix", tag: null, valor: 18_990 },
     ]);
     expect(estado.lancamentos[0]).toMatchObject({ valor: 18_990, parcelas: 1 });
   });
@@ -232,7 +232,7 @@ describe("nascimento do mês ao salvar um lançamento", () => {
   });
 });
 
-function aVista(campos: Partial<NovoLancamento>): NovoLancamento {
+function aVista(campos: Partial<NovoLancamento>): LancamentoASalvar {
   return {
     data: "2026-09-12",
     descricao: "Mercado",

@@ -129,6 +129,18 @@ describe("persistência", () => {
     expect(carregarEstado(abrir())).toEqual(depois);
   });
 
+  it("a tag gravada volta normalizada, e sem tag volta sem tag", () => {
+    let estado = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 4_000, tag: "#Saúde Mental" }));
+    estado = aplicarOk(estado, salvarLancamento({ data: "2026-09-13", pote: "conforto", valor: 2_000 }));
+    gravarEstado(abrir(), estado);
+
+    const recarregado = carregarEstado(abrir());
+
+    expect(recarregado.lancamentos.map((l) => l.tag)).toEqual(["saúde-mental", null]);
+    expect(recarregado).toEqual(estado);
+    expect(projetarMes(recarregado, "2026-09")).toEqual(projetarMes(estado, "2026-09"));
+  });
+
   it("o orçamento nascido e a entrada entram na mesma transação: ou os dois, ou nenhum", () => {
     const estado = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
     // Uma entrada que o banco recusa (descrição nula), gravada depois do orçamento.
@@ -152,6 +164,7 @@ function salvarLancamento(campos: {
   data: `${number}-${number}-${number}`;
   pote: PoteId;
   valor: number;
+  tag?: string;
 }): Comando {
   return {
     tipo: "salvar-lancamento",

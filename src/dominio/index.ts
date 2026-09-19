@@ -11,6 +11,7 @@ export {
   type FonteId,
   type NovaEntrada,
 } from "./entradas";
+export { todosOsGastos, grupos, type Eixo, type Grupo } from "./eixos";
 export { estadoVazio, type Estado } from "./estado";
 export {
   type Lancamento,
@@ -58,3 +59,4 @@ export {
   type Veredito,
   type VistaDoMes,
 } from "./projecao";
+export { matizDaTag, normalizarTag, tagsEmUso } from "./tags";

@@ -17,13 +17,18 @@ export type Lancamento = {
   valor: Centavos;
   /** Em quantas parcelas o total se divide; 1 é à vista. */
   parcelas: number;
+  /** No máximo uma, normalizada (ver `normalizarTag`); null é sem tag. */
+  tag: string | null;
 };
 
 /** O que a pessoa preenche no formulário; o id vem do domínio num lançamento novo. */
 export type NovoLancamento = Omit<Lancamento, "id">;
 
-/** O que se manda salvar: sem id, é um lançamento novo; com id, corrige o que já existe. */
-export type LancamentoASalvar = NovoLancamento & { id?: number };
+/**
+ * O que se manda salvar: sem id, é um lançamento novo; com id, corrige o que já
+ * existe. A tag vem como a pessoa digitou; o domínio a normaliza.
+ */
+export type LancamentoASalvar = Omit<NovoLancamento, "tag"> & { id?: number; tag?: string | null };
 
 /** O impacto de um lançamento num mês. Nunca gravada, sempre derivada. */
 export type Ocorrencia = {
@@ -33,11 +38,12 @@ export type Ocorrencia = {
   descricao: string;
   pote: PoteId;
   tipo: TipoDePagamento;
+  tag: string | null;
   valor: Centavos;
 };
 
 /** As ocorrências de um lançamento no mês: a do à vista cai no mês da sua data. */
 export function ocorrenciasNoMes(l: Lancamento, mes: Mes): Ocorrencia[] {
   if (mesDaData(l.data) !== mes) return [];
-  return [{ lancamento: l.id, data: l.data, descricao: l.descricao, pote: l.pote, tipo: l.tipo, valor: l.valor }];
+  return [{ lancamento: l.id, data: l.data, descricao: l.descricao, pote: l.pote, tipo: l.tipo, tag: l.tag, valor: l.valor }];
 }

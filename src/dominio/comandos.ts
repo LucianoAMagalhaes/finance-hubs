@@ -5,6 +5,7 @@ import { ehDataValida, ehMesValido, mesDaData, type Data, type Mes } from "./mes
 import { ehTipoDeEntrada, ehTipoDePagamento } from "./pagamento";
 import { ehPote, validarPercentuais, type Percentuais } from "./potes";
 import { herdaria } from "./projecao";
+import { normalizarTag } from "./tags";
 
 /**
  * Tudo que a pessoa pode mandar fazer. Cada comando chega com o ticket que o usa.
@@ -54,7 +55,11 @@ function salvarEntrada(estado: Estado, dados: EntradaASalvar): Resultado<Estado>
 function salvarLancamento(estado: Estado, dados: LancamentoASalvar): Resultado<Estado> {
   const erro = validarLancamento(dados);
   if (erro) return { ok: false, erro };
-  const lancamentos = gravarNaLista(estado.lancamentos, { ...dados, descricao: dados.descricao.trim() });
+  const lancamentos = gravarNaLista(estado.lancamentos, {
+    ...dados,
+    descricao: dados.descricao.trim(),
+    tag: dados.tag ? normalizarTag(dados.tag) : null,
+  });
   if (!lancamentos) return { ok: false, erro: "Esse lançamento não existe mais." };
   return { ok: true, valor: nascer({ ...estado, lancamentos }, mesDaData(dados.data)) };
 }
@@ -90,6 +95,7 @@ function validarLancamento(l: LancamentoASalvar): string | null {
   if (!ehPote(l.pote)) return "Escolha um dos seis potes.";
   if (!ehTipoDePagamento(l.tipo)) return "Escolha um tipo de pagamento.";
   if (!Number.isInteger(l.valor) || l.valor === 0) return "Informe um valor diferente de zero, em centavos inteiros.";
+  if (l.tag !== undefined && l.tag !== null && typeof l.tag !== "string") return "A tag é um texto livre.";
   // Por enquanto só existe o à vista; o parcelado chega no seu próprio ticket.
   if (l.parcelas !== 1) return "Só o à vista pode ser lançado por enquanto.";
   return null;

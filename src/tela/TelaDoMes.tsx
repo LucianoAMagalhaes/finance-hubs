@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState } from "react";
 import {
   aplicar,
   dataProposta,
@@ -8,14 +8,15 @@ import {
   mesDaData,
   nomeDaFonte,
   nomeDoMes,
-  nomeDoPote,
   nomeDoTipo,
   projetarMes,
   somarMeses,
+  tagsEmUso,
   type AgregadosDoMes,
   type Centavos,
   type Comando,
   type Data,
+  type Eixo,
   type Entrada,
   type EntradaASalvar,
   type Estado,
@@ -24,7 +25,6 @@ import {
   type Mes,
   type Ocorrencia,
   type Percentuais,
-  type PoteNaVista,
   type VistaDoMes,
 } from "@/dominio";
 import { executar } from "@/servidor/acoes";
@@ -32,6 +32,8 @@ import { AlternadorDeTema } from "./AlternadorDeTema";
 import { EditorDePercentuais, percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./EditorDePercentuais";
 import { FormularioDeEntrada } from "./FormularioDeEntrada";
 import { FormularioDeLancamento } from "./FormularioDeLancamento";
+import { MestreDetalhe, NOME_DO_EIXO, type Aberto } from "./MestreDetalhe";
+import { Valor } from "./pecas";
 
 type Props = { estadoInicial: Estado; hoje: Data };
 
@@ -54,6 +56,9 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
   const [aviso, setAviso] = useState<Aviso | null>(null);
   /** Os percentuais sendo editados; enquanto existe, a projeção usa eles. */
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
+  const [eixo, setEixoDaTela] = useState<Eixo>("pote");
+  /** O grupo aberto no mestre-detalhe; continua aberto ao trocar de mês, se existir lá. */
+  const [aberto, setAberto] = useState<Aberto | null>(null);
   const vista = useMemo(
     () => projetarMes(estado, mes, rascunho ? percentuaisParaPrevia(rascunho) : undefined),
     [estado, mes, rascunho],
@@ -90,6 +95,15 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
 
   const salvarLancamento = (lancamento: LancamentoASalvar, rotulo: string) =>
     salvarRegistro({ tipo: "salvar-lancamento", lancamento }, lancamento.data, rotulo);
+
+  /** Um eixo por vez. Trocar de eixo fecha o grupo aberto, mas não o feed do mês. */
+  function setEixo(novo: Eixo) {
+    setEixoDaTela(novo);
+    setAberto((a) => (a?.tipo === "todos" ? a : null));
+  }
+
+  const abrirOcorrencia = (o: Ocorrencia) =>
+    setFormulario({ registro: "lancamento", lancamento: estado.lancamentos.find((l) => l.id === o.lancamento)! });
 
   const novaEntrada = () => setFormulario({ registro: "entrada", entrada: null });
   const novoLancamento = () => setFormulario({ registro: "lancamento", lancamento: null });
@@ -152,24 +166,34 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
       )}
 
       <Secao titulo="O mês" primeira />
-      <FaixaDeAgregados agregados={vista.agregados} entradas={vista.entradas.length} />
+      <FaixaDeAgregados
+        agregados={vista.agregados}
+        entradas={vista.entradas.length}
+        despesasAbertas={aberto?.tipo === "todos"}
+        abrirDespesas={() => setAberto((a) => (a?.tipo === "todos" ? null : { tipo: "todos" }))}
+      />
 
-      <Secao titulo="Os potes">
-        {!rascunho && (
+      <Secao titulo={eixo === "pote" ? "Os potes" : `Por ${NOME_DO_EIXO[eixo].toLowerCase()}`}>
+        <SeletorDeEixo eixo={eixo} mudar={setEixo} />
+        {eixo === "pote" && !rascunho && (
           <button type="button" className="btn" onClick={() => setRascunho(rascunhoDe(vista.potes))}>
             Editar percentuais
           </button>
         )}
-        <span className="extra num">
-          {vista.potes.map((p) => p.percentual).join(" / ")}
-          {vista.naoAlocado.percentual > 0 && (
-            <strong className="nao-alocado">
-              {" "}
-              · {vista.naoAlocado.percentual}% não alocado
-              {vista.naoAlocado.valor !== null && ` (${formatarReais(vista.naoAlocado.valor)})`}
-            </strong>
-          )}
-        </span>
+        {eixo === "pote" ? (
+          <span className="extra num">
+            {vista.potes.map((p) => p.percentual).join(" / ")}
+            {vista.naoAlocado.percentual > 0 && (
+              <strong className="nao-alocado">
+                {" "}
+                · {vista.naoAlocado.percentual}% não alocado
+                {vista.naoAlocado.valor !== null && ` (${formatarReais(vista.naoAlocado.valor)})`}
+              </strong>
+            )}
+          </span>
+        ) : (
+          <span className="extra">Sem limite e sem veredito: só pote tem percentual da receita.</span>
+        )}
       </Secao>
       {rascunho && (
         <EditorDePercentuais
@@ -184,17 +208,7 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           Nenhuma entrada em {nomeDoMes(mes)}: sem receita, os potes não têm limite nem veredito.
         </p>
       )}
-      <GradeDePotes vista={vista} />
-
-      <Secao titulo="Gastos do mês">
-        <button type="button" className="btn primario" onClick={novoLancamento}>
-          + Gasto
-        </button>
-      </Secao>
-      <ListaDeOcorrencias
-        vista={vista}
-        abrir={(o) => setFormulario({ registro: "lancamento", lancamento: estado.lancamentos.find((l) => l.id === o.lancamento)! })}
-      />
+      <MestreDetalhe vista={vista} eixo={eixo} aberto={aberto} abrir={setAberto} abrirOcorrencia={abrirOcorrencia} />
 
       <Secao titulo="Entradas do mês">
         <button type="button" className="btn entrada" onClick={novaEntrada}>
@@ -214,6 +228,7 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
       {formulario?.registro === "lancamento" && (
         <FormularioDeLancamento
           lancamento={formulario.lancamento}
+          tags={tagsEmUso(estado)}
           dataProposta={dataProposta(mes, hoje)}
           salvar={(lancamento) => salvarLancamento(lancamento, formulario.lancamento ? "Gasto salvo" : "Gasto lançado")}
           fechar={() => setFormulario(null)}
@@ -233,72 +248,45 @@ function Secao({ titulo, primeira, children }: { titulo: string; primeira?: bool
   );
 }
 
-function FaixaDeAgregados({ agregados, entradas }: { agregados: AgregadosDoMes; entradas: number }) {
+type PropsDaFaixa = {
+  agregados: AgregadosDoMes;
+  entradas: number;
+  despesasAbertas: boolean;
+  abrirDespesas: () => void;
+};
+
+/** O card Despesas abre "Todos os gastos do mês" no mestre-detalhe. */
+function FaixaDeAgregados({ agregados, entradas, despesasAbertas, abrirDespesas }: PropsDaFaixa) {
   const cards = [
     {
       rotulo: "Receitas",
       valor: <span className="val entrada">{formatarReais(agregados.receitas)}</span>,
       dica: entradas === 1 ? "1 entrada" : `${entradas} entradas`,
     },
-    { rotulo: "Despesas", valor: <Valor centavos={agregados.despesas} />, dica: "líquido" },
+    { rotulo: "Despesas", valor: <Valor centavos={agregados.despesas} />, dica: "líquido · ver todos os gastos", abrir: abrirDespesas },
     { rotulo: "Saldo do mês", valor: <Saldo centavos={agregados.saldoDoMes} />, dica: "receitas − despesas" },
     { rotulo: "Saldo em conta", valor: <Saldo centavos={agregados.saldoEmConta} />, dica: "sem cartão · aproximado" },
   ];
   return (
     <div className="faixa">
-      {cards.map((c) => (
-        <div className="agregado" key={c.rotulo}>
-          <div className="k">{c.rotulo}</div>
-          <div className="v num">{c.valor}</div>
-          <div className="h">{c.dica}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** As ocorrências do mês, com o pote como coluna. Clicar abre o lançamento de onde ela vem. */
-function ListaDeOcorrencias({ vista, abrir }: { vista: VistaDoMes; abrir: (ocorrencia: Ocorrencia) => void }) {
-  return (
-    <div className="tabela">
-      <div className="linha cabecalho" aria-hidden>
-        <span>Data</span>
-        <span>Descrição</span>
-        <span>Pote</span>
-        <span>Tipo</span>
-        <span className="direita">Valor</span>
-      </div>
-      {vista.ocorrencias.map((o) => (
-        <button type="button" key={o.lancamento} className="linha clicavel" onClick={() => abrir(o)} title="Corrigir o gasto">
-          <span className="data num">
-            {o.data.slice(8)}/{o.data.slice(5, 7)}
-          </span>
-          <span>{o.descricao}</span>
-          <span style={{ "--pote": `var(--p-${o.pote})` } as CSSProperties}>
-            <span className="quadrado" />
-            {nomeDoPote(o.pote)}
-          </span>
-          <span className="tipo">{nomeDoTipo(o.tipo)}</span>
-          <span className="direita num">
-            <Valor centavos={o.valor} />
-          </span>
-        </button>
-      ))}
-      {vista.ocorrencias.length === 0 && (
-        <div className="linha vazia">
-          <span />
-          <span>Nenhum gasto neste mês.</span>
-        </div>
-      )}
-      <div className="linha rodape">
-        <span />
-        <span>Despesas do mês</span>
-        <span />
-        <span />
-        <span className="direita num">
-          <Valor centavos={vista.agregados.despesas} />
-        </span>
-      </div>
+      {cards.map((c) => {
+        const conteudo = (
+          <>
+            <span className="k">{c.rotulo}</span>
+            <span className="v num">{c.valor}</span>
+            <span className="h">{c.dica}</span>
+          </>
+        );
+        return c.abrir ? (
+          <button type="button" className={`agregado clicavel ${despesasAbertas ? "aberto" : ""}`} key={c.rotulo} onClick={c.abrir} aria-pressed={despesasAbertas}>
+            {conteudo}
+          </button>
+        ) : (
+          <div className="agregado" key={c.rotulo}>
+            {conteudo}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -344,71 +332,16 @@ function ListaDeEntradas({ vista, abrir }: { vista: VistaDoMes; abrir: (entrada:
   );
 }
 
-function GradeDePotes({ vista }: { vista: VistaDoMes }) {
+function SeletorDeEixo({ eixo, mudar }: { eixo: Eixo; mudar: (eixo: Eixo) => void }) {
   return (
-    <div className="grade">
-      {vista.potes.map((p) => (
-        <CartaoDoPote key={p.id} pote={p} />
+    <div className="seletor-eixo" role="group" aria-label="Agrupar os gastos por">
+      {(Object.keys(NOME_DO_EIXO) as Eixo[]).map((e) => (
+        <button type="button" key={e} aria-pressed={e === eixo} onClick={() => mudar(e)}>
+          {NOME_DO_EIXO[e]}
+        </button>
       ))}
     </div>
   );
-}
-
-function CartaoDoPote({ pote }: { pote: PoteNaVista }) {
-  const semLimite = pote.limite === null;
-  const classe = semLimite ? "sem-limite" : pote.veredito === "estourou" ? "estourou" : "";
-  return (
-    <article className={`cartao pote ${classe}`} style={{ "--pote": `var(--p-${pote.id})` } as CSSProperties}>
-      <div className="cartao-topo">
-        <span>
-          <span className="quadrado" />
-          {pote.nome}
-        </span>
-        <span className="num">{pote.percentual}%</span>
-      </div>
-      <div className="cartao-total num">
-        <Valor centavos={pote.total} />
-      </div>
-      <Barra pote={pote} />
-      <div className="cartao-pe">
-        <Veredito pote={pote} />
-        <span className="lim">{semLimite ? "sem limite" : `limite ${formatarReais(pote.limite!)}`}</span>
-      </div>
-    </article>
-  );
-}
-
-/**
- * A barra do pote: o total contra o limite. Quando o total passa do limite, a
- * escala vira o total e a marca vertical mostra onde o limite ficou.
- */
-function Barra({ pote }: { pote: PoteNaVista }) {
-  if (pote.limite === null) return <div className="barra" />;
-  const saiu = Math.max(pote.total, 0);
-  const escala = Math.max(pote.limite, saiu);
-  const fracao = (v: number) => (escala > 0 ? (v / escala) * 100 : 0);
-  return (
-    <div className="barra">
-      <i style={{ width: `${fracao(saiu)}%` }} />
-      <b style={{ left: `calc(${fracao(pote.limite)}% - 1px)` }} />
-    </div>
-  );
-}
-
-function Veredito({ pote }: { pote: PoteNaVista }) {
-  switch (pote.veredito) {
-    case "sem-receita":
-      return <span className="selo nenhum">— Sem receita</span>;
-    case "sobra":
-      return <span className="selo sobra">✓ Sobra {formatarReais(pote.limite! - pote.total)}</span>;
-    case "estourou":
-      return <span className="selo estourou">▲ Estourou {formatarReais(pote.estouro!)}</span>;
-  }
-}
-
-/** Valor de gasto: negativo é reembolso, em violeta com ↺. */
-function Valor({ centavos }: { centavos: Centavos }) {
-  return centavos < 0 ? <span className="val reembolso">↺ {formatarReais(centavos)}</span> : <span className="val">{formatarReais(centavos)}</span>;
 }
 
 /** Saldo: negativo é déficit, em vermelho. */

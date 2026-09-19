@@ -36,4 +36,6 @@ export const lancamento = sqliteTable("lancamento", {
   valor: integer("valor").notNull(),
   /** 1 é à vista. */
   parcelas: integer("parcelas").notNull(),
+  /** Já normalizada pelo domínio; null é sem tag. */
+  tag: text("tag"),
 });
