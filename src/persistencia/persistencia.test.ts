@@ -319,6 +319,48 @@ describe("persistência", () => {
     expect(carregarEstado(abrir())).toEqual(antes);
   });
 
+  it("renomear uma tag grava o nome novo nas compras e nas vigências, em todos os meses", () => {
+    const banco = abrir();
+    let antes = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-01-10", pote: "conforto", valor: 30_000, tag: "transporte" }));
+    antes = aplicarOk(antes, salvarLancamento({ data: "2026-02-05", pote: "conforto", valor: 120_000, parcelas: 12, tag: "uber" }));
+    antes = aplicarOk(antes, criarRecorrente({ data: "2026-01-15", tag: "transporte" }));
+    antes = aplicarOk(antes, mudarRecorrente(3, "2026-06", { valor: 28_000, tag: "uber" }));
+    gravarEstado(banco, antes);
+
+    // A fusão junta as duas: uma compra, um parcelado e as duas vigências passam a #uber.
+    const depois = aplicarOk(carregarEstado(banco), { tipo: "renomear-tag", de: "transporte", para: "uber", fundir: true });
+    gravarEstado(banco, depois);
+
+    const recarregado = carregarEstado(abrir());
+    expect(recarregado).toEqual(depois);
+    expect(recarregado.lancamentos.map((l) => (l.forma === "compra" ? l.tag : l.vigencias.map((v) => v.tag)))).toEqual([
+      "uber",
+      "uber",
+      ["uber", "uber"],
+    ]);
+    for (const mes of ["2026-01", "2026-02", "2026-06", "2027-01"] as const) {
+      expect(projetarMes(recarregado, mes), mes).toEqual(projetarMes(depois, mes));
+    }
+  });
+
+  it("renomear é gravado numa transação só: se uma linha falha, nenhum lançamento troca de tag", () => {
+    const banco = abrir();
+    let antes = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-01-10", pote: "conforto", valor: 30_000, tag: "transporte" }));
+    antes = aplicarOk(antes, criarRecorrente({ data: "2026-01-15", tag: "transporte" }));
+    gravarEstado(banco, antes);
+    const renomeado = aplicarOk(antes, { tipo: "renomear-tag", de: "transporte", para: "mobilidade", fundir: false });
+    // Uma vigência que o banco recusa (descrição nula), gravada depois da compra já renomeada.
+    const r = renomeado.lancamentos[1] as Recorrente;
+    const quebrado: Estado = {
+      ...renomeado,
+      lancamentos: [renomeado.lancamentos[0]!, { ...r, vigencias: [{ ...r.vigencias[0]!, descricao: null as never }] }],
+    };
+
+    expect(() => gravarEstado(banco, quebrado)).toThrow();
+
+    expect(carregarEstado(abrir())).toEqual(antes);
+  });
+
   it("o orçamento nascido e a entrada entram na mesma transação: ou os dois, ou nenhum", () => {
     const estado = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
     // Uma entrada que o banco recusa (descrição nula), gravada depois do orçamento.

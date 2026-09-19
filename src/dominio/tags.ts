@@ -20,6 +20,15 @@ export function tagsEmUso(estado: Estado): string[] {
   return tagsDistintas(vivos(estado.lancamentos).flatMap<{ tag: string | null }>((l) => (l.forma === "compra" ? [l] : l.vigencias)));
 }
 
+/**
+ * Quantos lançamentos fora da lixeira usam a tag: o tamanho de uma renomeação,
+ * que a tela mostra antes de fundir duas. Um recorrente conta uma vez só, ainda
+ * que várias vigências suas a usem.
+ */
+export function lancamentosComATag(estado: Estado, tag: string): number {
+  return vivos(estado.lancamentos).filter((l) => (l.forma === "compra" ? l.tag === tag : l.vigencias.some((v) => v.tag === tag))).length;
+}
+
 /** As tags de uma lista de lançamentos ou ocorrências, sem repetir, em ordem alfabética. */
 export function tagsDistintas(registros: { tag: string | null }[]): string[] {
   const tags = new Set(registros.flatMap((r) => (r.tag ? [r.tag] : [])));

@@ -26,6 +26,8 @@ type Props = {
   aberto: Aberto | null;
   abrir: (aberto: Aberto | null) => void;
   abrirOcorrencia: (ocorrencia: Ocorrencia) => void;
+  /** Abre o formulário que troca o nome desta tag no histórico todo. */
+  renomearTag: (tag: string) => void;
 };
 
 /**
@@ -33,7 +35,7 @@ type Props = {
  * com os mesmos cards, só empilhados, e o detalhe fica ao lado: trocar de
  * grupo custa um clique. Um grupo que não existe no mês volta à grade.
  */
-export function MestreDetalhe({ vista, eixo, aberto, abrir, abrirOcorrencia }: Props) {
+export function MestreDetalhe({ vista, eixo, aberto, abrir, abrirOcorrencia, renomearTag }: Props) {
   const gruposDoEixo = grupos(vista, eixo);
   const detalhe = aberto?.tipo === "todos" ? todosOsGastos(vista) : aberto && gruposDoEixo.find((g) => g.chave === aberto.chave);
   const cartoes = gruposDoEixo.map((g) => {
@@ -69,6 +71,7 @@ export function MestreDetalhe({ vista, eixo, aberto, abrir, abrirOcorrencia }: P
         eixo={aberto?.tipo === "todos" ? null : eixo}
         fechar={() => abrir(null)}
         abrirOcorrencia={abrirOcorrencia}
+        renomearTag={renomearTag}
       />
     </div>
   );
@@ -168,10 +171,15 @@ type PropsDoDetalhe = {
   eixo: Eixo | null;
   fechar: () => void;
   abrirOcorrencia: (ocorrencia: Ocorrencia) => void;
+  renomearTag: (tag: string) => void;
 };
 
-/** O cabeçalho do pote tem percentual, limite e veredito; os outros, total e contagem. */
-function Detalhe({ vista, grupo, eixo, fechar, abrirOcorrencia }: PropsDoDetalhe) {
+/**
+ * O cabeçalho do pote tem percentual, limite e veredito; os outros, total e
+ * contagem. Só o de uma tag renomeia: pote e tipo de pagamento são listas fixas
+ * do app, e "sem tag" não é uma tag.
+ */
+function Detalhe({ vista, grupo, eixo, fechar, abrirOcorrencia, renomearTag }: PropsDoDetalhe) {
   const pote = eixo === "pote" ? vista.potes.find((p) => p.id === grupo.chave) : undefined;
   const tag = eixo === "tag" ? grupo.chave : null;
   return (
@@ -191,6 +199,16 @@ function Detalhe({ vista, grupo, eixo, fechar, abrirOcorrencia }: PropsDoDetalhe
           </span>
           {pote && <Veredito pote={pote} />}
           <span className="dica">{contagem(grupo.ocorrencias.length)}</span>
+          {tag && (
+            <button
+              type="button"
+              className="btn renomear"
+              onClick={() => renomearTag(tag)}
+              title="Trocar o nome desta tag no histórico todo"
+            >
+              Renomear
+            </button>
+          )}
         </div>
         {pote && (
           <p className="dica">

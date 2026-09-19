@@ -79,4 +79,4 @@ export {
   type Veredito,
   type VistaDoMes,
 } from "./projecao";
-export { matizDaTag, normalizarTag, tagsEmUso } from "./tags";
+export { lancamentosComATag, matizDaTag, normalizarTag, tagsEmUso } from "./tags";

@@ -19,7 +19,7 @@ import { ehDataValida, ehMesValido, mesDaData, nomeDoMes, type Data, type Mes } 
 import { ehTipoDeEntrada, ehTipoDePagamento } from "./pagamento";
 import { ehPote, validarPercentuais, type Percentuais } from "./potes";
 import { herdaria } from "./projecao";
-import { normalizarTag } from "./tags";
+import { normalizarTag, tagsEmUso } from "./tags";
 
 /**
  * Tudo que a pessoa pode mandar fazer. Cada comando chega com o ticket que o usa.
@@ -32,6 +32,8 @@ export type Comando =
   | { tipo: "mudar-recorrente"; id: number; mes: Mes; vigencia: VigenciaASalvar }
   | { tipo: "encerrar-recorrente"; id: number; mes: Mes }
   | { tipo: "salvar-percentuais"; mes: Mes; percentuais: Percentuais }
+  /** Troca o nome de uma tag no histórico todo; `fundir` confirma juntá-la a uma que já existe. */
+  | { tipo: "renomear-tag"; de: string; para: string; fundir: boolean }
   | { tipo: "apagar"; registro: Registro; id: number }
   | { tipo: "restaurar"; registro: Registro; id: number };
 
@@ -57,6 +59,8 @@ export function aplicar(estado: Estado, comando: Comando, hoje: Data): Resultado
       return encerrarRecorrente(estado, comando.id, comando.mes, hoje);
     case "salvar-percentuais":
       return salvarPercentuais(estado, comando.mes, comando.percentuais);
+    case "renomear-tag":
+      return renomearTag(estado, comando.de, comando.para, comando.fundir);
     case "apagar":
       return marcarLixeira(estado, comando.registro, comando.id, hoje);
     case "restaurar":
@@ -93,6 +97,32 @@ function salvarPercentuais(estado: Estado, mes: Mes, percentuais: Percentuais): 
   const erro = validarPercentuais(percentuais);
   if (erro) return { ok: false, erro };
   return { ok: true, valor: { ...estado, orcamentos: { ...estado.orcamentos, [mes]: { ...percentuais } } } };
+}
+
+/**
+ * Troca o nome de uma tag no histórico todo: nas compras e em todas as
+ * vigências, em todos os meses, inclusive no que está na lixeira — senão
+ * restaurar ressuscitaria o nome antigo. Quando o nome novo já é de outra tag
+ * em uso, as duas viram uma só, e essa fusão exige confirmação explícita:
+ * depois dela nada diz quais ocorrências vieram de qual nome. Não faz mês
+ * nascer: a tag não é de mês nenhum.
+ */
+function renomearTag(estado: Estado, de: string, para: string, fundir: boolean): Resultado<Estado> {
+  // O comando chega do navegador: nenhum campo é confiado ao tipo.
+  if (typeof de !== "string" || typeof para !== "string") return { ok: false, erro: "A tag é um texto livre." };
+  const antiga = normalizarTag(de);
+  const nova = normalizarTag(para);
+  if (nova === null) return { ok: false, erro: "Informe o nome novo da tag." };
+  // Uma tag existe enquanto algum lançamento vivo a usa: a que só restou na lixeira já não se renomeia.
+  const emUso = tagsEmUso(estado);
+  if (antiga === null || !emUso.includes(antiga)) return { ok: false, erro: "Essa tag não é de nenhum gasto." };
+  if (nova === antiga) return { ok: false, erro: `#${antiga} já é o nome desta tag.` };
+  if (emUso.includes(nova) && fundir !== true) {
+    return { ok: false, erro: `Já existe a tag #${nova}: confirme a fusão para juntar as duas numa só.` };
+  }
+  const trocar = <T extends { tag: string | null }>(r: T): T => (r.tag === antiga ? { ...r, tag: nova } : r);
+  const lancamentos = estado.lancamentos.map((l) => (l.forma === "compra" ? trocar(l) : { ...l, vigencias: l.vigencias.map(trocar) }));
+  return { ok: true, valor: { ...estado, lancamentos } };
 }
 
 function salvarEntrada(estado: Estado, dados: EntradaASalvar): Resultado<Estado> {
