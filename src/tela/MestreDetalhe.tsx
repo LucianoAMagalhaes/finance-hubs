@@ -215,6 +215,11 @@ function Detalhe({ vista, grupo, eixo, fechar, abrirOcorrencia }: PropsDoDetalhe
               <span>{nomeDoTipo(o.tipo)}</span>
               <PilulaDaTag tag={o.tag} />
             </span>
+            {o.parcela && (
+              <span className="anotacao num">
+                ⤷ {o.parcela.numero}/{o.parcela.de} de {formatarReais(o.parcela.total)}
+              </span>
+            )}
           </span>
           <span className="direita num">
             <Valor centavos={o.valor} />

@@ -590,6 +590,20 @@ dialog.folha::backdrop {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
+.seletor-forma {
+  align-self: flex-start;
+}
+.seletor-forma button:disabled {
+  color: var(--ink-3);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.folha .aviso {
+  margin: 0;
+}
+.previa-parcelas {
+  margin-top: -4px;
+}
 .check {
   display: flex;
   gap: 8px;
@@ -652,14 +666,16 @@ dialog.folha::backdrop {
 }
 
 /* ============ seletor de eixo: um por vez ============ */
-.seletor-eixo {
+.seletor-eixo,
+.seletor-forma {
   display: inline-flex;
   background: var(--sunken);
   border-radius: var(--radius);
   padding: 3px;
   gap: 2px;
 }
-.seletor-eixo button {
+.seletor-eixo button,
+.seletor-forma button {
   border: 0;
   background: none;
   border-radius: calc(var(--radius) - 3px);
@@ -668,7 +684,8 @@ dialog.folha::backdrop {
   color: var(--ink-2);
   cursor: pointer;
 }
-.seletor-eixo button[aria-pressed="true"] {
+.seletor-eixo button[aria-pressed="true"],
+.seletor-forma button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--ink);
   font-weight: 500;
@@ -820,6 +837,10 @@ button.agregado:hover {
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+}
+.anotacao {
+  font-size: 12px;
+  color: var(--ink-3);
 }
 .eixos-da-ocorrencia {
   display: flex;

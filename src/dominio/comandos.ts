@@ -96,8 +96,8 @@ function validarLancamento(l: LancamentoASalvar): string | null {
   if (!ehTipoDePagamento(l.tipo)) return "Escolha um tipo de pagamento.";
   if (!Number.isInteger(l.valor) || l.valor === 0) return "Informe um valor diferente de zero, em centavos inteiros.";
   if (l.tag !== undefined && l.tag !== null && typeof l.tag !== "string") return "A tag é um texto livre.";
-  // Por enquanto só existe o à vista; o parcelado chega no seu próprio ticket.
-  if (l.parcelas !== 1) return "Só o à vista pode ser lançado por enquanto.";
+  if (!Number.isInteger(l.parcelas) || l.parcelas < 1) return "Informe o número de parcelas, um inteiro de 1 em diante.";
+  if (l.parcelas > 1 && l.tipo !== "cartao-de-credito") return "Só Cartão de Crédito parcela.";
   return null;
 }
 

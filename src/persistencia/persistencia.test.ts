@@ -117,6 +117,24 @@ describe("persistência", () => {
     expect(recarregado.orcamentos["2026-10"]).toBeDefined();
   });
 
+  it("um parcelado, inclusive reembolso parcelado, volta idêntico ao recarregar", () => {
+    let estado = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-08-31", pote: "conforto", valor: 389_900, parcelas: 10 }));
+    estado = aplicarOk(estado, salvarLancamento({ data: "2026-09-10", pote: "conforto", valor: -100_000, parcelas: 3 }));
+    gravarEstado(abrir(), estado);
+
+    const recarregado = carregarEstado(abrir());
+
+    expect(recarregado).toEqual(estado);
+    for (const mes of ["2026-08", "2026-09", "2026-11", "2027-05", "2027-06"] as const) {
+      expect(projetarMes(recarregado, mes)).toEqual(projetarMes(estado, mes));
+    }
+    // Em ordem de data: o reembolso cai no dia 10; a compra do dia 31, no último dia de novembro.
+    expect(projetarMes(recarregado, "2026-11").ocorrencias.map((o) => [o.data, o.parcela])).toEqual([
+      ["2026-11-10", { numero: 3, de: 3, total: -100_000 }],
+      ["2026-11-30", { numero: 4, de: 10, total: 389_900 }],
+    ]);
+  });
+
   it("corrigir um lançamento grava a mudança", () => {
     const banco = abrir();
     const antes = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 42_050 }));
@@ -164,6 +182,7 @@ function salvarLancamento(campos: {
   data: `${number}-${number}-${number}`;
   pote: PoteId;
   valor: number;
+  parcelas?: number;
   tag?: string;
 }): Comando {
   return {

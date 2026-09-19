@@ -47,7 +47,7 @@ describe("lançamento à vista", () => {
     const vista = projetarMes(estado, "2026-09");
 
     expect(vista.ocorrencias).toEqual([
-      { lancamento: 1, data: "2026-09-12", descricao: "Jantar", pote: "prazeres", tipo: "pix", tag: null, valor: 18_990 },
+      { lancamento: 1, data: "2026-09-12", descricao: "Jantar", pote: "prazeres", tipo: "pix", tag: null, valor: 18_990, parcela: null },
     ]);
     expect(estado.lancamentos[0]).toMatchObject({ valor: 18_990, parcelas: 1 });
   });
@@ -200,7 +200,6 @@ describe("validação do lançamento", () => {
     ["tipo de pagamento fora da lista", { tipo: "cheque" as never }],
     ["data que não existe", { data: "2026-02-30" as Data }],
     ["data malformada", { data: "12/09/2026" as Data }],
-    ["mais de uma parcela, que ainda não existe", { parcelas: 3 }],
   ])("%s é recusado", (_, campos) => {
     expect(aplicar(estadoVazio(), salvarLancamento(aVista(campos)), HOJE).ok).toBe(false);
   });

@@ -14,6 +14,7 @@ export {
 export { todosOsGastos, grupos, type Eixo, type Grupo } from "./eixos";
 export { estadoVazio, type Estado } from "./estado";
 export {
+  divisaoEmParcelas,
   type Lancamento,
   type LancamentoASalvar,
   type NovoLancamento,
@@ -25,6 +26,7 @@ export {
   ehDataValida,
   ehMesValido,
   mesDaData,
+  mesmoDiaEm,
   nomeDoMes,
   somarMeses,
   ultimoDiaDoMes,
