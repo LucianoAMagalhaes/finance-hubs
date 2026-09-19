@@ -47,7 +47,7 @@ describe("lançamento à vista", () => {
     const vista = projetarMes(estado, "2026-09");
 
     expect(vista.ocorrencias).toEqual([
-      { lancamento: 1, data: "2026-09-12", descricao: "Jantar", pote: "prazeres", tipo: "pix", tag: null, valor: 18_990, parcela: null, recorrente: null },
+      { lancamento: 1, data: "2026-09-12", descricao: "Jantar", pote: "prazeres", tipo: "pix", tag: null, valor: 18_990, parcela: null, recorrente: null, antecipacao: null },
     ]);
     expect(estado.lancamentos[0]).toMatchObject({ valor: 18_990, parcelas: 1 });
   });

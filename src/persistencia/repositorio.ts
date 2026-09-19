@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import type { Compra, Entrada, Estado, Lancamento, Mes, Percentuais, Recorrente, Vigencia } from "@/dominio";
+import type { Antecipacao, Compra, Entrada, Estado, Lancamento, Mes, Percentuais, Recorrente, Vigencia } from "@/dominio";
 import type { Banco } from "./banco";
-import { entrada, lancamento, orcamentoDoMes, recorrente, vigencia } from "./esquema";
+import { antecipacao, entrada, lancamento, orcamentoDoMes, recorrente, vigencia } from "./esquema";
 
 // Sem regra de negócio aqui: validar e derivar é do domínio. Este módulo só
 // traduz o estado para linhas e de volta.
@@ -11,6 +11,7 @@ type LinhaEntrada = typeof entrada.$inferSelect;
 type LinhaLancamento = typeof lancamento.$inferSelect;
 type LinhaRecorrente = typeof recorrente.$inferSelect;
 type LinhaVigencia = typeof vigencia.$inferSelect;
+type LinhaAntecipacao = typeof antecipacao.$inferSelect;
 
 function paraPercentuais(linha: LinhaOrcamento): Percentuais {
   return {
@@ -43,12 +44,22 @@ function paraLinhaDeEntrada({ tipo, ...e }: Entrada): LinhaEntrada {
   return { ...e, tipoDePagamento: tipo };
 }
 
-function paraCompra({ tipoDePagamento, ...linha }: LinhaLancamento): Compra {
-  return { ...linha, forma: "compra", tipo: tipoDePagamento } as Compra;
+/** As antecipações vêm em ordem de id: a de aplicação é derivada pelo domínio. */
+function paraCompra({ tipoDePagamento, ...linha }: LinhaLancamento, antecipacoes: LinhaAntecipacao[]): Compra {
+  return {
+    ...linha,
+    forma: "compra",
+    tipo: tipoDePagamento,
+    antecipacoes: antecipacoes.map(({ lancamento: _, ...a }) => a as Antecipacao),
+  } as Compra;
 }
 
-function paraLinhaDeCompra({ tipo, forma: _, ...c }: Compra): LinhaLancamento {
+function paraLinhaDeCompra({ tipo, forma: _, antecipacoes: __, ...c }: Compra): LinhaLancamento {
   return { ...c, tipoDePagamento: tipo };
+}
+
+function paraLinhaDeAntecipacao(id: number, a: Antecipacao): LinhaAntecipacao {
+  return { ...a, lancamento: id };
 }
 
 /** As vigências vêm em ordem de início: "AAAA-MM" ordena como o tempo. */
@@ -75,8 +86,13 @@ export function carregarEstado({ db }: Banco): Estado {
   }
   const entradas = db.select().from(entrada).orderBy(entrada.id).all().map(paraEntrada);
   const vigencias = db.select().from(vigencia).orderBy(vigencia.recorrente, vigencia.desde).all();
+  const antecipacoes = db.select().from(antecipacao).orderBy(antecipacao.id).all();
   const lancamentos: Lancamento[] = [
-    ...db.select().from(lancamento).all().map(paraCompra),
+    ...db
+      .select()
+      .from(lancamento)
+      .all()
+      .map((l) => paraCompra(l, antecipacoes.filter((a) => a.lancamento === l.id))),
     ...db
       .select()
       .from(recorrente)
@@ -110,6 +126,13 @@ export function gravarEstado({ db }: Banco, estado: Estado): void {
       if (l.forma === "compra") {
         const linha = paraLinhaDeCompra(l);
         tx.insert(lancamento).values(linha).onConflictDoUpdate({ target: lancamento.id, set: linha }).run();
+        for (const a of l.antecipacoes) {
+          const linhaDaAntecipacao = paraLinhaDeAntecipacao(l.id, a);
+          tx.insert(antecipacao)
+            .values(linhaDaAntecipacao)
+            .onConflictDoUpdate({ target: antecipacao.id, set: linhaDaAntecipacao })
+            .run();
+        }
         continue;
       }
       const linha = paraLinhaDeRecorrente(l);

@@ -1,8 +1,12 @@
 import { ehFonte, type EntradaASalvar } from "./entradas";
-import type { Estado } from "./estado";
+import { antecipacaoEm, compras, type Estado } from "./estado";
 import {
+  antecipacoesDe,
   caiEm,
   inicioDe,
+  maximoAntecipavel,
+  type Antecipacao,
+  type AntecipacaoASalvar,
   type Compra,
   type LancamentoASalvar,
   type Recorrente,
@@ -10,8 +14,8 @@ import {
   type Vigencia,
   type VigenciaASalvar,
 } from "./lancamentos";
-import { ehRegistro, type Registro } from "./lixeira";
-import { ehDataValida, ehMesValido, mesDaData, type Data, type Mes } from "./mes";
+import { ehRegistro, vivos, type Registro } from "./lixeira";
+import { ehDataValida, ehMesValido, mesDaData, nomeDoMes, type Data, type Mes } from "./mes";
 import { ehTipoDeEntrada, ehTipoDePagamento } from "./pagamento";
 import { ehPote, validarPercentuais, type Percentuais } from "./potes";
 import { herdaria } from "./projecao";
@@ -23,6 +27,7 @@ import { normalizarTag } from "./tags";
 export type Comando =
   | { tipo: "salvar-entrada"; entrada: EntradaASalvar }
   | { tipo: "salvar-lancamento"; lancamento: LancamentoASalvar }
+  | { tipo: "salvar-antecipacao"; antecipacao: AntecipacaoASalvar }
   | { tipo: "criar-recorrente"; recorrente: RecorrenteACriar }
   | { tipo: "mudar-recorrente"; id: number; mes: Mes; vigencia: VigenciaASalvar }
   | { tipo: "encerrar-recorrente"; id: number; mes: Mes }
@@ -42,6 +47,8 @@ export function aplicar(estado: Estado, comando: Comando, hoje: Data): Resultado
       return salvarEntrada(estado, comando.entrada);
     case "salvar-lancamento":
       return salvarLancamento(estado, comando.lancamento);
+    case "salvar-antecipacao":
+      return salvarAntecipacao(estado, comando.antecipacao);
     case "criar-recorrente":
       return criarRecorrente(estado, comando.recorrente);
     case "mudar-recorrente":
@@ -64,7 +71,8 @@ export function aplicar(estado: Estado, comando: Comando, hoje: Data): Resultado
  */
 function marcarLixeira(estado: Estado, registro: Registro, id: number, apagadoEm: Data | null): Resultado<Estado> {
   // O comando chega do navegador: nenhum campo é confiado ao tipo.
-  if (!ehRegistro(registro)) return { ok: false, erro: "Só entrada ou lançamento vão para a lixeira." };
+  if (!ehRegistro(registro)) return { ok: false, erro: "Só entrada, lançamento ou antecipação vão para a lixeira." };
+  if (registro === "antecipacao") return marcarAntecipacao(estado, id, apagadoEm);
   const chave = registro === "entrada" ? "entradas" : "lancamentos";
   const lista: { id: number; apagadoEm: Data | null }[] = estado[chave];
   const alvo = lista.find((r) => r.id === id);
@@ -98,17 +106,110 @@ function salvarEntrada(estado: Estado, dados: EntradaASalvar): Resultado<Estado>
 function salvarLancamento(estado: Estado, dados: LancamentoASalvar): Resultado<Estado> {
   const erro = validarLancamento(dados);
   if (erro) return { ok: false, erro };
-  if (estado.lancamentos.some((l) => l.id === dados.id && l.forma === "recorrente")) {
+  const anterior = estado.lancamentos.find((l) => l.id === dados.id);
+  if (anterior?.forma === "recorrente") {
     return { ok: false, erro: "Um recorrente não vira compra: apague e lance de novo." };
   }
+  const travado = travaDaAntecipacao(anterior, dados);
+  if (travado) return { ok: false, erro: travado };
   const lancamentos = gravarNaLista<Compra>(estado.lancamentos as Compra[], {
     ...dados,
     forma: "compra",
     descricao: dados.descricao.trim(),
     tag: normalizarTagDigitada(dados.tag),
+    // As antecipações são da compra e ficam onde estão: este comando não as toca.
+    antecipacoes: anterior?.antecipacoes ?? [],
   });
   if (!lancamentos) return { ok: false, erro: "Esse lançamento não existe mais." };
   return { ok: true, valor: nascer({ ...estado, lancamentos }, mesDaData(dados.data)) };
+}
+
+/**
+ * Enquanto houver antecipação ativa, data, total e número de parcelas — e com
+ * ele a forma — ficam travados (ADR-0005): corrigi-los exige desfazer a
+ * antecipação antes. Descrição, pote, tipo e tag continuam editáveis, e a
+ * ocorrência da antecipação os acompanha.
+ */
+function travaDaAntecipacao(anterior: Compra | undefined, dados: LancamentoASalvar): string | null {
+  // Um parcelado na lixeira não se corrige de jeito nenhum: essa recusa é de quem grava.
+  if (!anterior || anterior.apagadoEm !== null || vivos(anterior.antecipacoes).length === 0) return null;
+  const mudou = anterior.data !== dados.data || anterior.valor !== dados.valor || anterior.parcelas !== dados.parcelas;
+  return mudou
+    ? "Este parcelado tem antecipação: desfaça-a antes de mudar a data, o total ou o número de parcelas."
+    : null;
+}
+
+/** Sem id, acrescenta uma antecipação; com id, corrige a que já existe. */
+function salvarAntecipacao(estado: Estado, dados: AntecipacaoASalvar): Resultado<Estado> {
+  if (typeof dados.data !== "string" || !ehDataValida(dados.data)) return { ok: false, erro: "Informe uma data válida." };
+  if (!Number.isInteger(dados.valor) || dados.valor <= 0) {
+    return { ok: false, erro: "A antecipação tem valor pago positivo, em centavos inteiros: é o que saiu, já com o desconto." };
+  }
+  if (!Number.isInteger(dados.parcelas) || dados.parcelas < 1) {
+    return { ok: false, erro: "Informe quantas parcelas antecipar, um inteiro de 1 em diante." };
+  }
+  const alvo = parceladoQueAntecipa(estado, dados.lancamento);
+  if (!alvo.ok) return alvo;
+  const parcelado = alvo.valor;
+  if (dados.id !== undefined && !vivos(parcelado.antecipacoes).some((a) => a.id === dados.id)) {
+    return { ok: false, erro: "Essa antecipação não existe mais." };
+  }
+  const id = dados.id ?? proximoId(compras(estado).flatMap((c) => c.antecipacoes));
+  const antecipacao: Antecipacao = { id, data: dados.data, parcelas: dados.parcelas, valor: dados.valor, apagadoEm: null };
+  // Em ordem de id, que é como o banco as devolve: corrigir uma não muda o lugar dela.
+  const antecipacoes = [...parcelado.antecipacoes.filter((a) => a.id !== id), antecipacao].sort((a, b) => a.id - b.id);
+  return comAntecipacoes(estado, parcelado, antecipacoes, mesDaData(dados.data));
+}
+
+/**
+ * Desfazer manda a antecipação para a lixeira, e as parcelas voltam aos seus
+ * meses. Restaurar revalida contra o parcelado como ele está e recusa se as
+ * parcelas não couberem mais (ADR-0005). Nenhum dos dois faz mês nascer.
+ */
+function marcarAntecipacao(estado: Estado, id: number, apagadoEm: Data | null): Resultado<Estado> {
+  const achada = antecipacaoEm(estado, id);
+  if (!achada) return { ok: false, erro: "Essa antecipação não existe mais." };
+  const { parcelado, antecipacao: alvo } = achada;
+  if (apagadoEm !== null && alvo.apagadoEm !== null) return { ok: false, erro: "Essa antecipação já está na lixeira." };
+  if (apagadoEm === null && alvo.apagadoEm === null) return { ok: false, erro: "Essa antecipação não está na lixeira." };
+  if (apagadoEm === null && parcelado.apagadoEm !== null) {
+    return { ok: false, erro: "O parcelado desta antecipação está na lixeira: restaure-o antes." };
+  }
+  const antecipacoes = parcelado.antecipacoes.map((a) => (a.id === id ? { ...a, apagadoEm } : a));
+  return comAntecipacoes(estado, parcelado, antecipacoes, null);
+}
+
+/**
+ * Troca as antecipações de um parcelado, recusando a que não couber na série.
+ * `mes` é o que nasce; null quando nenhum nasce.
+ */
+function comAntecipacoes(estado: Estado, parcelado: Compra, antecipacoes: Antecipacao[], mes: Mes | null): Resultado<Estado> {
+  const novo: Compra = { ...parcelado, antecipacoes };
+  const { recusada } = antecipacoesDe(novo);
+  if (recusada) return { ok: false, erro: naoCoube(novo, recusada) };
+  const lancamentos = estado.lancamentos.map((l) => (l.id === novo.id ? novo : l));
+  const trocado = { ...estado, lancamentos };
+  return { ok: true, valor: mes === null ? trocado : nascer(trocado, mes) };
+}
+
+/** Por que a antecipação não coube, dito com o máximo que ela alcançaria hoje. */
+function naoCoube(parcelado: Compra, recusada: Antecipacao): string {
+  const mes = nomeDoMes(mesDaData(recusada.data));
+  const maximo = maximoAntecipavel(parcelado, { data: recusada.data, id: recusada.id });
+  if (maximo === 0) return `Nenhuma parcela deste parcelado cai depois de ${mes}: não há o que antecipar.`;
+  const cabem = maximo === 1 ? "1 parcela" : `${maximo} parcelas`;
+  return `Em ${mes} este parcelado antecipa no máximo ${cabem}.`;
+}
+
+/** O parcelado vivo que recebe a antecipação. */
+function parceladoQueAntecipa(estado: Estado, id: number): Resultado<Compra> {
+  const l = estado.lancamentos.find((x) => x.id === id);
+  if (!l) return { ok: false, erro: "Esse lançamento não existe mais." };
+  if (l.forma !== "compra") return { ok: false, erro: "Um recorrente não tem parcelas para antecipar." };
+  if (l.apagadoEm !== null) return { ok: false, erro: "Esse gasto está na lixeira: restaure-o antes." };
+  if (l.parcelas < 2) return { ok: false, erro: "Um gasto à vista não tem parcelas para antecipar." };
+  if (l.valor < 0) return { ok: false, erro: "Um reembolso não se antecipa: o valor pago de uma antecipação é positivo." };
+  return { ok: true, valor: l };
 }
 
 /** A data da primeira ocorrência dá o mês de início e o dia, que não muda mais. */

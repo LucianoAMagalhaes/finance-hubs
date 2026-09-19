@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
+  antecipacoesDe,
   centavosParaCampo,
   divisaoEmParcelas,
   formatarReais,
@@ -18,6 +19,8 @@ import {
   vigenciaEm,
   vigenciasComFim,
   type Comando,
+  type Compra,
+  type Corte,
   type Data,
   type Lancamento,
   type Mes,
@@ -25,7 +28,7 @@ import {
   type Recorrente,
   type TipoDePagamento,
 } from "@/dominio";
-import { PilulaDaTag } from "./pecas";
+import { faixaDeParcelas, PilulaDaTag } from "./pecas";
 
 type Props = {
   /** O lançamento que se corrige; null num gasto novo. */
@@ -42,6 +45,8 @@ type Props = {
   apagar: () => Promise<string | null>;
   /** Encerra o recorrente que se corrige a partir do mês aberto. Devolve o erro, ou null se encerrou. */
   encerrar: () => Promise<string | null>;
+  /** Abre o formulário de antecipação para este parcelado. */
+  antecipar: () => void;
   fechar: () => void;
 };
 
@@ -59,7 +64,7 @@ const FORMAS: { id: Forma; nome: string }[] = [
  * recorrente se corrige a partir do mês aberto. O reembolso é digitado
  * positivo e gravado negativo, em qualquer forma.
  */
-export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, salvar, apagar, encerrar, fechar }: Props) {
+export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, salvar, apagar, encerrar, antecipar, fechar }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const compra = lancamento?.forma === "compra" ? lancamento : null;
   const recorrente = lancamento?.forma === "recorrente" ? lancamento : null;
@@ -78,6 +83,9 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
   const parcelado = forma === "parcelado";
   const podeParcelar = tipo === "cartao-de-credito";
   const tagNormalizada = normalizarTag(tag);
+  // Com antecipação ativa, data, total e parcelas ficam travados (ADR-0005).
+  const cortes = compra ? antecipacoesDe(compra).cortes : [];
+  const travado = cortes.length > 0;
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -95,6 +103,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
     if (lancamento !== null && (recorrente !== null) !== (f === "recorrente")) {
       return "Recorrente não vira compra, nem o contrário: apague e lance de novo";
     }
+    if (travado && f !== forma) return "Este parcelado tem antecipação: desfaça-a antes de mudar a forma";
     return f === "parcelado" && !podeParcelar ? "Só Cartão de Crédito parcela" : null;
   }
 
@@ -172,6 +181,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
               passados, e com elas o veredito desses meses.
             </p>
           )}
+          {travado && compra && <Antecipacoes compra={compra} cortes={cortes} />}
           {recorrente && <Vigencias recorrente={recorrente} mes={mes} />}
           {recorrente ? (
             <label className="campo">
@@ -187,7 +197,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
                     ? "Data da compra (a 1ª parcela cai neste mês)"
                     : "Data"}
               </span>
-              <input type="date" required value={data} onChange={(e) => setData(e.target.value)} />
+              <input type="date" required disabled={travado} value={data} onChange={(e) => setData(e.target.value)} />
             </label>
           )}
           <label className="campo">
@@ -200,6 +210,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
               <input
                 required
                 inputMode="decimal"
+                disabled={travado}
                 className="num"
                 value={valor}
                 onChange={(e) => setValor(e.target.value)}
@@ -214,6 +225,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
                   type="number"
                   min={2}
                   step={1}
+                  disabled={travado}
                   className="num"
                   value={parcelas}
                   onChange={(e) => setParcelas(e.target.value)}
@@ -224,7 +236,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
           {parcelado && <PreviaDasParcelas valor={valor} parcelas={parcelas} data={data} reembolso={reembolso} />}
           {forma === "recorrente" && !recorrente && <PreviaDoRecorrente data={data} />}
           <label className="check">
-            <input type="checkbox" checked={reembolso} onChange={(e) => setReembolso(e.target.checked)} />
+            <input type="checkbox" disabled={travado} checked={reembolso} onChange={(e) => setReembolso(e.target.checked)} />
             <span>
               É reembolso <span className="dica">— dinheiro voltando de um gasto; grava valor negativo neste pote</span>
             </span>
@@ -277,6 +289,16 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
           )}
         </div>
         <footer>
+          {eraParcelado && (
+            <button
+              type="button"
+              className="btn"
+              onClick={antecipar}
+              title="Pagar adiantado as últimas parcelas que ainda sobram, por um valor com desconto"
+            >
+              Antecipar parcelas
+            </button>
+          )}
           {compra && (
             <button
               type="button"
@@ -326,6 +348,36 @@ function PreviaDasParcelas({ valor, parcelas, data, reembolso }: { valor: string
       {primeira !== demais && ` (a 1ª de ${formatarReais(primeira)})`} · de {nomeDoMes(primeiroMes)} a{" "}
       {nomeDoMes(somarMeses(primeiroMes, n - 1))}
     </p>
+  );
+}
+
+/**
+ * As antecipações que valem, e o que elas travam: com uma delas viva, data,
+ * total e número de parcelas do parcelado não mudam (ADR-0005).
+ */
+function Antecipacoes({ compra, cortes }: { compra: Compra; cortes: Corte[] }) {
+  return (
+    <>
+      <p className="aviso">
+        Este parcelado tem {cortes.length === 1 ? "uma antecipação" : `${cortes.length} antecipações`}:{" "}
+        <strong>data, total e número de parcelas ficam travados</strong>. Desfaça-a na própria ocorrência para mexer neles.
+        Descrição, pote, tipo e tag continuam livres, e a antecipação os acompanha.
+      </p>
+      <div>
+        <span className="dica">Antecipações</span>
+        <ol className="vigencias">
+          {cortes.map(({ antecipacao, primeira, ultima }) => (
+            <li key={antecipacao.id}>
+              <span className="num">{nomeDoMes(mesDaData(antecipacao.data))}</span>
+              <span>
+                parcelas {faixaDeParcelas({ primeira, ultima })}/{compra.parcelas}
+              </span>
+              <span className="num direita">{formatarReais(antecipacao.valor)}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </>
   );
 }
 

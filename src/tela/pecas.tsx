@@ -6,6 +6,10 @@ export function Valor({ centavos }: { centavos: Centavos }) {
   return centavos < 0 ? <span className="val reembolso">↺ {formatarReais(centavos)}</span> : <span className="val">{formatarReais(centavos)}</span>;
 }
 
+/** As parcelas que uma antecipação levou: "8–10" quando são várias, "10" quando é uma. */
+export const faixaDeParcelas = ({ primeira, ultima }: { primeira: number; ultima: number }) =>
+  primeira === ultima ? `${ultima}` : `${primeira}–${ultima}`;
+
 /** A cor fixa do pote como `--pote`: quadrado, filete e barra a usam. */
 export const corDoPote = (pote: PoteId) => ({ "--pote": `var(--p-${pote})` }) as CSSProperties;
 
