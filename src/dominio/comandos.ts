@@ -1,16 +1,16 @@
 import { ehFonte, type Entrada, type EntradaASalvar } from "./entradas";
 import type { Estado } from "./estado";
-import { ehDataValida, mesDaData, type Data, type Mes } from "./mes";
+import { ehDataValida, ehMesValido, mesDaData, type Data, type Mes } from "./mes";
 import { ehTipoDeEntrada } from "./pagamento";
+import { validarPercentuais, type Percentuais } from "./potes";
 import { herdaria } from "./projecao";
 
 /**
  * Tudo que a pessoa pode mandar fazer. Cada comando chega com o ticket que o usa.
  */
-export type Comando = {
-  tipo: "salvar-entrada";
-  entrada: EntradaASalvar;
-};
+export type Comando =
+  | { tipo: "salvar-entrada"; entrada: EntradaASalvar }
+  | { tipo: "salvar-percentuais"; mes: Mes; percentuais: Percentuais };
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
 
@@ -22,7 +22,21 @@ export function aplicar(estado: Estado, comando: Comando, _hoje: Data): Resultad
   switch (comando.tipo) {
     case "salvar-entrada":
       return salvarEntrada(estado, comando.entrada);
+    case "salvar-percentuais":
+      return salvarPercentuais(estado, comando.mes, comando.percentuais);
   }
+}
+
+/**
+ * Grava os percentuais de um mês, fazendo-o nascer se ainda não tinha nascido.
+ * Nenhum outro mês nascido muda; os não nascidos passam a herdar deste pela
+ * regra do anterior no tempo mais recente (ADR-0001).
+ */
+function salvarPercentuais(estado: Estado, mes: Mes, percentuais: Percentuais): Resultado<Estado> {
+  if (typeof mes !== "string" || !ehMesValido(mes)) return { ok: false, erro: "Mês inválido." };
+  const erro = validarPercentuais(percentuais);
+  if (erro) return { ok: false, erro };
+  return { ok: true, valor: { ...estado, orcamentos: { ...estado.orcamentos, [mes]: { ...percentuais } } } };
 }
 
 function salvarEntrada(estado: Estado, dados: EntradaASalvar): Resultado<Estado> {

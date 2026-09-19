@@ -16,13 +16,16 @@ import {
   type Comando,
   type Data,
   type Entrada,
+  type EntradaASalvar,
   type Estado,
   type Mes,
+  type Percentuais,
   type PoteNaVista,
   type VistaDoMes,
 } from "@/dominio";
 import { executar } from "@/servidor/acoes";
 import { AlternadorDeTema } from "./AlternadorDeTema";
+import { EditorDePercentuais, percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./EditorDePercentuais";
 import { FormularioDeEntrada } from "./FormularioDeEntrada";
 
 type Props = { estadoInicial: Estado; hoje: Data };
@@ -44,24 +47,42 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
   const [mes, setMesDaTela] = useState<Mes>(mesDeHoje);
   const [formulario, setFormulario] = useState<Formulario | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
-  const vista = useMemo(() => projetarMes(estado, mes), [estado, mes]);
+  /** Os percentuais sendo editados; enquanto existe, a projeção usa eles. */
+  const [rascunho, setRascunho] = useState<Rascunho | null>(null);
+  const vista = useMemo(
+    () => projetarMes(estado, mes, rascunho ? percentuaisParaPrevia(rascunho) : undefined),
+    [estado, mes, rascunho],
+  );
 
   function setMes(novo: Mes) {
     setMesDaTela(novo);
     setAviso(null);
+    setRascunho(null);
   }
 
   /** Confere no navegador, grava no servidor. Devolve o erro, ou null se salvou. */
-  async function mandar(comando: Comando, rotulo: string): Promise<string | null> {
+  async function mandar(comando: Comando): Promise<string | null> {
     const previa = aplicar(estado, comando, hoje);
     if (!previa.ok) return previa.erro;
     const resultado = await executar(comando);
     if (!resultado.ok) return resultado.erro;
     setEstado(resultado.valor);
+    return null;
+  }
+
+  async function salvarEntrada(entrada: EntradaASalvar, rotulo: string): Promise<string | null> {
+    const erro = await mandar({ tipo: "salvar-entrada", entrada });
+    if (erro) return erro;
     setFormulario(null);
-    const destino = mesDaData(comando.entrada.data);
+    const destino = mesDaData(entrada.data);
     setAviso(destino === mes ? null : { texto: `${rotulo} em ${nomeDoMes(destino)}.`, mes: destino });
     return null;
+  }
+
+  async function salvarPercentuais(percentuais: Percentuais): Promise<string | null> {
+    const erro = await mandar({ tipo: "salvar-percentuais", mes, percentuais });
+    if (!erro) setRascunho(null);
+    return erro;
   }
 
   return (
@@ -116,6 +137,11 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
       <FaixaDeAgregados agregados={vista.agregados} entradas={vista.entradas.length} />
 
       <Secao titulo="Os potes">
+        {!rascunho && (
+          <button type="button" className="btn" onClick={() => setRascunho(rascunhoDe(vista.potes))}>
+            Editar percentuais
+          </button>
+        )}
         <span className="extra num">
           {vista.potes.map((p) => p.percentual).join(" / ")}
           {vista.naoAlocado.percentual > 0 && (
@@ -127,6 +153,14 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           )}
         </span>
       </Secao>
+      {rascunho && (
+        <EditorDePercentuais
+          rascunho={rascunho}
+          mudar={setRascunho}
+          salvar={salvarPercentuais}
+          cancelar={() => setRascunho(null)}
+        />
+      )}
       {vista.receita === 0 && (
         <p className="aviso">
           Nenhuma entrada em {nomeDoMes(mes)}: sem receita, os potes não têm limite nem veredito.
@@ -145,9 +179,7 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         <FormularioDeEntrada
           entrada={formulario.entrada}
           dataProposta={dataProposta(mes, hoje)}
-          salvar={(entrada) =>
-            mandar({ tipo: "salvar-entrada", entrada }, formulario.entrada ? "Entrada salva" : "Entrada lançada")
-          }
+          salvar={(entrada) => salvarEntrada(entrada, formulario.entrada ? "Entrada salva" : "Entrada lançada")}
           fechar={() => setFormulario(null)}
         />
       )}

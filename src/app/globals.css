@@ -565,3 +565,46 @@ dialog.folha::backdrop {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============ percentuais do mês: editados ao lado dos potes ============ */
+.btn.primario {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 500;
+}
+.editor-percentuais {
+  margin-bottom: 12px;
+}
+.campos-percentuais {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.com-sufixo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+}
+.com-sufixo input {
+  width: 100%;
+  min-width: 0;
+  text-align: right;
+}
+.editor-pe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.editor-pe .soma {
+  flex: 1;
+  min-width: 180px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.editor-pe .soma.passou {
+  color: var(--bad);
+  font-weight: 600;
+}

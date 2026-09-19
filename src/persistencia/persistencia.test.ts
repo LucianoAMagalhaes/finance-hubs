@@ -83,6 +83,24 @@ describe("persistência", () => {
     expect(projetarMes(recarregado, "2026-10").receita).toBe(0);
   });
 
+  it("percentuais salvos por comando voltam idênticos, sem mexer nos outros meses", () => {
+    const banco = abrir();
+    const antes = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
+    gravarEstado(banco, antes);
+
+    const depois = aplicarOk(carregarEstado(banco), {
+      tipo: "salvar-percentuais",
+      mes: "2026-10",
+      percentuais: pcts(40, 20, 15, 10, 5, 0),
+    });
+    gravarEstado(banco, depois);
+
+    const recarregado = carregarEstado(abrir());
+    expect(recarregado).toEqual(depois);
+    expect(recarregado.orcamentos["2026-10"]).toEqual(pcts(40, 20, 15, 10, 5, 0));
+    expect(recarregado.orcamentos["2026-09"]).toEqual(pcts(30, 25, 15, 15, 10, 5));
+  });
+
   it("o orçamento nascido e a entrada entram na mesma transação: ou os dois, ou nenhum", () => {
     const estado = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
     // Uma entrada que o banco recusa (descrição nula), gravada depois do orçamento.

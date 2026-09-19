@@ -44,6 +44,12 @@ export function mesDaData(data: Data): Mes {
   return data.slice(0, 7) as Mes;
 }
 
+/** Se o texto é um mês "AAAA-MM" que existe. */
+export function ehMesValido(texto: string): texto is Mes {
+  const m = /^\d{4}-(\d{2})$/.exec(texto);
+  return m !== null && Number(m[1]) >= 1 && Number(m[1]) <= 12;
+}
+
 /** Se o texto é uma data "AAAA-MM-DD" que existe no calendário. */
 export function ehDataValida(texto: string): texto is Data {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);

@@ -16,6 +16,7 @@ export {
   dataProposta,
   distanciaEntreMeses,
   ehDataValida,
+  ehMesValido,
   mesDaData,
   nomeDoMes,
   somarMeses,
@@ -31,7 +32,14 @@ export {
   type TipoDeEntrada,
   type TipoDePagamento,
 } from "./pagamento";
-export { PERCENTUAIS_PADRAO, POTES, type Percentuais, type PoteId } from "./potes";
+export {
+  PERCENTUAIS_PADRAO,
+  POTES,
+  somaDosPercentuais,
+  validarPercentuais,
+  type Percentuais,
+  type PoteId,
+} from "./potes";
 export {
   projetarMes,
   type AgregadosDoMes,

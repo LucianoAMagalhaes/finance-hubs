@@ -2,7 +2,7 @@ import type { Centavos } from "./dinheiro";
 import type { Entrada } from "./entradas";
 import type { Estado } from "./estado";
 import { mesDaData, type Mes } from "./mes";
-import { PERCENTUAIS_PADRAO, POTES, type Percentuais, type PoteId } from "./potes";
+import { PERCENTUAIS_PADRAO, POTES, somaDosPercentuais, type Percentuais, type PoteId } from "./potes";
 
 export type OrcamentoNaVista = {
   /** Se o mês já tem o seu orçamento gravado. Antes de nascer, só mostra o que herdaria. */
@@ -50,9 +50,14 @@ export type VistaDoMes = {
   entradas: Entrada[];
 };
 
-/** Tudo que a tela do mês mostra, derivado do estado. Ler nunca faz um mês nascer. */
-export function projetarMes(estado: Estado, mes: Mes): VistaDoMes {
-  const { percentuais, ...orcamento } = percentuaisEfetivos(estado, mes);
+/**
+ * Tudo que a tela do mês mostra, derivado do estado. Ler nunca faz um mês nascer.
+ * `percentuaisEmEdicao` são os que a pessoa está digitando: a vista é
+ * recalculada com eles, sem que nada seja gravado, e o mês continua nascido ou não.
+ */
+export function projetarMes(estado: Estado, mes: Mes, percentuaisEmEdicao?: Percentuais): VistaDoMes {
+  const { percentuais: efetivos, ...orcamento } = percentuaisEfetivos(estado, mes);
+  const percentuais = percentuaisEmEdicao ?? efetivos;
   const entradas = estado.entradas
     .filter((e) => mesDaData(e.data) === mes)
     .sort((a, b) => (a.data === b.data ? a.id - b.id : a.data < b.data ? -1 : 1));
@@ -61,7 +66,8 @@ export function projetarMes(estado: Estado, mes: Mes): VistaDoMes {
   const limiteDe = (percentual: number) => (receita > 0 ? (percentual * receita) / 100 : null);
   // Ainda não há lançamentos no estado: os totais dos potes são zero.
   const despesas = 0;
-  const naoAlocado = 100 - POTES.reduce((soma, p) => soma + percentuais[p.id], 0);
+  // Percentuais em edição podem passar de 100; o não alocado nunca é negativo.
+  const naoAlocado = Math.max(0, 100 - somaDosPercentuais(percentuais));
   return {
     mes,
     orcamento,
