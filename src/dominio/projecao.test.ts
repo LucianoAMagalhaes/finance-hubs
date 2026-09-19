@@ -25,6 +25,7 @@ describe("projeção do mês", () => {
 
   it("um mês sem orçamento herda do mês anterior no tempo mais recente que tem o seu", () => {
     const estado: Estado = {
+      ...estadoVazio(),
       orcamentos: {
         "2026-01": pcts(40, 20, 10, 10, 10, 10),
         "2026-03": pcts(35, 25, 15, 15, 5, 5),
@@ -40,6 +41,7 @@ describe("projeção do mês", () => {
 
   it("dezembro herda de outubro mesmo com janeiro seguinte já nascido", () => {
     const estado: Estado = {
+      ...estadoVazio(),
       orcamentos: {
         "2026-10": pcts(30, 30, 10, 10, 10, 10),
         "2027-01": pcts(50, 10, 10, 10, 10, 10),
@@ -53,7 +55,7 @@ describe("projeção do mês", () => {
   });
 
   it("um mês anterior a todos os nascidos herda os padrão", () => {
-    const estado: Estado = { orcamentos: { "2026-09": pcts(50, 10, 10, 10, 10, 10) } };
+    const estado: Estado = { ...estadoVazio(), orcamentos: { "2026-09": pcts(50, 10, 10, 10, 10, 10) } };
 
     const vista = projetarMes(estado, "2026-03");
 
@@ -63,6 +65,7 @@ describe("projeção do mês", () => {
 
   it("um mês nascido mostra os seus próprios percentuais", () => {
     const estado: Estado = {
+      ...estadoVazio(),
       orcamentos: {
         "2026-08": pcts(30, 25, 15, 15, 10, 5),
         "2026-09": pcts(30, 20, 20, 15, 10, 5),
@@ -91,10 +94,10 @@ describe("projeção do mês", () => {
   });
 
   it("o não alocado é o que os seis percentuais deixam de fora", () => {
-    const estado: Estado = { orcamentos: { "2026-09": pcts(30, 20, 15, 15, 5, 5) } };
+    const estado: Estado = { ...estadoVazio(), orcamentos: { "2026-09": pcts(30, 20, 15, 15, 5, 5) } };
 
-    expect(projetarMes(estado, "2026-09").naoAlocado).toBe(10);
-    expect(projetarMes(estadoVazio(), "2026-09").naoAlocado).toBe(0);
+    expect(projetarMes(estado, "2026-09").naoAlocado.percentual).toBe(10);
+    expect(projetarMes(estadoVazio(), "2026-09").naoAlocado.percentual).toBe(0);
   });
 
   it("projetar um mês não faz ele nascer", () => {

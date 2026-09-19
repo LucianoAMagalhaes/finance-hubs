@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { distanciaEntreMeses, mesDaData, nomeDoMes, somarMeses, ultimoDiaDoMes } from "@/dominio";
+import { dataProposta, distanciaEntreMeses, ehDataValida, mesDaData, nomeDoMes, somarMeses, ultimoDiaDoMes } from "@/dominio";
 
 describe("utilidades de mês", () => {
   it("soma meses atravessando a virada do ano nos dois sentidos", () => {
@@ -25,6 +25,22 @@ describe("utilidades de mês", () => {
 
   it("tira o mês de uma data", () => {
     expect(mesDaData("2026-09-18")).toBe("2026-09");
+  });
+
+  it("reconhece só datas que existem no calendário", () => {
+    expect(ehDataValida("2026-09-30")).toBe(true);
+    expect(ehDataValida("2028-02-29")).toBe(true);
+    expect(ehDataValida("2026-02-29")).toBe(false);
+    expect(ehDataValida("2026-13-01")).toBe(false);
+    expect(ehDataValida("2026-09-00")).toBe(false);
+    expect(ehDataValida("30/09/2026")).toBe(false);
+    expect(ehDataValida("")).toBe(false);
+  });
+
+  it("propõe hoje no mês em curso e o dia 1 em qualquer outro mês", () => {
+    expect(dataProposta("2026-09", "2026-09-18")).toBe("2026-09-18");
+    expect(dataProposta("2026-06", "2026-09-18")).toBe("2026-06-01");
+    expect(dataProposta("2026-12", "2026-09-18")).toBe("2026-12-01");
   });
 
   it("dá nome ao mês em português", () => {

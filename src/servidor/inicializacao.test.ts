@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { POTES, type Percentuais } from "@/dominio";
+import { estadoVazio, POTES, type Percentuais } from "@/dominio";
 import { abrirBanco, carregarEstado, gravarEstado } from "@/persistencia";
 import { configuracaoDoAmbiente, inicializar } from "./inicializacao";
 
@@ -25,7 +25,7 @@ describe("inicialização", () => {
     const banco = inicializar({ arquivoDb, pastaBackup: path.join(pasta, "backups") });
 
     expect(existsSync(arquivoDb)).toBe(true);
-    expect(carregarEstado(banco)).toEqual({ orcamentos: {} });
+    expect(carregarEstado(banco)).toEqual(estadoVazio());
     banco.fechar();
   });
 
@@ -33,7 +33,7 @@ describe("inicialização", () => {
     const arquivoDb = path.join(pasta, "dados", "finance-hubs.db");
     const pastaBackup = path.join(pasta, "copias");
     const anterior = abrirBanco(arquivoDb);
-    gravarEstado(anterior, { orcamentos: { "2026-09": setembro } });
+    gravarEstado(anterior, { ...estadoVazio(), orcamentos: { "2026-09": setembro } });
     anterior.fechar();
 
     const banco = inicializar({ arquivoDb, pastaBackup }, new Date(2026, 8, 18, 7, 5, 9));

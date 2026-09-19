@@ -1,6 +1,7 @@
 import type { Centavos } from "./dinheiro";
+import type { Entrada } from "./entradas";
 import type { Estado } from "./estado";
-import type { Mes } from "./mes";
+import { mesDaData, type Mes } from "./mes";
 import { PERCENTUAIS_PADRAO, POTES, type Percentuais, type PoteId } from "./potes";
 
 export type OrcamentoNaVista = {
@@ -30,37 +31,56 @@ export type AgregadosDoMes = {
   saldoEmConta: Centavos;
 };
 
+export type NaoAlocado = {
+  /** Pontos percentuais da receita que nenhum pote reivindica. */
+  percentual: number;
+  /** Em reais, exato como o limite; null quando o mês não tem receita. */
+  valor: number | null;
+};
+
 export type VistaDoMes = {
   mes: Mes;
   orcamento: OrcamentoNaVista;
   /** Soma das entradas do mês. */
   receita: Centavos;
   potes: PoteNaVista[];
-  /** Pontos percentuais da receita que nenhum pote reivindica. */
-  naoAlocado: number;
+  naoAlocado: NaoAlocado;
   agregados: AgregadosDoMes;
+  /** As entradas com data no mês, em ordem de data. */
+  entradas: Entrada[];
 };
 
 /** Tudo que a tela do mês mostra, derivado do estado. Ler nunca faz um mês nascer. */
 export function projetarMes(estado: Estado, mes: Mes): VistaDoMes {
   const { percentuais, ...orcamento } = percentuaisEfetivos(estado, mes);
-  // Ainda não há entradas nem lançamentos no estado: a receita e os totais são zero.
-  const receita = 0;
+  const entradas = estado.entradas
+    .filter((e) => mesDaData(e.data) === mes)
+    .sort((a, b) => (a.data === b.data ? a.id - b.id : a.data < b.data ? -1 : 1));
+  const receita = entradas.reduce((soma, e) => soma + e.valor, 0);
+  // Sem receita, não há limite: um mês cuja receita ainda não se conhece não estoura.
+  const limiteDe = (percentual: number) => (receita > 0 ? (percentual * receita) / 100 : null);
+  // Ainda não há lançamentos no estado: os totais dos potes são zero.
   const despesas = 0;
+  const naoAlocado = 100 - POTES.reduce((soma, p) => soma + percentuais[p.id], 0);
   return {
     mes,
     orcamento,
     receita,
-    potes: POTES.map((p) => ({
-      id: p.id,
-      nome: p.nome,
-      percentual: percentuais[p.id],
-      total: 0,
-      limite: null,
-      veredito: "sem-receita",
-    })),
-    naoAlocado: 100 - POTES.reduce((soma, p) => soma + percentuais[p.id], 0),
+    potes: POTES.map((p) => {
+      const total = 0;
+      const limite = limiteDe(percentuais[p.id]);
+      return {
+        id: p.id,
+        nome: p.nome,
+        percentual: percentuais[p.id],
+        total,
+        limite,
+        veredito: limite === null ? "sem-receita" : total > limite ? "estourou" : "sobra",
+      };
+    }),
+    naoAlocado: { percentual: naoAlocado, valor: limiteDe(naoAlocado) },
     agregados: { receitas: receita, despesas, saldoDoMes: receita - despesas, saldoEmConta: receita },
+    entradas,
   };
 }
 

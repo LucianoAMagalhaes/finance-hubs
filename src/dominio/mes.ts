@@ -44,6 +44,19 @@ export function mesDaData(data: Data): Mes {
   return data.slice(0, 7) as Mes;
 }
 
+/** Se o texto é uma data "AAAA-MM-DD" que existe no calendário. */
+export function ehDataValida(texto: string): texto is Data {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+  if (!m) return false;
+  const [, , mes, dia] = m.map(Number) as [number, number, number, number];
+  return mes >= 1 && mes <= 12 && dia >= 1 && dia <= ultimoDiaDoMes(mesDaData(texto as Data));
+}
+
+/** A data que um formulário propõe: hoje no mês em curso, o dia 1 em qualquer outro mês. */
+export function dataProposta(mes: Mes, hoje: Data): Data {
+  return mesDaData(hoje) === mes ? hoje : (`${mes}-01` as Data);
+}
+
 export function nomeDoMes(mes: Mes): string {
   const [ano, m] = partes(mes);
   return `${NOMES[m - 1]} de ${ano}`;

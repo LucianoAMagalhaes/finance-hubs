@@ -1,3 +1,4 @@
+import type { Entrada } from "./entradas";
 import type { Mes } from "./mes";
 import type { Percentuais } from "./potes";
 
@@ -8,8 +9,9 @@ import type { Percentuais } from "./potes";
 export type Estado = {
   /** O orçamento de cada mês que já nasceu. Uma linha por mês, nunca apagada. */
   orcamentos: Partial<Record<Mes, Percentuais>>;
+  entradas: Entrada[];
 };
 
 export function estadoVazio(): Estado {
-  return { orcamentos: {} };
+  return { orcamentos: {}, entradas: [] };
 }

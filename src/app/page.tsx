@@ -6,5 +6,5 @@ import { TelaDoMes } from "@/tela/TelaDoMes";
 export const dynamic = "force-dynamic";
 
 export default function Pagina() {
-  return <TelaDoMes estado={carregarEstado(bancoDoApp())} hoje={hojeLocal()} />;
+  return <TelaDoMes estadoInicial={carregarEstado(bancoDoApp())} hoje={hojeLocal()} />;
 }

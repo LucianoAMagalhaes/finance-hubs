@@ -8,6 +8,13 @@
       "when": 1789761096296,
       "tag": "0000_orcamento_do_mes",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789837212749,
+      "tag": "0001_entrada",
+      "breakpoints": true
     }
   ]
 }
