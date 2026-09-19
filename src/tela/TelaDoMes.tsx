@@ -35,6 +35,7 @@ import {
 } from "@/dominio";
 import { executar } from "@/servidor/acoes";
 import { AlternadorDeTema } from "./AlternadorDeTema";
+import { BotaoFlutuante } from "./BotaoFlutuante";
 import { EditorDePercentuais, percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./EditorDePercentuais";
 import { FormularioDeAntecipacao } from "./FormularioDeAntecipacao";
 import { FormularioDeEntrada } from "./FormularioDeEntrada";
@@ -42,7 +43,7 @@ import { FormularioDeLancamento } from "./FormularioDeLancamento";
 import { FormularioDeRenomearTag } from "./FormularioDeRenomearTag";
 import { Lixeira } from "./Lixeira";
 import { MestreDetalhe, NOME_DO_EIXO, type Aberto } from "./MestreDetalhe";
-import { Valor } from "./pecas";
+import { BotoesDeLancar, Valor } from "./pecas";
 
 type Props = { estadoInicial: Estado; hoje: Data };
 
@@ -192,12 +193,7 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           <button type="button" className="btn" onClick={() => setLixeiraAberta(true)} title="O que foi apagado, para restaurar">
             Lixeira{lixeira.length > 0 && <span className="contagem num">{lixeira.length}</span>}
           </button>
-          <button type="button" className="btn entrada" onClick={novaEntrada}>
-            + Entrada
-          </button>
-          <button type="button" className="btn primario" onClick={novoLancamento}>
-            + Gasto
-          </button>
+          <BotoesDeLancar novaEntrada={novaEntrada} novoLancamento={novoLancamento} />
         </div>
       </header>
 
@@ -318,6 +314,9 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         />
       )}
       {lixeiraAberta && <Lixeira itens={lixeira} restaurar={restaurar} fechar={() => setLixeiraAberta(false)} />}
+
+      {/* Em janela estreita, lançar é por aqui; no layout largo, pelo topo. */}
+      <BotaoFlutuante novaEntrada={novaEntrada} novoLancamento={novoLancamento} />
     </main>
   );
 }
