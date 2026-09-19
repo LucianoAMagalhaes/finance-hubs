@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BotoesDeLancar } from "./pecas";
 
 type Props = { novaEntrada: () => void; novoLancamento: () => void };
 
@@ -20,21 +21,21 @@ export function BotaoFlutuante({ novaEntrada, novoLancamento }: Props) {
     return () => document.removeEventListener("keydown", aoTeclar);
   }, [aberto]);
 
-  const escolher = (abrir: () => void) => {
+  /** Escolher fecha o menu: o formulário que abre é quem fica na frente. */
+  const escolher = (abrirFormulario: () => void) => {
     setAberto(false);
-    abrir();
+    abrirFormulario();
   };
 
   return (
     <>
       {aberto && <div className="fundo-do-flutuante" onClick={() => setAberto(false)} aria-hidden />}
       <div className={`flutuante ${aberto ? "aberto" : ""}`}>
-        <button type="button" className="btn entrada op" onClick={() => escolher(novaEntrada)}>
-          + Entrada
-        </button>
-        <button type="button" className="btn primario op" onClick={() => escolher(novoLancamento)}>
-          + Gasto
-        </button>
+        <BotoesDeLancar
+          classe="op"
+          novaEntrada={() => escolher(novaEntrada)}
+          novoLancamento={() => escolher(novoLancamento)}
+        />
         <button
           type="button"
           className="mais"

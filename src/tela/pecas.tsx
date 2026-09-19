@@ -6,6 +6,32 @@ export function Valor({ centavos }: { centavos: Centavos }) {
   return centavos < 0 ? <span className="val reembolso">↺ {formatarReais(centavos)}</span> : <span className="val">{formatarReais(centavos)}</span>;
 }
 
+/**
+ * O par que lança: verde é entrada, marinho é o botão principal. Mora no topo
+ * no layout largo e no botão + flutuante na janela estreita, e por isso aceita
+ * uma classe a mais — o rótulo e a cor de cada um são os mesmos nos dois.
+ */
+export function BotoesDeLancar({
+  classe = "",
+  novaEntrada,
+  novoLancamento,
+}: {
+  classe?: string;
+  novaEntrada: () => void;
+  novoLancamento: () => void;
+}) {
+  return (
+    <>
+      <button type="button" className={`btn entrada ${classe}`} onClick={novaEntrada}>
+        + Entrada
+      </button>
+      <button type="button" className={`btn primario ${classe}`} onClick={novoLancamento}>
+        + Gasto
+      </button>
+    </>
+  );
+}
+
 /** "1 ocorrência", "3 ocorrências": o número com o substantivo que ele conta. */
 export const plural = (n: number, substantivo: string) => `${n} ${substantivo}${n === 1 ? "" : "s"}`;
 

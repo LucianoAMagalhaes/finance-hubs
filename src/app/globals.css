@@ -521,6 +521,7 @@ button {
   background: color-mix(in srgb, var(--in) 12%, transparent);
   white-space: nowrap;
 }
+
 /* ============ formulário como folha ============ */
 dialog.folha {
   border: 1px solid var(--line);
@@ -957,6 +958,15 @@ dialog.folha.lixeira {
 .puxador {
   display: none;
 }
+/* Os dois fundos que fecham ao toque: o da folha escurece a grade, o do menu não. */
+.fundo-do-flutuante,
+.fundo-da-folha {
+  position: fixed;
+  inset: 0;
+}
+.fundo-do-flutuante {
+  z-index: 190;
+}
 .flutuante {
   position: fixed;
   right: 16px;
@@ -985,12 +995,6 @@ dialog.folha.lixeira {
 }
 .flutuante.aberto .op {
   display: block;
-}
-/* Fecha o menu ao tocar em qualquer outro lugar, sem escurecer a tela. */
-.fundo-do-flutuante {
-  position: fixed;
-  inset: 0;
-  z-index: 190;
 }
 .puxador {
   width: 40px;
@@ -1073,8 +1077,10 @@ dialog.folha.lixeira {
     gap: 6px;
     border-radius: 14px;
   }
+  /* nome de tag é texto livre: sem quebrar, um nome comprido empurra a página */
   .cartao-topo {
     font-size: 12.5px;
+    overflow-wrap: anywhere;
   }
   .cartao-total {
     font-size: 19px;
@@ -1094,8 +1100,6 @@ dialog.folha.lixeira {
   /* o mestre-detalhe vira folha inferior: sobe sobre a grade e fecha tocando fora */
   .fundo-da-folha {
     display: block;
-    position: fixed;
-    inset: 0;
     z-index: 250;
     background: rgba(14, 23, 38, 0.45);
   }
@@ -1122,9 +1126,18 @@ dialog.folha.lixeira {
     padding: 16px;
     background: var(--surface);
   }
+  /* sticky é posicionado, então o × passa a se medir pelo cabeçalho, não pela folha */
   .detalhe header .fechar {
     top: 12px;
     right: 12px;
+  }
+  .detalhe h2 {
+    overflow-wrap: anywhere;
+  }
+  /* a pílula da tag abre mão do nowrap: a folha rola na vertical, nunca na horizontal */
+  .eixos-da-ocorrencia .pilula-tag {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .ocorrencia {
     grid-template-columns: 40px minmax(0, 1fr) auto;
