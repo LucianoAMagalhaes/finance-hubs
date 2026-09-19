@@ -1,12 +1,13 @@
-import type { Entrada, Estado, Mes, Percentuais } from "@/dominio";
+import type { Entrada, Estado, Lancamento, Mes, Percentuais } from "@/dominio";
 import type { Banco } from "./banco";
-import { entrada, orcamentoDoMes } from "./esquema";
+import { entrada, lancamento, orcamentoDoMes } from "./esquema";
 
 // Sem regra de negócio aqui: validar e derivar é do domínio. Este módulo só
 // traduz o estado para linhas e de volta.
 
 type LinhaOrcamento = typeof orcamentoDoMes.$inferSelect;
 type LinhaEntrada = typeof entrada.$inferSelect;
+type LinhaLancamento = typeof lancamento.$inferSelect;
 
 function paraPercentuais(linha: LinhaOrcamento): Percentuais {
   return {
@@ -39,13 +40,22 @@ function paraLinhaDeEntrada({ tipo, ...e }: Entrada): LinhaEntrada {
   return { ...e, tipoDePagamento: tipo };
 }
 
+function paraLancamento({ tipoDePagamento, ...linha }: LinhaLancamento): Lancamento {
+  return { ...linha, tipo: tipoDePagamento } as Lancamento;
+}
+
+function paraLinhaDeLancamento({ tipo, ...l }: Lancamento): LinhaLancamento {
+  return { ...l, tipoDePagamento: tipo };
+}
+
 export function carregarEstado({ db }: Banco): Estado {
   const orcamentos: Estado["orcamentos"] = {};
   for (const linha of db.select().from(orcamentoDoMes).all()) {
     orcamentos[linha.mes as Mes] = paraPercentuais(linha);
   }
   const entradas = db.select().from(entrada).orderBy(entrada.id).all().map(paraEntrada);
-  return { orcamentos, entradas };
+  const lancamentos = db.select().from(lancamento).orderBy(lancamento.id).all().map(paraLancamento);
+  return { orcamentos, entradas, lancamentos };
 }
 
 /**
@@ -66,6 +76,10 @@ export function gravarEstado({ db }: Banco, estado: Estado): void {
     for (const e of estado.entradas) {
       const linha = paraLinhaDeEntrada(e);
       tx.insert(entrada).values(linha).onConflictDoUpdate({ target: entrada.id, set: linha }).run();
+    }
+    for (const l of estado.lancamentos) {
+      const linha = paraLinhaDeLancamento(l);
+      tx.insert(lancamento).values(linha).onConflictDoUpdate({ target: lancamento.id, set: linha }).run();
     }
   });
 }

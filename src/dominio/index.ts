@@ -1,7 +1,7 @@
 // O módulo de domínio: puro, sem I/O, sem DOM, sem framework. Roda igual no
 // servidor e no navegador (ADR-0004). `hoje` sempre entra como parâmetro.
 export { aplicar, type Comando, type Resultado } from "./comandos";
-export { formatarReais, reaisParaCentavos, type Centavos } from "./dinheiro";
+export { centavosParaCampo, formatarReais, reaisParaCentavos, type Centavos } from "./dinheiro";
 export {
   ehFonte,
   FONTES,
@@ -12,6 +12,12 @@ export {
   type NovaEntrada,
 } from "./entradas";
 export { estadoVazio, type Estado } from "./estado";
+export {
+  type Lancamento,
+  type LancamentoASalvar,
+  type NovoLancamento,
+  type Ocorrencia,
+} from "./lancamentos";
 export {
   dataProposta,
   distanciaEntreMeses,
@@ -26,6 +32,7 @@ export {
 } from "./mes";
 export {
   ehTipoDeEntrada,
+  ehTipoDePagamento,
   nomeDoTipo,
   TIPOS_DE_ENTRADA,
   TIPOS_DE_PAGAMENTO,
@@ -33,6 +40,8 @@ export {
   type TipoDePagamento,
 } from "./pagamento";
 export {
+  ehPote,
+  nomeDoPote,
   PERCENTUAIS_PADRAO,
   POTES,
   somaDosPercentuais,

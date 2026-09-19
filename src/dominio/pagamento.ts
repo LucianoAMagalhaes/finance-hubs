@@ -11,6 +11,10 @@ export const TIPOS_DE_PAGAMENTO = [
 
 export type TipoDePagamento = (typeof TIPOS_DE_PAGAMENTO)[number]["id"];
 
+export function ehTipoDePagamento(id: unknown): id is TipoDePagamento {
+  return TIPOS_DE_PAGAMENTO.some((t) => t.id === id);
+}
+
 /** Os três tipos que creditam: os únicos que uma entrada aceita. */
 const IDS_DE_ENTRADA = ["dinheiro", "pix", "transferencia"] as const satisfies readonly TipoDePagamento[];
 

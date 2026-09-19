@@ -10,6 +10,14 @@ export const POTES = [
 
 export type PoteId = (typeof POTES)[number]["id"];
 
+export function ehPote(id: unknown): id is PoteId {
+  return POTES.some((p) => p.id === id);
+}
+
+export function nomeDoPote(id: PoteId): string {
+  return POTES.find((p) => p.id === id)!.nome;
+}
+
 /** Um inteiro de 0 a 100 por pote; os seis somam no máximo 100. */
 export type Percentuais = Record<PoteId, number>;
 

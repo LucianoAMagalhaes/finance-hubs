@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
+  centavosParaCampo,
   FONTES,
   reaisParaCentavos,
   TIPOS_DE_ENTRADA,
@@ -22,14 +23,11 @@ type Props = {
   fechar: () => void;
 };
 
-/** Centavos no formato que a pessoa digitaria: "7200,00". */
-const paraCampo = (centavos: number) => (centavos / 100).toFixed(2).replace(".", ",");
-
 export function FormularioDeEntrada({ entrada, dataProposta, salvar, fechar }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [data, setData] = useState<string>(entrada?.data ?? dataProposta);
   const [descricao, setDescricao] = useState(entrada?.descricao ?? "");
-  const [valor, setValor] = useState(entrada ? paraCampo(entrada.valor) : "");
+  const [valor, setValor] = useState(entrada ? centavosParaCampo(entrada.valor) : "");
   const [fonte, setFonte] = useState<FonteId>(entrada?.fonte ?? "salario");
   const [tipo, setTipo] = useState<TipoDeEntrada>(entrada?.tipo ?? "transferencia");
   const [erro, setErro] = useState<string | null>(null);

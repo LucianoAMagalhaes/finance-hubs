@@ -1,6 +1,7 @@
 import type { Centavos } from "./dinheiro";
 import type { Entrada } from "./entradas";
 import type { Estado } from "./estado";
+import { ocorrenciasNoMes, type Ocorrencia } from "./lancamentos";
 import { mesDaData, type Mes } from "./mes";
 import { PERCENTUAIS_PADRAO, POTES, somaDosPercentuais, type Percentuais, type PoteId } from "./potes";
 
@@ -22,6 +23,8 @@ export type PoteNaVista = {
   /** `percentual × receita`, exato (pode ter fração de centavo); null quando o mês não tem receita. */
   limite: number | null;
   veredito: Veredito;
+  /** O quanto o total passa do limite exato; 0 quando cabe, null quando o mês não tem receita. */
+  estouro: number | null;
 };
 
 export type AgregadosDoMes = {
@@ -48,6 +51,8 @@ export type VistaDoMes = {
   agregados: AgregadosDoMes;
   /** As entradas com data no mês, em ordem de data. */
   entradas: Entrada[];
+  /** As ocorrências dos lançamentos no mês, em ordem de data. */
+  ocorrencias: Ocorrencia[];
 };
 
 /**
@@ -58,14 +63,19 @@ export type VistaDoMes = {
 export function projetarMes(estado: Estado, mes: Mes, percentuaisEmEdicao?: Percentuais): VistaDoMes {
   const { percentuais: efetivos, ...orcamento } = percentuaisEfetivos(estado, mes);
   const percentuais = percentuaisEmEdicao ?? efetivos;
-  const entradas = estado.entradas
-    .filter((e) => mesDaData(e.data) === mes)
-    .sort((a, b) => (a.data === b.data ? a.id - b.id : a.data < b.data ? -1 : 1));
-  const receita = entradas.reduce((soma, e) => soma + e.valor, 0);
+  const entradas = emOrdemDeData(
+    estado.entradas.filter((e) => mesDaData(e.data) === mes),
+    (e) => e.id,
+  );
+  const ocorrencias = emOrdemDeData(
+    estado.lancamentos.flatMap((l) => ocorrenciasNoMes(l, mes)),
+    (o) => o.lancamento,
+  );
+  const receita = somar(entradas);
   // Sem receita, não há limite: um mês cuja receita ainda não se conhece não estoura.
   const limiteDe = (percentual: number) => (receita > 0 ? (percentual * receita) / 100 : null);
-  // Ainda não há lançamentos no estado: os totais dos potes são zero.
-  const despesas = 0;
+  const despesas = somar(ocorrencias);
+  const foraDoCartao = somar(ocorrencias.filter((o) => o.tipo !== "cartao-de-credito"));
   // Percentuais em edição podem passar de 100; o não alocado nunca é negativo.
   const naoAlocado = Math.max(0, 100 - somaDosPercentuais(percentuais));
   return {
@@ -73,21 +83,37 @@ export function projetarMes(estado: Estado, mes: Mes, percentuaisEmEdicao?: Perc
     orcamento,
     receita,
     potes: POTES.map((p) => {
-      const total = 0;
+      const total = somar(ocorrencias.filter((o) => o.pote === p.id));
       const limite = limiteDe(percentuais[p.id]);
+      // O estouro compara com o limite exato; só a exibição arredonda.
+      const estouro = limite === null ? null : Math.max(0, total - limite);
       return {
         id: p.id,
         nome: p.nome,
         percentual: percentuais[p.id],
         total,
         limite,
-        veredito: limite === null ? "sem-receita" : total > limite ? "estourou" : "sobra",
+        veredito: estouro === null ? "sem-receita" : estouro > 0 ? "estourou" : "sobra",
+        estouro,
       };
     }),
     naoAlocado: { percentual: naoAlocado, valor: limiteDe(naoAlocado) },
-    agregados: { receitas: receita, despesas, saldoDoMes: receita - despesas, saldoEmConta: receita },
+    agregados: {
+      receitas: receita,
+      despesas,
+      saldoDoMes: receita - despesas,
+      saldoEmConta: receita - foraDoCartao,
+    },
     entradas,
+    ocorrencias,
   };
+}
+
+const somar = (registros: { valor: Centavos }[]): Centavos => registros.reduce((soma, r) => soma + r.valor, 0);
+
+/** Em ordem de data; no mesmo dia, na ordem em que foram lançados. */
+function emOrdemDeData<T extends { data: string }>(registros: T[], idDe: (r: T) => number): T[] {
+  return registros.sort((a, b) => (a.data === b.data ? idDe(a) - idDe(b) : a.data < b.data ? -1 : 1));
 }
 
 function percentuaisEfetivos(estado: Estado, mes: Mes): OrcamentoNaVista & { percentuais: Percentuais } {

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { aplicar, estadoVazio, POTES, projetarMes, type Comando, type Estado, type Percentuais } from "@/dominio";
+import { aplicar, estadoVazio, POTES, projetarMes, type Comando, type Estado, type Percentuais, type PoteId } from "@/dominio";
 import { abrirBanco, carregarEstado, gravarEstado, type Banco } from "@/persistencia";
 
 let pasta: string;
@@ -101,6 +101,34 @@ describe("persistência", () => {
     expect(recarregado.orcamentos["2026-09"]).toEqual(pcts(30, 25, 15, 15, 10, 5));
   });
 
+  it("um lançamento à vista, inclusive negativo, volta idêntico ao recarregar", () => {
+    let estado = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
+    estado = aplicarOk(estado, salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 42_050 }));
+    estado = aplicarOk(estado, salvarLancamento({ data: "2026-09-19", pote: "conforto", valor: -29_790 }));
+    estado = aplicarOk(estado, salvarLancamento({ data: "2026-10-02", pote: "metas", valor: 10_000 }));
+    gravarEstado(abrir(), estado);
+
+    const recarregado = carregarEstado(abrir());
+
+    expect(recarregado).toEqual(estado);
+    for (const mes of ["2026-09", "2026-10"] as const) {
+      expect(projetarMes(recarregado, mes)).toEqual(projetarMes(estado, mes));
+    }
+    expect(recarregado.orcamentos["2026-10"]).toBeDefined();
+  });
+
+  it("corrigir um lançamento grava a mudança", () => {
+    const banco = abrir();
+    const antes = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 42_050 }));
+    gravarEstado(banco, antes);
+    const id = antes.lancamentos[0]!.id;
+
+    const depois = aplicarOk(carregarEstado(banco), salvarLancamento({ id, data: "2026-09-12", pote: "metas", valor: -500 }));
+    gravarEstado(banco, depois);
+
+    expect(carregarEstado(abrir())).toEqual(depois);
+  });
+
   it("o orçamento nascido e a entrada entram na mesma transação: ou os dois, ou nenhum", () => {
     const estado = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
     // Uma entrada que o banco recusa (descrição nula), gravada depois do orçamento.
@@ -116,6 +144,18 @@ function salvarEntrada(campos: { id?: number; data: `${number}-${number}-${numbe
   return {
     tipo: "salvar-entrada",
     entrada: { descricao: "Salário", fonte: "salario", tipo: "transferencia", valor: 720_000, ...campos },
+  };
+}
+
+function salvarLancamento(campos: {
+  id?: number;
+  data: `${number}-${number}-${number}`;
+  pote: PoteId;
+  valor: number;
+}): Comando {
+  return {
+    tipo: "salvar-lancamento",
+    lancamento: { descricao: "Restaurante", tipo: "cartao-de-credito", parcelas: 1, ...campos },
   };
 }
 

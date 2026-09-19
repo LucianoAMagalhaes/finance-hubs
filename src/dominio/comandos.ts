@@ -1,8 +1,9 @@
-import { ehFonte, type Entrada, type EntradaASalvar } from "./entradas";
+import { ehFonte, type EntradaASalvar } from "./entradas";
 import type { Estado } from "./estado";
+import type { LancamentoASalvar } from "./lancamentos";
 import { ehDataValida, ehMesValido, mesDaData, type Data, type Mes } from "./mes";
-import { ehTipoDeEntrada } from "./pagamento";
-import { validarPercentuais, type Percentuais } from "./potes";
+import { ehTipoDeEntrada, ehTipoDePagamento } from "./pagamento";
+import { ehPote, validarPercentuais, type Percentuais } from "./potes";
 import { herdaria } from "./projecao";
 
 /**
@@ -10,6 +11,7 @@ import { herdaria } from "./projecao";
  */
 export type Comando =
   | { tipo: "salvar-entrada"; entrada: EntradaASalvar }
+  | { tipo: "salvar-lancamento"; lancamento: LancamentoASalvar }
   | { tipo: "salvar-percentuais"; mes: Mes; percentuais: Percentuais };
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
@@ -22,6 +24,8 @@ export function aplicar(estado: Estado, comando: Comando, _hoje: Data): Resultad
   switch (comando.tipo) {
     case "salvar-entrada":
       return salvarEntrada(estado, comando.entrada);
+    case "salvar-lancamento":
+      return salvarLancamento(estado, comando.lancamento);
     case "salvar-percentuais":
       return salvarPercentuais(estado, comando.mes, comando.percentuais);
   }
@@ -42,18 +46,30 @@ function salvarPercentuais(estado: Estado, mes: Mes, percentuais: Percentuais): 
 function salvarEntrada(estado: Estado, dados: EntradaASalvar): Resultado<Estado> {
   const erro = validarEntrada(dados);
   if (erro) return { ok: false, erro };
+  const entradas = gravarNaLista(estado.entradas, { ...dados, descricao: dados.descricao.trim() });
+  if (!entradas) return { ok: false, erro: "Essa entrada não existe mais." };
+  return { ok: true, valor: nascer({ ...estado, entradas }, mesDaData(dados.data)) };
+}
 
-  const { id, ...campos } = dados;
-  const limpa = { ...campos, descricao: campos.descricao.trim() };
-  let entradas: Entrada[];
+function salvarLancamento(estado: Estado, dados: LancamentoASalvar): Resultado<Estado> {
+  const erro = validarLancamento(dados);
+  if (erro) return { ok: false, erro };
+  const lancamentos = gravarNaLista(estado.lancamentos, { ...dados, descricao: dados.descricao.trim() });
+  if (!lancamentos) return { ok: false, erro: "Esse lançamento não existe mais." };
+  return { ok: true, valor: nascer({ ...estado, lancamentos }, mesDaData(dados.data)) };
+}
+
+/**
+ * Sem id, acrescenta com o próximo id; com id, troca o registro que o tem.
+ * Null quando o id não existe mais.
+ */
+function gravarNaLista<T extends { id: number }>(lista: T[], { id, ...campos }: Omit<T, "id"> & { id?: number }): T[] | null {
   if (id === undefined) {
-    const proximo = Math.max(0, ...estado.entradas.map((e) => e.id)) + 1;
-    entradas = [...estado.entradas, { id: proximo, ...limpa }];
-  } else {
-    if (!estado.entradas.some((e) => e.id === id)) return { ok: false, erro: "Essa entrada não existe mais." };
-    entradas = estado.entradas.map((e) => (e.id === id ? { id, ...limpa } : e));
+    const proximo = Math.max(0, ...lista.map((r) => r.id)) + 1;
+    return [...lista, { id: proximo, ...campos } as T];
   }
-  return { ok: true, valor: nascer({ ...estado, entradas }, mesDaData(limpa.data)) };
+  if (!lista.some((r) => r.id === id)) return null;
+  return lista.map((r) => (r.id === id ? ({ id, ...campos } as T) : r));
 }
 
 // O comando chega do navegador: nenhum campo é confiado ao tipo.
@@ -65,6 +81,17 @@ function validarEntrada(e: EntradaASalvar): string | null {
   if (!Number.isInteger(e.valor) || e.valor <= 0) {
     return "Entrada tem valor positivo. Dinheiro de volta de um lançamento é reembolso, no pote de origem.";
   }
+  return null;
+}
+
+function validarLancamento(l: LancamentoASalvar): string | null {
+  if (typeof l.data !== "string" || !ehDataValida(l.data)) return "Informe uma data válida.";
+  if (typeof l.descricao !== "string" || !l.descricao.trim()) return "Informe uma descrição.";
+  if (!ehPote(l.pote)) return "Escolha um dos seis potes.";
+  if (!ehTipoDePagamento(l.tipo)) return "Escolha um tipo de pagamento.";
+  if (!Number.isInteger(l.valor) || l.valor === 0) return "Informe um valor diferente de zero, em centavos inteiros.";
+  // Por enquanto só existe o à vista; o parcelado chega no seu próprio ticket.
+  if (l.parcelas !== 1) return "Só o à vista pode ser lançado por enquanto.";
   return null;
 }
 

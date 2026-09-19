@@ -8,6 +8,7 @@ import {
   mesDaData,
   nomeDaFonte,
   nomeDoMes,
+  nomeDoPote,
   nomeDoTipo,
   projetarMes,
   somarMeses,
@@ -18,7 +19,10 @@ import {
   type Entrada,
   type EntradaASalvar,
   type Estado,
+  type Lancamento,
+  type LancamentoASalvar,
   type Mes,
+  type Ocorrencia,
   type Percentuais,
   type PoteNaVista,
   type VistaDoMes,
@@ -27,11 +31,12 @@ import { executar } from "@/servidor/acoes";
 import { AlternadorDeTema } from "./AlternadorDeTema";
 import { EditorDePercentuais, percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./EditorDePercentuais";
 import { FormularioDeEntrada } from "./FormularioDeEntrada";
+import { FormularioDeLancamento } from "./FormularioDeLancamento";
 
 type Props = { estadoInicial: Estado; hoje: Data };
 
-/** O formulário aberto: uma entrada nova, ou a que se corrige. */
-type Formulario = { entrada: Entrada | null };
+/** O formulário aberto: um registro novo (null), ou o que se corrige. */
+type Formulario = { registro: "entrada"; entrada: Entrada | null } | { registro: "lancamento"; lancamento: Lancamento | null };
 
 /** Depois de salvar algo com data em outro mês, a tela fica onde está e aponta para lá. */
 type Aviso = { texto: string; mes: Mes };
@@ -70,14 +75,24 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
     return null;
   }
 
-  async function salvarEntrada(entrada: EntradaASalvar, rotulo: string): Promise<string | null> {
-    const erro = await mandar({ tipo: "salvar-entrada", entrada });
+  /** Salva uma entrada ou um lançamento e, se a data cai em outro mês, avisa sem sair deste. */
+  async function salvarRegistro(comando: Comando, data: Data, rotulo: string): Promise<string | null> {
+    const erro = await mandar(comando);
     if (erro) return erro;
     setFormulario(null);
-    const destino = mesDaData(entrada.data);
+    const destino = mesDaData(data);
     setAviso(destino === mes ? null : { texto: `${rotulo} em ${nomeDoMes(destino)}.`, mes: destino });
     return null;
   }
+
+  const salvarEntrada = (entrada: EntradaASalvar, rotulo: string) =>
+    salvarRegistro({ tipo: "salvar-entrada", entrada }, entrada.data, rotulo);
+
+  const salvarLancamento = (lancamento: LancamentoASalvar, rotulo: string) =>
+    salvarRegistro({ tipo: "salvar-lancamento", lancamento }, lancamento.data, rotulo);
+
+  const novaEntrada = () => setFormulario({ registro: "entrada", entrada: null });
+  const novoLancamento = () => setFormulario({ registro: "lancamento", lancamento: null });
 
   async function salvarPercentuais(percentuais: Percentuais): Promise<string | null> {
     const erro = await mandar({ tipo: "salvar-percentuais", mes, percentuais });
@@ -113,8 +128,11 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         </div>
         <div className="acoes">
           <AlternadorDeTema />
-          <button type="button" className="btn entrada" onClick={() => setFormulario({ entrada: null })}>
+          <button type="button" className="btn entrada" onClick={novaEntrada}>
             + Entrada
+          </button>
+          <button type="button" className="btn primario" onClick={novoLancamento}>
+            + Gasto
           </button>
         </div>
       </header>
@@ -168,18 +186,36 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
       )}
       <GradeDePotes vista={vista} />
 
+      <Secao titulo="Gastos do mês">
+        <button type="button" className="btn primario" onClick={novoLancamento}>
+          + Gasto
+        </button>
+      </Secao>
+      <ListaDeOcorrencias
+        vista={vista}
+        abrir={(o) => setFormulario({ registro: "lancamento", lancamento: estado.lancamentos.find((l) => l.id === o.lancamento)! })}
+      />
+
       <Secao titulo="Entradas do mês">
-        <button type="button" className="btn entrada" onClick={() => setFormulario({ entrada: null })}>
+        <button type="button" className="btn entrada" onClick={novaEntrada}>
           + Entrada
         </button>
       </Secao>
-      <ListaDeEntradas vista={vista} abrir={(entrada) => setFormulario({ entrada })} />
+      <ListaDeEntradas vista={vista} abrir={(entrada) => setFormulario({ registro: "entrada", entrada })} />
 
-      {formulario && (
+      {formulario?.registro === "entrada" && (
         <FormularioDeEntrada
           entrada={formulario.entrada}
           dataProposta={dataProposta(mes, hoje)}
           salvar={(entrada) => salvarEntrada(entrada, formulario.entrada ? "Entrada salva" : "Entrada lançada")}
+          fechar={() => setFormulario(null)}
+        />
+      )}
+      {formulario?.registro === "lancamento" && (
+        <FormularioDeLancamento
+          lancamento={formulario.lancamento}
+          dataProposta={dataProposta(mes, hoje)}
+          salvar={(lancamento) => salvarLancamento(lancamento, formulario.lancamento ? "Gasto salvo" : "Gasto lançado")}
           fechar={() => setFormulario(null)}
         />
       )}
@@ -221,10 +257,56 @@ function FaixaDeAgregados({ agregados, entradas }: { agregados: AgregadosDoMes; 
   );
 }
 
+/** As ocorrências do mês, com o pote como coluna. Clicar abre o lançamento de onde ela vem. */
+function ListaDeOcorrencias({ vista, abrir }: { vista: VistaDoMes; abrir: (ocorrencia: Ocorrencia) => void }) {
+  return (
+    <div className="tabela">
+      <div className="linha cabecalho" aria-hidden>
+        <span>Data</span>
+        <span>Descrição</span>
+        <span>Pote</span>
+        <span>Tipo</span>
+        <span className="direita">Valor</span>
+      </div>
+      {vista.ocorrencias.map((o) => (
+        <button type="button" key={o.lancamento} className="linha clicavel" onClick={() => abrir(o)} title="Corrigir o gasto">
+          <span className="data num">
+            {o.data.slice(8)}/{o.data.slice(5, 7)}
+          </span>
+          <span>{o.descricao}</span>
+          <span style={{ "--pote": `var(--p-${o.pote})` } as CSSProperties}>
+            <span className="quadrado" />
+            {nomeDoPote(o.pote)}
+          </span>
+          <span className="tipo">{nomeDoTipo(o.tipo)}</span>
+          <span className="direita num">
+            <Valor centavos={o.valor} />
+          </span>
+        </button>
+      ))}
+      {vista.ocorrencias.length === 0 && (
+        <div className="linha vazia">
+          <span />
+          <span>Nenhum gasto neste mês.</span>
+        </div>
+      )}
+      <div className="linha rodape">
+        <span />
+        <span>Despesas do mês</span>
+        <span />
+        <span />
+        <span className="direita num">
+          <Valor centavos={vista.agregados.despesas} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** As entradas do mês, com a fonte como coluna. Fonte não tem drill-down (ADR-0003). */
 function ListaDeEntradas({ vista, abrir }: { vista: VistaDoMes; abrir: (entrada: Entrada) => void }) {
   return (
-    <div className="tabela-entradas">
+    <div className="tabela">
       <div className="linha cabecalho" aria-hidden>
         <span>Data</span>
         <span>Descrição</span>
@@ -274,8 +356,9 @@ function GradeDePotes({ vista }: { vista: VistaDoMes }) {
 
 function CartaoDoPote({ pote }: { pote: PoteNaVista }) {
   const semLimite = pote.limite === null;
+  const classe = semLimite ? "sem-limite" : pote.veredito === "estourou" ? "estourou" : "";
   return (
-    <article className={`cartao pote ${semLimite ? "sem-limite" : ""}`} style={{ "--pote": `var(--p-${pote.id})` } as CSSProperties}>
+    <article className={`cartao pote ${classe}`} style={{ "--pote": `var(--p-${pote.id})` } as CSSProperties}>
       <div className="cartao-topo">
         <span>
           <span className="quadrado" />
@@ -286,7 +369,7 @@ function CartaoDoPote({ pote }: { pote: PoteNaVista }) {
       <div className="cartao-total num">
         <Valor centavos={pote.total} />
       </div>
-      <div className="barra" />
+      <Barra pote={pote} />
       <div className="cartao-pe">
         <Veredito pote={pote} />
         <span className="lim">{semLimite ? "sem limite" : `limite ${formatarReais(pote.limite!)}`}</span>
@@ -295,14 +378,31 @@ function CartaoDoPote({ pote }: { pote: PoteNaVista }) {
   );
 }
 
+/**
+ * A barra do pote: o total contra o limite. Quando o total passa do limite, a
+ * escala vira o total e a marca vertical mostra onde o limite ficou.
+ */
+function Barra({ pote }: { pote: PoteNaVista }) {
+  if (pote.limite === null) return <div className="barra" />;
+  const saiu = Math.max(pote.total, 0);
+  const escala = Math.max(pote.limite, saiu);
+  const fracao = (v: number) => (escala > 0 ? (v / escala) * 100 : 0);
+  return (
+    <div className="barra">
+      <i style={{ width: `${fracao(saiu)}%` }} />
+      <b style={{ left: `calc(${fracao(pote.limite)}% - 1px)` }} />
+    </div>
+  );
+}
+
 function Veredito({ pote }: { pote: PoteNaVista }) {
   switch (pote.veredito) {
     case "sem-receita":
       return <span className="selo nenhum">— Sem receita</span>;
     case "sobra":
-      return <span className="selo sobra">✓ Sobra</span>;
+      return <span className="selo sobra">✓ Sobra {formatarReais(pote.limite! - pote.total)}</span>;
     case "estourou":
-      return <span className="selo estourou">▲ Estourou</span>;
+      return <span className="selo estourou">▲ Estourou {formatarReais(pote.estouro!)}</span>;
   }
 }
 

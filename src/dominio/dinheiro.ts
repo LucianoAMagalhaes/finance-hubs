@@ -24,6 +24,11 @@ export function reaisParaCentavos(texto: string): Centavos | null {
   return Number(inteiro.replace(/\./g, "")) * 100 + Number(fracao.padEnd(2, "0"));
 }
 
+/** Centavos no formato que a pessoa digitaria num campo: "7200,00". */
+export function centavosParaCampo(centavos: Centavos): string {
+  return (centavos / 100).toFixed(2).replace(".", ",");
+}
+
 /**
  * "R$ 1.234,56", ou "− R$ 297,90" para negativo. Aceita fração de centavo (um
  * limite exato) e só arredonda aqui, na exibição.

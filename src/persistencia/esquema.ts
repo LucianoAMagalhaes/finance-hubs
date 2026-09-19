@@ -23,3 +23,17 @@ export const entrada = sqliteTable("entrada", {
   /** Centavos inteiros, sempre positivo. */
   valor: integer("valor").notNull(),
 });
+
+/** Um gasto (ADR-0003). Grava o total da compra; as ocorrências são derivadas (ADR-0002). */
+export const lancamento = sqliteTable("lancamento", {
+  id: integer("id").primaryKey(),
+  /** "AAAA-MM-DD" */
+  data: text("data").notNull(),
+  descricao: text("descricao").notNull(),
+  pote: text("pote").notNull(),
+  tipoDePagamento: text("tipo_de_pagamento").notNull(),
+  /** Centavos inteiros do total; negativo quando é reembolso. */
+  valor: integer("valor").notNull(),
+  /** 1 é à vista. */
+  parcelas: integer("parcelas").notNull(),
+});
