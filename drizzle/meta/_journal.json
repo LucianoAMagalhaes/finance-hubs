@@ -36,6 +36,13 @@
       "when": 1789844704322,
       "tag": "0004_lixeira",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789847627553,
+      "tag": "0005_recorrente",
+      "breakpoints": true
     }
   ]
 }

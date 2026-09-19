@@ -86,9 +86,10 @@ _Avoid_: Adiantamento, quitação, ajuste
 
 **Recorrência**:
 Um lançamento cujo valor se **repete** todo mês em vez de ser **dividido** entre meses, sem fim
-até ser apagado. Mudá-lo num mês vale dali para frente, até a próxima mudança; apagá-lo num mês
-apaga dali para frente — é assim que um recorrente termina. Não existe pular um mês só: quem
-pausa encerra e lança de novo.
+até ser encerrado. Mudá-lo num mês vale dali para frente, até a próxima mudança; **encerrá-lo**
+num mês apaga dali para frente — é assim que um recorrente termina —, e encerrar no mês de início
+o manda inteiro para a lixeira. Não existe pular um mês só: quem pausa encerra e lança de novo.
+Não vira compra (à vista ou parcelado), nem o contrário: apaga e lança de novo.
 _Avoid_: Assinatura, gasto fixo
 
 **Vigência**:
@@ -131,7 +132,8 @@ _Avoid_: Excesso, furo, overflow
 Para onde vai uma entrada ou um lançamento apagado. É uma marca no registro, com o dia em que foi
 apagado, não uma remoção: o registro volta intacto ao ser restaurado. Na lixeira ele não gera
 receita nem ocorrência, e não pode ser corrigido sem antes voltar. Apagar nunca leva o orçamento
-do mês junto, e a lixeira não se esvazia: nada é destruído de vez.
+do mês junto, e a lixeira não se esvazia: nada é destruído de vez. A única exceção são as
+vigências que um encerramento descarta: elas somem de vez, sem passar pela lixeira.
 _Avoid_: Excluídos, arquivo, histórico
 
 ### Os agregados do mês

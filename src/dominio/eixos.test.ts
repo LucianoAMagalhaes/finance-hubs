@@ -11,6 +11,7 @@ import {
   todosOsGastos,
   TIPOS_DE_PAGAMENTO,
   type Comando,
+  type Compra,
   type Data,
   type Eixo,
   type Estado,
@@ -30,7 +31,7 @@ describe("tag do lançamento", () => {
     const tags = grupos(projetarMes(estado, "2026-09"), "tag");
 
     expect(tags.map((g) => [g.nome, g.total])).toEqual([["#saúde-mental", 15_000]]);
-    expect(estado.lancamentos.map((l) => l.tag)).toEqual(["saúde-mental", "saúde-mental"]);
+    expect(estado.lancamentos.map((l) => (l as Compra).tag)).toEqual(["saúde-mental", "saúde-mental"]);
   });
 
   it.each([
@@ -42,7 +43,7 @@ describe("tag do lançamento", () => {
   ])("%j é gravada como %j", (digitada, gravada) => {
     const estado = salvar(estadoVazio(), gasto({ tag: digitada }));
 
-    expect(estado.lancamentos[0]!.tag).toBe(gravada);
+    expect(estado.lancamentos[0]).toMatchObject({ tag: gravada });
   });
 
   it("acento é preservado: \"saude\" e \"saúde\" são tags diferentes", () => {
@@ -57,7 +58,7 @@ describe("tag do lançamento", () => {
     (_, tag) => {
       const estado = salvar(estadoVazio(), gasto({ tag }));
 
-      expect(estado.lancamentos[0]!.tag).toBeNull();
+      expect(estado.lancamentos[0]).toMatchObject({ tag: null });
     },
   );
 
@@ -69,8 +70,8 @@ describe("tag do lançamento", () => {
     const estado = salvar(estadoVazio(), gasto({ tag: "uber" }));
     const id = estado.lancamentos[0]!.id;
 
-    expect(salvar(estado, { ...gasto({ tag: "Transporte" }), id }).lancamentos[0]!.tag).toBe("transporte");
-    expect(salvar(estado, { ...gasto({ tag: "" }), id }).lancamentos[0]!.tag).toBeNull();
+    expect(salvar(estado, { ...gasto({ tag: "Transporte" }), id }).lancamentos[0]).toMatchObject({ tag: "transporte" });
+    expect(salvar(estado, { ...gasto({ tag: "" }), id }).lancamentos[0]).toMatchObject({ tag: null });
   });
 
   it("a ocorrência leva a tag do lançamento", () => {

@@ -13,11 +13,11 @@ export function normalizarTag(texto: string): string | null {
 }
 
 /**
- * As tags que algum lançamento fora da lixeira usa, sem repetir, em ordem
- * alfabética: uma tag existe enquanto é usada.
+ * As tags que algum lançamento fora da lixeira usa, em qualquer vigência de um
+ * recorrente, sem repetir, em ordem alfabética: uma tag existe enquanto é usada.
  */
 export function tagsEmUso(estado: Estado): string[] {
-  return tagsDistintas(vivos(estado.lancamentos));
+  return tagsDistintas(vivos(estado.lancamentos).flatMap<{ tag: string | null }>((l) => (l.forma === "compra" ? [l] : l.vigencias)));
 }
 
 /** As tags de uma lista de lançamentos ou ocorrências, sem repetir, em ordem alfabética. */

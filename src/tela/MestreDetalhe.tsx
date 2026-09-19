@@ -3,6 +3,7 @@
 import {
   formatarReais,
   grupos,
+  nomeDoMes,
   nomeDoPote,
   nomeDoTipo,
   todosOsGastos,
@@ -218,6 +219,12 @@ function Detalhe({ vista, grupo, eixo, fechar, abrirOcorrencia }: PropsDoDetalhe
             {o.parcela && (
               <span className="anotacao num">
                 ⤷ {o.parcela.numero}/{o.parcela.de} de {formatarReais(o.parcela.total)}
+              </span>
+            )}
+            {o.recorrente && (
+              <span className="anotacao">
+                ⤷ recorrente desde {nomeDoMes(o.recorrente.desde)}
+                {o.recorrente.vigenciaDesde !== o.recorrente.desde && ` · valor desde ${nomeDoMes(o.recorrente.vigenciaDesde)}`}
               </span>
             )}
           </span>

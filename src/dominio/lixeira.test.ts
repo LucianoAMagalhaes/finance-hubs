@@ -138,7 +138,7 @@ describe("lixeira", () => {
     const estado: Estado = {
       ...estadoVazio(),
       lancamentos: [
-        { id: 1, data: "2026-09-12", descricao: "Café", pote: "conforto", tipo: "pix", valor: 1_000, parcelas: 1, tag: null, apagadoEm: null },
+        { id: 1, forma: "compra", data: "2026-09-12", descricao: "Café", pote: "conforto", tipo: "pix", valor: 1_000, parcelas: 1, tag: null, apagadoEm: null },
       ],
     };
 

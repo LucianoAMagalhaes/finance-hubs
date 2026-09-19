@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
   formatarReais,
+  inicioDe,
   mesDaData,
   nomeDaFonte,
   nomeDoMes,
   nomeDoPote,
   type Data,
   type ItemNaLixeira,
+  type Lancamento,
   type Registro,
 } from "@/dominio";
 import { Valor } from "./pecas";
@@ -86,7 +88,11 @@ export function Lixeira({ itens, restaurar, fechar }: Props) {
   );
 }
 
-const descricaoDe = (item: ItemNaLixeira) => (item.registro === "entrada" ? item.entrada : item.lancamento).descricao;
+const descricaoDe = (item: ItemNaLixeira) =>
+  item.registro === "entrada" ? item.entrada.descricao : camposDe(item.lancamento).descricao;
+
+/** O que o lançamento mostra: a compra, ou a última vigência do recorrente. */
+const camposDe = (l: Lancamento) => (l.forma === "compra" ? l : l.vigencias.at(-1)!);
 
 /** Que registro é, e em que mês pesa quando volta. */
 function ondeCai(item: ItemNaLixeira): string {
@@ -95,13 +101,18 @@ function ondeCai(item: ItemNaLixeira): string {
     return `Entrada · ${nomeDaFonte(e.fonte)} · ${nomeDoMes(mesDaData(e.data))}`;
   }
   const l = item.lancamento;
-  const forma = l.parcelas > 1 ? `${l.parcelas}× a partir de ${nomeDoMes(mesDaData(l.data))}` : nomeDoMes(mesDaData(l.data));
-  return `Gasto · ${nomeDoPote(l.pote)} · ${forma}`;
+  const forma =
+    l.forma === "recorrente"
+      ? `recorrente desde ${nomeDoMes(inicioDe(l))}${l.encerradoEm ? `, encerrado em ${nomeDoMes(l.encerradoEm)}` : ""}`
+      : l.parcelas > 1
+        ? `${l.parcelas}× a partir de ${nomeDoMes(mesDaData(l.data))}`
+        : nomeDoMes(mesDaData(l.data));
+  return `Gasto · ${nomeDoPote(camposDe(l).pote)} · ${forma}`;
 }
 
 function valorDe(item: ItemNaLixeira) {
   if (item.registro === "entrada") return <span className="val entrada">+ {formatarReais(item.entrada.valor)}</span>;
-  return <Valor centavos={item.lancamento.valor} />;
+  return <Valor centavos={camposDe(item.lancamento).valor} />;
 }
 
 const dataCurta = (data: Data) => `${data.slice(8)}/${data.slice(5, 7)}/${data.slice(0, 4)}`;

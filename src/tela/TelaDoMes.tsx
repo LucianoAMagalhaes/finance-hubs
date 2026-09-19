@@ -22,7 +22,6 @@ import {
   type EntradaASalvar,
   type Estado,
   type Lancamento,
-  type LancamentoASalvar,
   type Mes,
   type Ocorrencia,
   type Percentuais,
@@ -85,21 +84,24 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
     return null;
   }
 
-  /** Salva uma entrada ou um lançamento e, se a data cai em outro mês, avisa sem sair deste. */
-  async function salvarRegistro(comando: Comando, data: Data, rotulo: string): Promise<string | null> {
+  /** Salva uma entrada ou um lançamento e, se ele pesa a partir de outro mês, avisa sem sair deste. */
+  async function salvarRegistro(comando: Comando, destino: Mes, rotulo: string): Promise<string | null> {
     const erro = await mandar(comando);
     if (erro) return erro;
     setFormulario(null);
-    const destino = mesDaData(data);
     setAviso(destino === mes ? null : { texto: `${rotulo} em ${nomeDoMes(destino)}.`, mes: destino });
     return null;
   }
 
   const salvarEntrada = (entrada: EntradaASalvar, rotulo: string) =>
-    salvarRegistro({ tipo: "salvar-entrada", entrada }, entrada.data, rotulo);
+    salvarRegistro({ tipo: "salvar-entrada", entrada }, mesDaData(entrada.data), rotulo);
 
-  const salvarLancamento = (lancamento: LancamentoASalvar, rotulo: string) =>
-    salvarRegistro({ tipo: "salvar-lancamento", lancamento }, lancamento.data, rotulo);
+  /** Encerrar fecha o formulário, como apagar; no mês de início, o recorrente vai para a lixeira. */
+  async function encerrar(id: number): Promise<string | null> {
+    const erro = await mandar({ tipo: "encerrar-recorrente", id, mes });
+    if (!erro) setFormulario(null);
+    return erro;
+  }
 
   /** Apagar manda para a lixeira e fecha o formulário; os meses afetados recalculam com o estado novo. */
   async function apagar(registro: Registro, id: number): Promise<string | null> {
@@ -246,10 +248,12 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
       {formulario?.registro === "lancamento" && (
         <FormularioDeLancamento
           lancamento={formulario.lancamento}
+          mes={mes}
           tags={tagsEmUso(estado)}
           dataProposta={dataProposta(mes, hoje)}
-          salvar={(lancamento) => salvarLancamento(lancamento, formulario.lancamento ? "Gasto salvo" : "Gasto lançado")}
+          salvar={(comando, destino) => salvarRegistro(comando, destino, formulario.lancamento ? "Gasto salvo" : "Gasto lançado")}
           apagar={() => apagar("lancamento", formulario.lancamento!.id)}
+          encerrar={() => encerrar(formulario.lancamento!.id)}
           fechar={() => setFormulario(null)}
         />
       )}

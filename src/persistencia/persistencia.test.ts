@@ -2,7 +2,20 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { aplicar, estadoVazio, POTES, projetarMes, type Comando, type Estado, type Percentuais, type PoteId } from "@/dominio";
+import {
+  aplicar,
+  estadoVazio,
+  POTES,
+  projetarMes,
+  type Comando,
+  type Compra,
+  type Estado,
+  type Mes,
+  type Percentuais,
+  type PoteId,
+  type Recorrente,
+  type VigenciaASalvar,
+} from "@/dominio";
 import { abrirBanco, carregarEstado, gravarEstado, type Banco } from "@/persistencia";
 
 let pasta: string;
@@ -154,7 +167,7 @@ describe("persistência", () => {
 
     const recarregado = carregarEstado(abrir());
 
-    expect(recarregado.lancamentos.map((l) => l.tag)).toEqual(["saúde-mental", null]);
+    expect(recarregado.lancamentos.map((l) => (l as Compra).tag)).toEqual(["saúde-mental", null]);
     expect(recarregado).toEqual(estado);
     expect(projetarMes(recarregado, "2026-09")).toEqual(projetarMes(estado, "2026-09"));
   });
@@ -186,6 +199,70 @@ describe("persistência", () => {
     expect(carregarEstado(abrir()).lancamentos[0]!.apagadoEm).toBeNull();
   });
 
+  it("um recorrente com várias vigências, inclusive encerrado ou reembolso, volta idêntico ao recarregar", () => {
+    let estado = aplicarOk(estadoVazio(), criarRecorrente({ data: "2026-01-31", valor: 150_000, tag: "casa" }));
+    estado = aplicarOk(estado, mudarRecorrente(1, "2026-03", { valor: 155_000, pote: "metas", tag: null }));
+    estado = aplicarOk(estado, mudarRecorrente(1, "2026-07", { valor: 165_000, tag: "#Moradia" }));
+    estado = aplicarOk(estado, criarRecorrente({ data: "2026-02-10", valor: -2_000 }));
+    estado = aplicarOk(estado, { tipo: "encerrar-recorrente", id: 2, mes: "2026-06" });
+    gravarEstado(abrir(), estado);
+
+    const recarregado = carregarEstado(abrir());
+
+    expect(recarregado).toEqual(estado);
+    for (const mes of ["2026-01", "2026-02", "2026-03", "2026-05", "2026-06", "2026-07", "2030-02"] as const) {
+      expect(projetarMes(recarregado, mes)).toEqual(projetarMes(estado, mes));
+    }
+    expect(projetarMes(recarregado, "2028-02").ocorrencias.map((o) => [o.data, o.valor, o.tag])).toEqual([["2028-02-29", 165_000, "moradia"]]);
+  });
+
+  it("compras e recorrentes voltam na ordem em que foram lançados", () => {
+    let estado = aplicarOk(estadoVazio(), salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 1_000 }));
+    estado = aplicarOk(estado, criarRecorrente({ data: "2026-09-05" }));
+    estado = aplicarOk(estado, salvarLancamento({ data: "2026-09-13", pote: "conforto", valor: 2_000 }));
+    gravarEstado(abrir(), estado);
+
+    expect(carregarEstado(abrir()).lancamentos.map((l) => [l.id, l.forma])).toEqual([
+      [1, "compra"],
+      [2, "recorrente"],
+      [3, "compra"],
+    ]);
+  });
+
+  it("encerrar grava o fim e apaga do banco as vigências descartadas", () => {
+    const banco = abrir();
+    let antes = aplicarOk(estadoVazio(), criarRecorrente({ data: "2026-01-05" }));
+    antes = aplicarOk(antes, mudarRecorrente(1, "2026-10", { valor: 11_000 }));
+    antes = aplicarOk(antes, mudarRecorrente(1, "2026-12", { valor: 12_000 }));
+    gravarEstado(banco, antes);
+
+    const depois = aplicarOk(carregarEstado(banco), { tipo: "encerrar-recorrente", id: 1, mes: "2026-09" });
+    gravarEstado(banco, depois);
+
+    const recarregado = carregarEstado(abrir());
+    expect(recarregado).toEqual(depois);
+    expect(projetarMes(recarregado, "2026-12").ocorrencias).toEqual([]);
+  });
+
+  it("encerrar é gravado numa transação só: se uma linha falha, o fim e as vigências ficam como estavam", () => {
+    const banco = abrir();
+    let antes = aplicarOk(estadoVazio(), criarRecorrente({ data: "2026-01-05" }));
+    antes = aplicarOk(antes, mudarRecorrente(1, "2026-05", { valor: 11_000 }));
+    antes = aplicarOk(antes, mudarRecorrente(1, "2026-10", { valor: 12_000 }));
+    gravarEstado(banco, antes);
+    const encerrado = aplicarOk(antes, { tipo: "encerrar-recorrente", id: 1, mes: "2026-09" });
+    // Uma vigência que o banco recusa (descrição nula), gravada depois do fim e da limpeza das descartadas.
+    const r = encerrado.lancamentos[0] as Recorrente;
+    const quebrado: Estado = {
+      ...encerrado,
+      lancamentos: [{ ...r, vigencias: [r.vigencias[0]!, { ...r.vigencias[1]!, descricao: null as never }] }],
+    };
+
+    expect(() => gravarEstado(banco, quebrado)).toThrow();
+
+    expect(carregarEstado(abrir())).toEqual(antes);
+  });
+
   it("o orçamento nascido e a entrada entram na mesma transação: ou os dois, ou nenhum", () => {
     const estado = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
     // Uma entrada que o banco recusa (descrição nula), gravada depois do orçamento.
@@ -215,6 +292,22 @@ function salvarLancamento(campos: {
   return {
     tipo: "salvar-lancamento",
     lancamento: { descricao: "Restaurante", tipo: "cartao-de-credito", parcelas: 1, ...campos },
+  };
+}
+
+function criarRecorrente(campos: Partial<VigenciaASalvar> & { data: `${number}-${number}-${number}` }): Comando {
+  return {
+    tipo: "criar-recorrente",
+    recorrente: { descricao: "Aluguel", pote: "custos-fixos", tipo: "boleto", valor: 10_000, ...campos },
+  };
+}
+
+function mudarRecorrente(id: number, mes: Mes, campos: Partial<VigenciaASalvar>): Comando {
+  return {
+    tipo: "mudar-recorrente",
+    id,
+    mes,
+    vigencia: { descricao: "Aluguel", pote: "custos-fixos", tipo: "boleto", valor: 10_000, ...campos },
   };
 }
 

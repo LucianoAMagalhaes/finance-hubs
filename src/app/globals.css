@@ -604,6 +604,36 @@ dialog.folha::backdrop {
 .previa-parcelas {
   margin-top: -4px;
 }
+/* As vigências do recorrente: a do mês aberto em destaque. */
+.vigencias {
+  list-style: none;
+  margin: 5px 0 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.vigencias li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) auto;
+  gap: 8px;
+  padding: 6px 10px;
+}
+.vigencias li + li {
+  border-top: 1px solid var(--line);
+}
+.vigencias li.agora {
+  background: var(--sunken);
+  color: var(--ink);
+  font-weight: 500;
+}
+.vigencias li.fim {
+  color: var(--bad);
+}
+.vigencias .direita {
+  text-align: right;
+}
 .check {
   display: flex;
   gap: 8px;

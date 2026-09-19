@@ -1,6 +1,15 @@
 import { ehFonte, type EntradaASalvar } from "./entradas";
 import type { Estado } from "./estado";
-import type { LancamentoASalvar } from "./lancamentos";
+import {
+  caiEm,
+  inicioDe,
+  type Compra,
+  type LancamentoASalvar,
+  type Recorrente,
+  type RecorrenteACriar,
+  type Vigencia,
+  type VigenciaASalvar,
+} from "./lancamentos";
 import { ehRegistro, type Registro } from "./lixeira";
 import { ehDataValida, ehMesValido, mesDaData, type Data, type Mes } from "./mes";
 import { ehTipoDeEntrada, ehTipoDePagamento } from "./pagamento";
@@ -14,6 +23,9 @@ import { normalizarTag } from "./tags";
 export type Comando =
   | { tipo: "salvar-entrada"; entrada: EntradaASalvar }
   | { tipo: "salvar-lancamento"; lancamento: LancamentoASalvar }
+  | { tipo: "criar-recorrente"; recorrente: RecorrenteACriar }
+  | { tipo: "mudar-recorrente"; id: number; mes: Mes; vigencia: VigenciaASalvar }
+  | { tipo: "encerrar-recorrente"; id: number; mes: Mes }
   | { tipo: "salvar-percentuais"; mes: Mes; percentuais: Percentuais }
   | { tipo: "apagar"; registro: Registro; id: number }
   | { tipo: "restaurar"; registro: Registro; id: number };
@@ -30,6 +42,12 @@ export function aplicar(estado: Estado, comando: Comando, hoje: Data): Resultado
       return salvarEntrada(estado, comando.entrada);
     case "salvar-lancamento":
       return salvarLancamento(estado, comando.lancamento);
+    case "criar-recorrente":
+      return criarRecorrente(estado, comando.recorrente);
+    case "mudar-recorrente":
+      return mudarRecorrente(estado, comando.id, comando.mes, comando.vigencia);
+    case "encerrar-recorrente":
+      return encerrarRecorrente(estado, comando.id, comando.mes, hoje);
     case "salvar-percentuais":
       return salvarPercentuais(estado, comando.mes, comando.percentuais);
     case "apagar":
@@ -80,14 +98,90 @@ function salvarEntrada(estado: Estado, dados: EntradaASalvar): Resultado<Estado>
 function salvarLancamento(estado: Estado, dados: LancamentoASalvar): Resultado<Estado> {
   const erro = validarLancamento(dados);
   if (erro) return { ok: false, erro };
-  const lancamentos = gravarNaLista(estado.lancamentos, {
+  if (estado.lancamentos.some((l) => l.id === dados.id && l.forma === "recorrente")) {
+    return { ok: false, erro: "Um recorrente não vira compra: apague e lance de novo." };
+  }
+  const lancamentos = gravarNaLista<Compra>(estado.lancamentos as Compra[], {
     ...dados,
+    forma: "compra",
     descricao: dados.descricao.trim(),
-    tag: dados.tag ? normalizarTag(dados.tag) : null,
+    tag: normalizarTagDigitada(dados.tag),
   });
   if (!lancamentos) return { ok: false, erro: "Esse lançamento não existe mais." };
   return { ok: true, valor: nascer({ ...estado, lancamentos }, mesDaData(dados.data)) };
 }
+
+/** A data da primeira ocorrência dá o mês de início e o dia, que não muda mais. */
+function criarRecorrente(estado: Estado, dados: RecorrenteACriar): Resultado<Estado> {
+  if (typeof dados.data !== "string" || !ehDataValida(dados.data)) return { ok: false, erro: "Informe uma data válida." };
+  const erro = validarCampos(dados);
+  if (erro) return { ok: false, erro };
+  const inicio = mesDaData(dados.data);
+  const recorrente: Recorrente = {
+    id: proximoId(estado.lancamentos),
+    forma: "recorrente",
+    dia: Number(dados.data.slice(8)),
+    vigencias: [vigenciaDe(inicio, dados)],
+    encerradoEm: null,
+    apagadoEm: null,
+  };
+  return { ok: true, valor: nascer({ ...estado, lancamentos: [...estado.lancamentos, recorrente] }, inicio) };
+}
+
+/**
+ * Mudar a partir de um mês vale até a próxima mudança: a vigência que começa
+ * nele é substituída, ou nasce uma nova; as seguintes ficam intactas.
+ */
+function mudarRecorrente(estado: Estado, id: number, mes: Mes, dados: VigenciaASalvar): Resultado<Estado> {
+  const alvo = recorrenteNoMes(estado, id, mes);
+  if (!alvo.ok) return alvo;
+  const erro = validarCampos(dados);
+  if (erro) return { ok: false, erro };
+  const r = alvo.valor;
+  const vigencias = [...r.vigencias.filter((v) => v.desde !== mes), vigenciaDe(mes, dados)].sort((a, b) =>
+    a.desde < b.desde ? -1 : 1,
+  );
+  return { ok: true, valor: nascer(trocarLancamento(estado, { ...r, vigencias }), mes) };
+}
+
+/**
+ * Encerrar num mês faz dele o primeiro sem ocorrência e descarta de vez as
+ * vigências dali em diante. No mês de início não sobra nada: o recorrente
+ * inteiro vai para a lixeira, de onde volta como estava.
+ */
+function encerrarRecorrente(estado: Estado, id: number, mes: Mes, hoje: Data): Resultado<Estado> {
+  const alvo = recorrenteNoMes(estado, id, mes);
+  if (!alvo.ok) return alvo;
+  const r = alvo.valor;
+  if (mes === inicioDe(r)) return marcarLixeira(estado, "lancamento", id, hoje);
+  const encerrado = { ...r, vigencias: r.vigencias.filter((v) => v.desde < mes), encerradoEm: mes };
+  return { ok: true, valor: nascer(trocarLancamento(estado, encerrado), mes) };
+}
+
+/** O recorrente vivo que se muda ou encerra, se ele cai no mês. */
+function recorrenteNoMes(estado: Estado, id: number, mes: Mes): Resultado<Recorrente> {
+  if (typeof mes !== "string" || !ehMesValido(mes)) return { ok: false, erro: "Mês inválido." };
+  const l = estado.lancamentos.find((x) => x.id === id);
+  if (!l) return { ok: false, erro: "Esse lançamento não existe mais." };
+  if (l.forma !== "recorrente") return { ok: false, erro: "Uma compra não vira recorrente: apague e lance de novo." };
+  if (l.apagadoEm !== null) return { ok: false, erro: "Esse recorrente está na lixeira: restaure-o antes." };
+  if (!caiEm(l, mes)) return { ok: false, erro: "Esse recorrente não cai neste mês." };
+  return { ok: true, valor: l };
+}
+
+function vigenciaDe(desde: Mes, { descricao, pote, tipo, valor, tag }: VigenciaASalvar): Vigencia {
+  return { desde, descricao: descricao.trim(), pote, tipo, valor, tag: normalizarTagDigitada(tag) };
+}
+
+const normalizarTagDigitada = (tag: string | null | undefined) => (tag ? normalizarTag(tag) : null);
+
+const trocarLancamento = (estado: Estado, novo: Recorrente): Estado => ({
+  ...estado,
+  lancamentos: estado.lancamentos.map((l) => (l.id === novo.id ? novo : l)),
+});
+
+/** O próximo id, contando os da lixeira: um registro novo nunca reaproveita o de outro. */
+const proximoId = (lista: { id: number }[]) => Math.max(0, ...lista.map((r) => r.id)) + 1;
 
 /**
  * Sem id, acrescenta com o próximo id, contando os da lixeira; com id, troca o
@@ -98,10 +192,7 @@ function gravarNaLista<T extends { id: number; apagadoEm: Data | null }>(
   lista: T[],
   { id, ...campos }: Omit<T, "id" | "apagadoEm"> & { id?: number },
 ): T[] | null {
-  if (id === undefined) {
-    const proximo = Math.max(0, ...lista.map((r) => r.id)) + 1;
-    return [...lista, { id: proximo, ...campos, apagadoEm: null } as T];
-  }
+  if (id === undefined) return [...lista, { id: proximoId(lista), ...campos, apagadoEm: null } as T];
   if (!lista.some((r) => r.id === id && r.apagadoEm === null)) return null;
   return lista.map((r) => (r.id === id ? ({ id, ...campos, apagadoEm: null } as T) : r));
 }
@@ -120,13 +211,20 @@ function validarEntrada(e: EntradaASalvar): string | null {
 
 function validarLancamento(l: LancamentoASalvar): string | null {
   if (typeof l.data !== "string" || !ehDataValida(l.data)) return "Informe uma data válida.";
+  const erro = validarCampos(l);
+  if (erro) return erro;
+  if (!Number.isInteger(l.parcelas) || l.parcelas < 1) return "Informe o número de parcelas, um inteiro de 1 em diante.";
+  if (l.parcelas > 1 && l.tipo !== "cartao-de-credito") return "Só Cartão de Crédito parcela.";
+  return null;
+}
+
+/** O que compra e vigência têm em comum. */
+function validarCampos(l: VigenciaASalvar): string | null {
   if (typeof l.descricao !== "string" || !l.descricao.trim()) return "Informe uma descrição.";
   if (!ehPote(l.pote)) return "Escolha um dos seis potes.";
   if (!ehTipoDePagamento(l.tipo)) return "Escolha um tipo de pagamento.";
   if (!Number.isInteger(l.valor) || l.valor === 0) return "Informe um valor diferente de zero, em centavos inteiros.";
   if (l.tag !== undefined && l.tag !== null && typeof l.tag !== "string") return "A tag é um texto livre.";
-  if (!Number.isInteger(l.parcelas) || l.parcelas < 1) return "Informe o número de parcelas, um inteiro de 1 em diante.";
-  if (l.parcelas > 1 && l.tipo !== "cartao-de-credito") return "Só Cartão de Crédito parcela.";
   return null;
 }
 

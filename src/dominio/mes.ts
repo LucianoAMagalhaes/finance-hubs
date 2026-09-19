@@ -46,8 +46,12 @@ export function mesDaData(data: Data): Mes {
 
 /** O mesmo dia da data, em outro mês; limitado ao último dia dele (31 vira 28 em fevereiro). */
 export function mesmoDiaEm(data: Data, mes: Mes): Data {
-  const dia = Math.min(Number(data.slice(8)), ultimoDiaDoMes(mes));
-  return `${mes}-${String(dia).padStart(2, "0")}` as Data;
+  return diaEm(Number(data.slice(8)), mes);
+}
+
+/** O dia do mês como data; limitado ao último dia dele (31 vira 28 em fevereiro). */
+export function diaEm(dia: number, mes: Mes): Data {
+  return `${mes}-${String(Math.min(dia, ultimoDiaDoMes(mes))).padStart(2, "0")}` as Data;
 }
 
 /** Se o texto é um mês "AAAA-MM" que existe. */

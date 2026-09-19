@@ -1,6 +1,7 @@
-import type { Entrada, Estado, Lancamento, Mes, Percentuais } from "@/dominio";
+import { eq } from "drizzle-orm";
+import type { Compra, Entrada, Estado, Lancamento, Mes, Percentuais, Recorrente, Vigencia } from "@/dominio";
 import type { Banco } from "./banco";
-import { entrada, lancamento, orcamentoDoMes } from "./esquema";
+import { entrada, lancamento, orcamentoDoMes, recorrente, vigencia } from "./esquema";
 
 // Sem regra de negócio aqui: validar e derivar é do domínio. Este módulo só
 // traduz o estado para linhas e de volta.
@@ -8,6 +9,8 @@ import { entrada, lancamento, orcamentoDoMes } from "./esquema";
 type LinhaOrcamento = typeof orcamentoDoMes.$inferSelect;
 type LinhaEntrada = typeof entrada.$inferSelect;
 type LinhaLancamento = typeof lancamento.$inferSelect;
+type LinhaRecorrente = typeof recorrente.$inferSelect;
+type LinhaVigencia = typeof vigencia.$inferSelect;
 
 function paraPercentuais(linha: LinhaOrcamento): Percentuais {
   return {
@@ -40,12 +43,29 @@ function paraLinhaDeEntrada({ tipo, ...e }: Entrada): LinhaEntrada {
   return { ...e, tipoDePagamento: tipo };
 }
 
-function paraLancamento({ tipoDePagamento, ...linha }: LinhaLancamento): Lancamento {
-  return { ...linha, tipo: tipoDePagamento } as Lancamento;
+function paraCompra({ tipoDePagamento, ...linha }: LinhaLancamento): Compra {
+  return { ...linha, forma: "compra", tipo: tipoDePagamento } as Compra;
 }
 
-function paraLinhaDeLancamento({ tipo, ...l }: Lancamento): LinhaLancamento {
-  return { ...l, tipoDePagamento: tipo };
+function paraLinhaDeCompra({ tipo, forma: _, ...c }: Compra): LinhaLancamento {
+  return { ...c, tipoDePagamento: tipo };
+}
+
+/** As vigências vêm em ordem de início: "AAAA-MM" ordena como o tempo. */
+function paraRecorrente(linha: LinhaRecorrente, vigencias: LinhaVigencia[]): Recorrente {
+  return {
+    ...linha,
+    forma: "recorrente",
+    vigencias: vigencias.map(({ recorrente: _, tipoDePagamento, ...v }) => ({ ...v, tipo: tipoDePagamento }) as Vigencia),
+  } as Recorrente;
+}
+
+function paraLinhaDeRecorrente({ id, dia, encerradoEm, apagadoEm }: Recorrente): LinhaRecorrente {
+  return { id, dia, encerradoEm, apagadoEm };
+}
+
+function paraLinhaDeVigencia(id: number, { tipo, ...v }: Vigencia): LinhaVigencia {
+  return { ...v, recorrente: id, tipoDePagamento: tipo };
 }
 
 export function carregarEstado({ db }: Banco): Estado {
@@ -54,14 +74,23 @@ export function carregarEstado({ db }: Banco): Estado {
     orcamentos[linha.mes as Mes] = paraPercentuais(linha);
   }
   const entradas = db.select().from(entrada).orderBy(entrada.id).all().map(paraEntrada);
-  const lancamentos = db.select().from(lancamento).orderBy(lancamento.id).all().map(paraLancamento);
+  const vigencias = db.select().from(vigencia).orderBy(vigencia.recorrente, vigencia.desde).all();
+  const lancamentos: Lancamento[] = [
+    ...db.select().from(lancamento).all().map(paraCompra),
+    ...db
+      .select()
+      .from(recorrente)
+      .all()
+      .map((r) => paraRecorrente(r, vigencias.filter((v) => v.recorrente === r.id))),
+  ].sort((a, b) => a.id - b.id);
   return { orcamentos, entradas, lancamentos };
 }
 
 /**
  * Grava o estado que um comando devolveu, numa transação só: ou tudo entra,
- * ou nada entra. Nada é apagado (orçamento nunca, o resto vai para a lixeira
- * como marca), então só se insere ou se troca.
+ * ou nada entra. Quase nada é apagado (orçamento nunca, o resto vai para a
+ * lixeira como marca), então só se insere ou se troca. A exceção são as
+ * vigências, que se regravam por recorrente: a descartada ao encerrar some.
  */
 export function gravarEstado({ db }: Banco, estado: Estado): void {
   db.transaction((tx) => {
@@ -78,8 +107,15 @@ export function gravarEstado({ db }: Banco, estado: Estado): void {
       tx.insert(entrada).values(linha).onConflictDoUpdate({ target: entrada.id, set: linha }).run();
     }
     for (const l of estado.lancamentos) {
-      const linha = paraLinhaDeLancamento(l);
-      tx.insert(lancamento).values(linha).onConflictDoUpdate({ target: lancamento.id, set: linha }).run();
+      if (l.forma === "compra") {
+        const linha = paraLinhaDeCompra(l);
+        tx.insert(lancamento).values(linha).onConflictDoUpdate({ target: lancamento.id, set: linha }).run();
+        continue;
+      }
+      const linha = paraLinhaDeRecorrente(l);
+      tx.insert(recorrente).values(linha).onConflictDoUpdate({ target: recorrente.id, set: linha }).run();
+      tx.delete(vigencia).where(eq(vigencia.recorrente, l.id)).run();
+      tx.insert(vigencia).values(l.vigencias.map((v) => paraLinhaDeVigencia(l.id, v))).run();
     }
   });
 }

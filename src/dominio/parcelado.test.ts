@@ -11,6 +11,7 @@ import {
   todosOsGastos,
   ultimoDiaDoMes,
   type Comando,
+  type Compra,
   type Data,
   type Eixo,
   type Estado,
@@ -160,7 +161,7 @@ describe("invariante dos eixos com parcelados (propriedade)", () => {
         .flatMap((m) => projetarMes(estado, m).ocorrencias)
         .filter((o) => o.lancamento === l.id)
         .reduce((s, o) => s + o.valor, 0);
-      expect(soma).toBe(l.valor);
+      expect(soma).toBe((l as Compra).valor);
     }
   });
 

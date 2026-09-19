@@ -15,10 +15,18 @@ export { todosOsGastos, grupos, type Eixo, type Grupo } from "./eixos";
 export { estadoVazio, type Estado } from "./estado";
 export {
   divisaoEmParcelas,
+  inicioDe,
+  vigenciaEm,
+  vigenciasComFim,
+  type Compra,
   type Lancamento,
   type LancamentoASalvar,
   type NovoLancamento,
   type Ocorrencia,
+  type Recorrente,
+  type RecorrenteACriar,
+  type Vigencia,
+  type VigenciaASalvar,
 } from "./lancamentos";
 export {
   dataProposta,
