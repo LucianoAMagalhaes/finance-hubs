@@ -6,6 +6,9 @@ export function Valor({ centavos }: { centavos: Centavos }) {
   return centavos < 0 ? <span className="val reembolso">↺ {formatarReais(centavos)}</span> : <span className="val">{formatarReais(centavos)}</span>;
 }
 
+/** "1 ocorrência", "3 ocorrências": o número com o substantivo que ele conta. */
+export const plural = (n: number, substantivo: string) => `${n} ${substantivo}${n === 1 ? "" : "s"}`;
+
 /** As parcelas que uma antecipação levou: "8–10" quando são várias, "10" quando é uma. */
 export const faixaDeParcelas = ({ primeira, ultima }: { primeira: number; ultima: number }) =>
   primeira === ultima ? `${ultima}` : `${primeira}–${ultima}`;

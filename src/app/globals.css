@@ -826,6 +826,12 @@ button.agregado:hover {
 .detalhe-resumo .dica {
   margin: 0;
 }
+/* Renomear a tag: à direita do resumo, longe do que se lê primeiro. */
+.detalhe-resumo .renomear {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 12.5px;
+}
 .detalhe-total {
   font-size: 22px;
 }

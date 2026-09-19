@@ -117,6 +117,15 @@ uma. Não tem percentual, limite nem veredito. Não é cadastrada: existe enquan
 usa.
 _Avoid_: Categoria, etiqueta, marcador
 
+**Fusão**:
+O que sai de renomear uma tag para um nome que já existe: as duas viram uma só e nada mais diz de qual
+nome cada ocorrência veio. Por isso o comando exige confirmação explícita, e a tela a pede. Renomear
+sem fusão é só trocar o nome, nas compras e em todas as vigências, em todos os meses — inclusive no
+que está na lixeira, senão restaurar ressuscitaria o nome antigo. Pela mesma razão, um nome que só
+dorme na lixeira ainda funde: ele volta ao restaurar. Só não se renomeia a tag que nenhum lançamento
+vivo usa, porque essa já não existe. A cor muda junto, porque sai do nome.
+_Avoid_: Merge, junção, unificação
+
 **Eixo**:
 Uma dimensão pela qual as ocorrências de um mês são agrupadas: pote, tipo de pagamento ou tag. Toda
 ocorrência cai em exatamente um grupo de cada eixo, então os três eixos somam o mesmo total.

@@ -7,13 +7,16 @@ import {
   dataProposta,
   formatarReais,
   itensNaLixeira,
+  lancamentosComATag,
   mesDaData,
   nomeDaFonte,
   nomeDoMes,
   nomeDoTipo,
+  normalizarTag,
   projetarMes,
   somarMeses,
   tagsEmUso,
+  tagsNoHistorico,
   type AgregadosDoMes,
   type Centavos,
   type Comando,
@@ -36,6 +39,7 @@ import { EditorDePercentuais, percentuaisParaPrevia, rascunhoDe, type Rascunho }
 import { FormularioDeAntecipacao } from "./FormularioDeAntecipacao";
 import { FormularioDeEntrada } from "./FormularioDeEntrada";
 import { FormularioDeLancamento } from "./FormularioDeLancamento";
+import { FormularioDeRenomearTag } from "./FormularioDeRenomearTag";
 import { Lixeira } from "./Lixeira";
 import { MestreDetalhe, NOME_DO_EIXO, type Aberto } from "./MestreDetalhe";
 import { Valor } from "./pecas";
@@ -69,6 +73,8 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
   /** O grupo aberto no mestre-detalhe; continua aberto ao trocar de mês, se existir lá. */
   const [aberto, setAberto] = useState<Aberto | null>(null);
   const [lixeiraAberta, setLixeiraAberta] = useState(false);
+  /** A tag que se renomeia; não é um registro, e por isso não é um formulário como os outros. */
+  const [tagARenomear, setTagARenomear] = useState<string | null>(null);
   const lixeira = useMemo(() => itensNaLixeira(estado), [estado]);
   const vista = useMemo(
     () => projetarMes(estado, mes, rascunho ? percentuaisParaPrevia(rascunho) : undefined),
@@ -132,6 +138,19 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         ? { registro: "antecipacao", parcelado: o.lancamento, antecipacao: o.antecipacao.id }
         : { registro: "lancamento", lancamento: estado.lancamentos.find((l) => l.id === o.lancamento)! },
     );
+
+  /**
+   * Renomear troca o nome em todos os meses, então o grupo aberto passa a ser o
+   * da tag nova — ou o da que ela absorveu, na fusão —, e o detalhe continua
+   * onde estava em vez de sumir com o nome antigo.
+   */
+  async function renomearTag(de: string, para: string, fundir: boolean): Promise<string | null> {
+    const erro = await mandar({ tipo: "renomear-tag", de, para, fundir });
+    if (erro) return erro;
+    setTagARenomear(null);
+    setAberto({ tipo: "grupo", chave: normalizarTag(para) });
+    return null;
+  }
 
   const novaEntrada = () => setFormulario({ registro: "entrada", entrada: null });
   const novoLancamento = () => setFormulario({ registro: "lancamento", lancamento: null });
@@ -239,7 +258,14 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           Nenhuma entrada em {nomeDoMes(mes)}: sem receita, os potes não têm limite nem veredito.
         </p>
       )}
-      <MestreDetalhe vista={vista} eixo={eixo} aberto={aberto} abrir={setAberto} abrirOcorrencia={abrirOcorrencia} />
+      <MestreDetalhe
+        vista={vista}
+        eixo={eixo}
+        aberto={aberto}
+        abrir={setAberto}
+        abrirOcorrencia={abrirOcorrencia}
+        renomearTag={setTagARenomear}
+      />
 
       <Secao titulo="Entradas do mês">
         <button type="button" className="btn entrada" onClick={novaEntrada}>
@@ -279,6 +305,16 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           salvar={(comando, destino) => salvarRegistro(comando, destino, formulario.antecipacao ? "Antecipação salva" : "Parcelas antecipadas")}
           desfazer={() => apagar("antecipacao", formulario.antecipacao!)}
           fechar={() => setFormulario(null)}
+        />
+      )}
+      {tagARenomear !== null && (
+        <FormularioDeRenomearTag
+          tag={tagARenomear}
+          tags={tagsEmUso(estado)}
+          tagsDoHistorico={tagsNoHistorico(estado)}
+          lancamentosComATag={(tag) => lancamentosComATag(estado, tag)}
+          renomear={(para, fundir) => renomearTag(tagARenomear, para, fundir)}
+          fechar={() => setTagARenomear(null)}
         />
       )}
       {lixeiraAberta && <Lixeira itens={lixeira} restaurar={restaurar} fechar={() => setLixeiraAberta(false)} />}
