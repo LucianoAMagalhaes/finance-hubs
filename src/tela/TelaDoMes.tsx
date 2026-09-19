@@ -35,6 +35,7 @@ import {
 } from "@/dominio";
 import { executar } from "@/servidor/acoes";
 import { AlternadorDeTema } from "./AlternadorDeTema";
+import { BotaoFlutuante } from "./BotaoFlutuante";
 import { EditorDePercentuais, percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./EditorDePercentuais";
 import { FormularioDeAntecipacao } from "./FormularioDeAntecipacao";
 import { FormularioDeEntrada } from "./FormularioDeEntrada";
@@ -318,6 +319,9 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         />
       )}
       {lixeiraAberta && <Lixeira itens={lixeira} restaurar={restaurar} fechar={() => setLixeiraAberta(false)} />}
+
+      {/* Em janela estreita, lançar é por aqui; no layout largo, pelo topo. */}
+      <BotaoFlutuante novaEntrada={novaEntrada} novoLancamento={novoLancamento} />
     </main>
   );
 }

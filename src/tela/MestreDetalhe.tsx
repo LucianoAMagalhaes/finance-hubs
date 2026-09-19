@@ -34,6 +34,9 @@ type Props = {
  * Os grupos do eixo como grade. Com um grupo aberto, a grade vira uma coluna
  * com os mesmos cards, só empilhados, e o detalhe fica ao lado: trocar de
  * grupo custa um clique. Um grupo que não existe no mês volta à grade.
+ *
+ * Em janela estreita o CSS põe o detalhe como folha inferior sobre a grade, e
+ * aí o fundo — inerte no layout largo — é o que fecha ao tocar fora dela.
  */
 export function MestreDetalhe({ vista, eixo, aberto, abrir, abrirOcorrencia, renomearTag }: Props) {
   const gruposDoEixo = grupos(vista, eixo);
@@ -65,6 +68,7 @@ export function MestreDetalhe({ vista, eixo, aberto, abrir, abrirOcorrencia, ren
           </strong>
         </div>
       </div>
+      <div className="fundo-da-folha" onClick={() => abrir(null)} aria-hidden />
       <Detalhe
         vista={vista}
         grupo={detalhe}
@@ -185,6 +189,7 @@ function Detalhe({ vista, grupo, eixo, fechar, abrirOcorrencia, renomearTag }: P
   return (
     <section className="detalhe" aria-label={grupo.nome}>
       <header>
+        <span className="puxador" aria-hidden />
         <button type="button" className="fechar" onClick={fechar} aria-label="Fechar o detalhe e voltar à grade">
           ×
         </button>
