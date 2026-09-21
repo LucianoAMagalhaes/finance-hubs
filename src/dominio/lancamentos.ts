@@ -231,37 +231,25 @@ function emOrdemDeAplicacao(antecipacoes: Antecipacao[]): Antecipacao[] {
  * Uma antecipação sendo montada: sem id, é nova, e entra depois de todas as do
  * mesmo dia — é o que um id novo, sempre maior que os que existem, faria.
  */
-type AntecipacaoEmProva = { id?: number; data: Data; parcelas: number };
+type AntecipacaoEmProva ={ id?: number; data: Data; parcelas: number };
 
-/** As parcelas que uma antecipação leva, e quanto elas somavam nos seus meses. */
-export type ParcelasAntecipadas = { primeira: number; ultima: number; soma: Centavos };
-
-/**
- * As parcelas que essa antecipação levaria e quanto elas somam — o que o
- * formulário mostra e propõe como valor pago. Null quando ela não cabe, seja
- * por si, seja porque desarruma as antecipações de datas posteriores.
- */
-export function parcelasAntecipadas(l: Compra, prova: AntecipacaoEmProva): ParcelasAntecipadas | null {
+/** O parcelado com a antecipação em prova no lugar dela, e o id que ela tem na série. */
+export function comAntecipacaoEmProva(l: Compra, prova: AntecipacaoEmProva): { serie: Compra; id: number } {
   const id = prova.id ?? Number.MAX_SAFE_INTEGER;
   const candidata: Antecipacao = { id, data: prova.data, parcelas: prova.parcelas, valor: 0, apagadoEm: null };
-  const antecipacoes = [...l.antecipacoes.filter((a) => a.id !== id), candidata];
-  const { cortes, recusada } = antecipacoesDe({ ...l, antecipacoes });
-  if (recusada !== null) return null;
-  const corte = cortes.find((c) => c.antecipacao.id === id);
-  if (!corte) return null;
-  const { primeira, ultima } = corte;
-  return { primeira, ultima, soma: somaDasParcelas(l, primeira, ultima) };
+  return { serie: { ...l, antecipacoes: [...l.antecipacoes.filter((a) => a.id !== id), candidata] }, id };
 }
 
 /**
  * Quantas parcelas cabem nessa antecipação — o "até 4" do formulário. Zero
- * quando não sobra nenhuma parcela de mês posterior ao dela.
+ * quando não sobra nenhuma parcela de mês posterior ao dela. Não cabe a que
+ * desarruma as antecipações de datas posteriores.
  */
 export function maximoAntecipavel(l: Compra, prova: Omit<AntecipacaoEmProva, "parcelas">): number {
   // Só um parcelado antecipa: o à vista pesa inteiro no mês da própria data.
   if (l.parcelas < 2) return 0;
   for (let parcelas = l.parcelas; parcelas >= 1; parcelas--) {
-    if (parcelasAntecipadas(l, { ...prova, parcelas })) return parcelas;
+    if (antecipacoesDe(comAntecipacaoEmProva(l, { ...prova, parcelas }).serie).recusada === null) return parcelas;
   }
   return 0;
 }
