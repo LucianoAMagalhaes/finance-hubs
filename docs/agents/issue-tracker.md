@@ -10,6 +10,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
+- **Close an issue from its PR**: the closing keyword must be in **English** — `Closes #<n>`, `Fixes #<n>`, `Resolves #<n>`. A Portuguese verb (`Fecha #<n>`) is read as a plain mention and the issue stays open after the merge. The rest of the PR body is written in Portuguese as usual. Verify with `gh pr view <n> --json closingIssuesReferences`: an empty array means nothing will close.
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 

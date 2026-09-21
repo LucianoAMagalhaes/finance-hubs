@@ -81,7 +81,9 @@ O pagamento adiantado das **últimas** parcelas de um parcelado, feito num mês 
 pessoa informa, em geral com desconto. As parcelas antecipadas saem dos seus meses, e o valor pago
 vira uma ocorrência no mês da antecipação, com o pote, o tipo de pagamento e a tag do parcelado.
 Só se antecipam parcelas de meses posteriores ao da antecipação. Um parcelado aceita várias, e
-cada uma leva as últimas que ainda sobram. Quitar é antecipar todas as que faltam.
+cada uma leva as últimas que ainda sobram. Quitar é antecipar todas as que faltam. Enquanto houver
+antecipação fora da lixeira, a data, o total e o número de parcelas do parcelado ficam travados — e
+com eles a forma.
 _Avoid_: Adiantamento, quitação, ajuste
 
 **Corte**:

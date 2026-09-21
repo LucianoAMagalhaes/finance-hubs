@@ -8,6 +8,7 @@ import {
   type Antecipacao,
   type AntecipacaoASalvar,
   type Compra,
+  type Lancamento,
   type LancamentoASalvar,
   type Recorrente,
   type RecorrenteACriar,
@@ -16,7 +17,7 @@ import {
 } from "./lancamentos";
 import { ehRegistro, vivos, type Registro } from "./lixeira";
 import { ehDataValida, ehMesValido, mesDaData, nomeDoMes, type Data, type Mes } from "./mes";
-import { ehTipoDeEntrada, ehTipoDePagamento } from "./pagamento";
+import { ehTipoDeEntrada, ehTipoDePagamento, type TipoDePagamento } from "./pagamento";
 import { ehPote, validarPercentuais, type Percentuais } from "./potes";
 import { herdaria } from "./projecao";
 import { fusaoAoRenomear, normalizarTag, tagsEmUso, tagsNoHistorico } from "./tags";
@@ -67,6 +68,43 @@ export function aplicar(estado: Estado, comando: Comando, hoje: Data): Resultado
       return marcarLixeira(estado, comando.registro, comando.id, null);
   }
 }
+
+/** As três formas que um lançamento pode ter na tela: a compra se divide em à vista e parcelado. */
+export type Forma = "a-vista" | "parcelado" | "recorrente";
+
+/**
+ * O que um lançamento salvo ainda pode virar no mês aberto, dito antes de a
+ * pessoa tentar: cada motivo é a mesma recusa que `aplicar` daria. `formas`
+ * diz por que cada forma não pode ser escolhida (null quando pode); `trava`,
+ * por que data, total e parcelas não mudam; `encerrar`, o que encerrar o
+ * recorrente neste mês faria. Sem lançamento, é um novo: tudo livre.
+ */
+export type OQuePodeVirar = {
+  formas: Record<Forma, string | null>;
+  trava: string | null;
+  encerrar: Encerramento | null;
+};
+
+const LIVRE: OQuePodeVirar = { formas: { "a-vista": null, parcelado: null, recorrente: null }, trava: null, encerrar: null };
+
+export function oQuePodeVirar(lancamento: Lancamento | null, mes: Mes): OQuePodeVirar {
+  if (lancamento?.forma === "recorrente") {
+    return {
+      ...LIVRE,
+      formas: { "a-vista": RECORRENTE_NAO_VIRA_COMPRA, parcelado: RECORRENTE_NAO_VIRA_COMPRA, recorrente: null },
+      encerrar: encerramento(lancamento, mes),
+    };
+  }
+  if (lancamento?.forma === "compra") {
+    const trava = travada(lancamento) ? TRAVA_DA_ANTECIPACAO : null;
+    // Só parcelado tem antecipação, e voltar a ser à vista mudaria as parcelas: a trava o prende na forma.
+    return { formas: { "a-vista": trava, parcelado: null, recorrente: COMPRA_NAO_VIRA_RECORRENTE }, trava, encerrar: null };
+  }
+  return LIVRE;
+}
+
+const RECORRENTE_NAO_VIRA_COMPRA = "Um recorrente não vira compra: apague e lance de novo.";
+const COMPRA_NAO_VIRA_RECORRENTE = "Uma compra não vira recorrente: apague e lance de novo.";
 
 /**
  * Troca a marca de lixeira: apagar a põe com o dia de hoje; restaurar (null) a
@@ -139,9 +177,7 @@ function salvarLancamento(estado: Estado, dados: LancamentoASalvar): Resultado<E
   const erro = validarLancamento(dados);
   if (erro) return { ok: false, erro };
   const anterior = estado.lancamentos.find((l) => l.id === dados.id);
-  if (anterior?.forma === "recorrente") {
-    return { ok: false, erro: "Um recorrente não vira compra: apague e lance de novo." };
-  }
+  if (anterior?.forma === "recorrente") return { ok: false, erro: RECORRENTE_NAO_VIRA_COMPRA };
   const travado = travaDaAntecipacao(anterior, dados);
   if (travado) return { ok: false, erro: travado };
   const lancamentos = gravarNaLista<Compra>(estado.lancamentos as Compra[], {
@@ -163,13 +199,19 @@ function salvarLancamento(estado: Estado, dados: LancamentoASalvar): Resultado<E
  * ocorrência da antecipação os acompanha.
  */
 function travaDaAntecipacao(anterior: Compra | undefined, dados: LancamentoASalvar): string | null {
-  // Um parcelado na lixeira não se corrige de jeito nenhum: essa recusa é de quem grava.
-  if (!anterior || anterior.apagadoEm !== null || vivos(anterior.antecipacoes).length === 0) return null;
+  if (!anterior || !travada(anterior)) return null;
   const mudou = anterior.data !== dados.data || anterior.valor !== dados.valor || anterior.parcelas !== dados.parcelas;
-  return mudou
-    ? "Este parcelado tem antecipação: desfaça-a antes de mudar a data, o total ou o número de parcelas."
-    : null;
+  return mudou ? TRAVA_DA_ANTECIPACAO : null;
 }
+
+/**
+ * Trava a antecipação fora da lixeira: desfeita, ela solta o parcelado. Um
+ * parcelado na lixeira não se corrige de jeito nenhum, e essa recusa é de quem grava.
+ */
+const travada = (compra: Compra) => compra.apagadoEm === null && vivos(compra.antecipacoes).length > 0;
+
+const TRAVA_DA_ANTECIPACAO =
+  "Este parcelado tem antecipação: desfaça-a antes de mudar a data, o total ou o número de parcelas.";
 
 /** Sem id, acrescenta uma antecipação; com id, corrige a que já existe. */
 function salvarAntecipacao(estado: Estado, dados: AntecipacaoASalvar): Resultado<Estado> {
@@ -286,17 +328,28 @@ function encerrarRecorrente(estado: Estado, id: number, mes: Mes, hoje: Data): R
   const alvo = recorrenteNoMes(estado, id, mes);
   if (!alvo.ok) return alvo;
   const r = alvo.valor;
-  if (mes === inicioDe(r)) return marcarLixeira(estado, "lancamento", id, hoje);
-  const encerrado = { ...r, vigencias: r.vigencias.filter((v) => v.desde < mes), encerradoEm: mes };
+  if (encerramento(r, mes).tipo === "lixeira") return marcarLixeira(estado, "lancamento", id, hoje);
+  const encerrado = { ...r, vigencias: vigenciasQueFicam(r, mes), encerradoEm: mes };
   return { ok: true, valor: nascer(trocarLancamento(estado, encerrado), mes) };
 }
+
+/** O que encerrar um recorrente num mês faz: no de início, nada sobra e ele vai para a lixeira. */
+export type Encerramento = { tipo: "lixeira" } | { tipo: "encerra"; descartadas: number };
+
+function encerramento(r: Recorrente, mes: Mes): Encerramento {
+  if (mes === inicioDe(r)) return { tipo: "lixeira" };
+  return { tipo: "encerra", descartadas: r.vigencias.length - vigenciasQueFicam(r, mes).length };
+}
+
+/** As vigências de antes do mês de encerramento; as dali em diante somem de vez. */
+const vigenciasQueFicam = (r: Recorrente, mes: Mes) => r.vigencias.filter((v) => v.desde < mes);
 
 /** O recorrente vivo que se muda ou encerra, se ele cai no mês. */
 function recorrenteNoMes(estado: Estado, id: number, mes: Mes): Resultado<Recorrente> {
   if (typeof mes !== "string" || !ehMesValido(mes)) return { ok: false, erro: "Mês inválido." };
   const l = estado.lancamentos.find((x) => x.id === id);
   if (!l) return { ok: false, erro: "Esse lançamento não existe mais." };
-  if (l.forma !== "recorrente") return { ok: false, erro: "Uma compra não vira recorrente: apague e lance de novo." };
+  if (l.forma !== "recorrente") return { ok: false, erro: COMPRA_NAO_VIRA_RECORRENTE };
   if (l.apagadoEm !== null) return { ok: false, erro: "Esse recorrente está na lixeira: restaure-o antes." };
   if (!caiEm(l, mes)) return { ok: false, erro: "Esse recorrente não cai neste mês." };
   return { ok: true, valor: l };
@@ -347,8 +400,12 @@ function validarLancamento(l: LancamentoASalvar): string | null {
   const erro = validarCampos(l);
   if (erro) return erro;
   if (!Number.isInteger(l.parcelas) || l.parcelas < 1) return "Informe o número de parcelas, um inteiro de 1 em diante.";
-  if (l.parcelas > 1 && l.tipo !== "cartao-de-credito") return "Só Cartão de Crédito parcela.";
-  return null;
+  return l.parcelas > 1 ? porQueNaoParcela(l.tipo) : null;
+}
+
+/** Por que o tipo de pagamento não parcela; null no único que parcela. */
+export function porQueNaoParcela(tipo: TipoDePagamento): string | null {
+  return tipo === "cartao-de-credito" ? null : "Só Cartão de Crédito parcela.";
 }
 
 /** O que compra e vigência têm em comum. */

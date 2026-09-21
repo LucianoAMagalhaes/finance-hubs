@@ -11,6 +11,8 @@ import {
   nomeDoPote,
   nomeDoTipo,
   normalizarTag,
+  oQuePodeVirar,
+  porQueNaoParcela,
   POTES,
   reaisParaCentavos,
   inicioDe,
@@ -20,8 +22,9 @@ import {
   vigenciasComFim,
   type Comando,
   type Compra,
-  type Corte,
   type Data,
+  type Encerramento,
+  type Forma,
   type Lancamento,
   type Mes,
   type PoteId,
@@ -49,8 +52,6 @@ type Props = {
   antecipar: () => void;
   fechar: () => void;
 };
-
-type Forma = "a-vista" | "parcelado" | "recorrente";
 
 const FORMAS: { id: Forma; nome: string }[] = [
   { id: "a-vista", nome: "À vista" },
@@ -81,11 +82,12 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
   const [forma, setForma] = useState<Forma>(recorrente ? "recorrente" : eraParcelado ? "parcelado" : "a-vista");
   const [parcelas, setParcelas] = useState(String(eraParcelado ? compra.parcelas : 2));
   const parcelado = forma === "parcelado";
-  const podeParcelar = tipo === "cartao-de-credito";
+  const naoParcela = porQueNaoParcela(tipo);
   const tagNormalizada = normalizarTag(tag);
+  // O domínio diz o que este gasto ainda pode virar, com a mesma recusa que daria ao salvar.
+  const podeVirar = oQuePodeVirar(lancamento, mes);
   // Com antecipação ativa, data, total e parcelas ficam travados (ADR-0005).
-  const cortes = compra ? antecipacoesDe(compra).cortes : [];
-  const travado = cortes.length > 0;
+  const travado = podeVirar.trava !== null;
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -95,16 +97,12 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
   // Só Cartão de Crédito parcela: sair dele volta a compra para à vista.
   function mudarTipo(novo: TipoDePagamento) {
     setTipo(novo);
-    if (novo !== "cartao-de-credito" && parcelado) setForma("a-vista");
+    if (porQueNaoParcela(novo) && parcelado) setForma("a-vista");
   }
 
-  /** Por que a forma não pode ser escolhida; null quando pode. Recorrente não troca de forma depois de salvo. */
+  /** Por que a forma não pode ser escolhida; null quando pode. O tipo em edição só pesa no parcelado. */
   function bloqueio(f: Forma): string | null {
-    if (lancamento !== null && (recorrente !== null) !== (f === "recorrente")) {
-      return "Recorrente não vira compra, nem o contrário: apague e lance de novo";
-    }
-    if (travado && f !== forma) return "Este parcelado tem antecipação: desfaça-a antes de mudar a forma";
-    return f === "parcelado" && !podeParcelar ? "Só Cartão de Crédito parcela" : null;
+    return podeVirar.formas[f] ?? (f === "parcelado" ? naoParcela : null);
   }
 
   async function enviar(evento: FormEvent) {
@@ -181,7 +179,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
               passados, e com elas o veredito desses meses.
             </p>
           )}
-          {travado && compra && <Antecipacoes compra={compra} cortes={cortes} />}
+          {travado && compra && <Antecipacoes compra={compra} />}
           {recorrente && <Vigencias recorrente={recorrente} mes={mes} />}
           {recorrente ? (
             <label className="campo">
@@ -254,7 +252,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
             </label>
             <label className="campo">
               <span>
-                Tipo de pagamento {!podeParcelar && <span className="dica">— só cartão parcela</span>}
+                Tipo de pagamento {naoParcela && <span className="dica">— só cartão parcela</span>}
               </span>
               <select value={tipo} onChange={(e) => mudarTipo(e.target.value as TipoDePagamento)}>
                 {TIPOS_DE_PAGAMENTO.map((t) => (
@@ -281,7 +279,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
               </span>
             )}
           </label>
-          {recorrente && <p className="dica">{oQueEncerrarFaz(recorrente, mes)}</p>}
+          {podeVirar.encerrar && <p className="dica">{oQueEncerrarFaz(podeVirar.encerrar, mes)}</p>}
           {erro && (
             <p className="aviso ruim" role="alert">
               {erro}
@@ -355,7 +353,8 @@ function PreviaDasParcelas({ valor, parcelas, data, reembolso }: { valor: string
  * As antecipações que valem, e o que elas travam: com uma delas viva, data,
  * total e número de parcelas do parcelado não mudam (ADR-0005).
  */
-function Antecipacoes({ compra, cortes }: { compra: Compra; cortes: Corte[] }) {
+function Antecipacoes({ compra }: { compra: Compra }) {
+  const { cortes } = antecipacoesDe(compra);
   return (
     <>
       <p className="aviso">
@@ -428,11 +427,11 @@ function Vigencias({ recorrente, mes }: { recorrente: Recorrente; mes: Mes }) {
   );
 }
 
-function oQueEncerrarFaz(recorrente: Recorrente, mes: Mes): string {
-  if (mes === inicioDe(recorrente)) {
+function oQueEncerrarFaz(encerramento: Encerramento, mes: Mes): string {
+  if (encerramento.tipo === "lixeira") {
     return "Este é o mês de início: encerrar apaga o recorrente inteiro, que vai para a lixeira, de onde volta intacto.";
   }
-  const descartadas = recorrente.vigencias.filter((v) => v.desde >= mes).length;
+  const { descartadas } = encerramento;
   return (
     `Encerrar a partir de ${nomeDoMes(mes)}: a última ocorrência passa a ser ${nomeDoMes(somarMeses(mes, -1))}.` +
     (descartadas === 1 ? " A mudança daqui em diante some de vez." : "") +
