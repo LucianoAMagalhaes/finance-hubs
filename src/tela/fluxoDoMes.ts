@@ -22,7 +22,7 @@ import {
   type Resultado,
   type VistaDoMes,
 } from "@/dominio";
-import { percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./EditorDePercentuais";
+import { percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./rascunhoDePercentuais";
 import type { Aberto } from "./MestreDetalhe";
 
 /** O formulário aberto, já resolvido contra o estado: um registro novo (null), ou o que se corrige. */
