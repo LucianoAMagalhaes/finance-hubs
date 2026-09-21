@@ -1,180 +1,68 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
-  antecipacaoEm,
-  aplicar,
   dataProposta,
   formatarReais,
-  itensNaLixeira,
   lancamentosComATag,
   mesDaData,
   nomeDaFonte,
   nomeDoMes,
   nomeDoTipo,
-  normalizarTag,
-  projetarMes,
   somarMeses,
   tagsEmUso,
   tagsNoHistorico,
   type AgregadosDoMes,
   type Centavos,
-  type Comando,
-  type Compra,
   type Data,
   type Eixo,
   type Entrada,
-  type EntradaASalvar,
   type Estado,
-  type Lancamento,
-  type Mes,
-  type Ocorrencia,
-  type Percentuais,
-  type Registro,
   type VistaDoMes,
 } from "@/dominio";
 import { executar } from "@/servidor/acoes";
 import { AlternadorDeTema } from "./AlternadorDeTema";
 import { BotaoFlutuante } from "./BotaoFlutuante";
-import { EditorDePercentuais, percentuaisParaPrevia, rascunhoDe, type Rascunho } from "./EditorDePercentuais";
+import { EditorDePercentuais } from "./EditorDePercentuais";
+import { criarFluxoDoMes } from "./fluxoDoMes";
 import { FormularioDeAntecipacao } from "./FormularioDeAntecipacao";
 import { FormularioDeEntrada } from "./FormularioDeEntrada";
 import { FormularioDeLancamento } from "./FormularioDeLancamento";
 import { FormularioDeRenomearTag } from "./FormularioDeRenomearTag";
 import { Lixeira } from "./Lixeira";
-import { MestreDetalhe, NOME_DO_EIXO, type Aberto } from "./MestreDetalhe";
+import { MestreDetalhe, NOME_DO_EIXO } from "./MestreDetalhe";
 import { BotoesDeLancar, Valor } from "./pecas";
 
 type Props = { estadoInicial: Estado; hoje: Data };
 
-/** O formulário aberto: um registro novo (null), ou o que se corrige. */
-type Formulario =
-  | { registro: "entrada"; entrada: Entrada | null }
-  | { registro: "lancamento"; lancamento: Lancamento | null }
-  /** A antecipação de um parcelado: nova (null) ou a que se revê. */
-  | { registro: "antecipacao"; parcelado: number; antecipacao: number | null };
-
-/** Depois de salvar algo com data em outro mês, a tela fica onde está e aponta para lá. */
-type Aviso = { texto: string; mes: Mes };
-
 /**
- * A tela do mês. Mantém o estado em memória e projeta o mês no navegador;
- * trocar de mês é só trocar a projeção, e nunca grava nada. Salvar manda o
- * comando ao servidor e troca o estado pelo que ele devolve.
+ * A tela do mês: só desenha o fluxo do mês, que guarda o estado, projeta o
+ * mês e manda os comandos ao servidor.
  */
 export function TelaDoMes({ estadoInicial, hoje }: Props) {
-  const mesDeHoje = mesDaData(hoje);
-  const [estado, setEstado] = useState(estadoInicial);
-  const [mes, setMesDaTela] = useState<Mes>(mesDeHoje);
-  const [formulario, setFormulario] = useState<Formulario | null>(null);
-  const [aviso, setAviso] = useState<Aviso | null>(null);
-  /** Os percentuais sendo editados; enquanto existe, a projeção usa eles. */
-  const [rascunho, setRascunho] = useState<Rascunho | null>(null);
-  const [eixo, setEixoDaTela] = useState<Eixo>("pote");
-  /** O grupo aberto no mestre-detalhe; continua aberto ao trocar de mês, se existir lá. */
-  const [aberto, setAberto] = useState<Aberto | null>(null);
-  const [lixeiraAberta, setLixeiraAberta] = useState(false);
-  /** A tag que se renomeia; não é um registro, e por isso não é um formulário como os outros. */
-  const [tagARenomear, setTagARenomear] = useState<string | null>(null);
-  const lixeira = useMemo(() => itensNaLixeira(estado), [estado]);
-  const vista = useMemo(
-    () => projetarMes(estado, mes, rascunho ? percentuaisParaPrevia(rascunho) : undefined),
-    [estado, mes, rascunho],
+  const [fluxo] = useState(() => criarFluxoDoMes(estadoInicial, { hoje, executar }));
+  const { estado, mes, vista, lixeira, formulario, aviso, rascunho, eixo, aberto, lixeiraAberta, tagARenomear } = useSyncExternalStore(
+    fluxo.assinar,
+    fluxo.agora,
+    fluxo.agora,
   );
-
-  function setMes(novo: Mes) {
-    setMesDaTela(novo);
-    setAviso(null);
-    setRascunho(null);
-  }
-
-  /** Confere no navegador, grava no servidor. Devolve o erro, ou null se salvou. */
-  async function mandar(comando: Comando): Promise<string | null> {
-    const previa = aplicar(estado, comando, hoje);
-    if (!previa.ok) return previa.erro;
-    const resultado = await executar(comando);
-    if (!resultado.ok) return resultado.erro;
-    setEstado(resultado.valor);
-    return null;
-  }
-
-  /** Salva uma entrada ou um lançamento e, se ele pesa a partir de outro mês, avisa sem sair deste. */
-  async function salvarRegistro(comando: Comando, destino: Mes, rotulo: string): Promise<string | null> {
-    const erro = await mandar(comando);
-    if (erro) return erro;
-    setFormulario(null);
-    setAviso(destino === mes ? null : { texto: `${rotulo} em ${nomeDoMes(destino)}.`, mes: destino });
-    return null;
-  }
-
-  const salvarEntrada = (entrada: EntradaASalvar, rotulo: string) =>
-    salvarRegistro({ tipo: "salvar-entrada", entrada }, mesDaData(entrada.data), rotulo);
-
-  /** Encerrar fecha o formulário, como apagar; no mês de início, o recorrente vai para a lixeira. */
-  async function encerrar(id: number): Promise<string | null> {
-    const erro = await mandar({ tipo: "encerrar-recorrente", id, mes });
-    if (!erro) setFormulario(null);
-    return erro;
-  }
-
-  /** Apagar manda para a lixeira e fecha o formulário; os meses afetados recalculam com o estado novo. */
-  async function apagar(registro: Registro, id: number): Promise<string | null> {
-    const erro = await mandar({ tipo: "apagar", registro, id });
-    if (!erro) setFormulario(null);
-    return erro;
-  }
-
-  const restaurar = (registro: Registro, id: number) => mandar({ tipo: "restaurar", registro, id });
-
-  /** Um eixo por vez. Trocar de eixo fecha o grupo aberto, mas não o feed do mês. */
-  function setEixo(novo: Eixo) {
-    setEixoDaTela(novo);
-    setAberto((a) => (a?.tipo === "todos" ? a : null));
-  }
-
-  /** A ocorrência da antecipação abre a própria antecipação; as outras, o lançamento. */
-  const abrirOcorrencia = (o: Ocorrencia) =>
-    setFormulario(
-      o.antecipacao
-        ? { registro: "antecipacao", parcelado: o.lancamento, antecipacao: o.antecipacao.id }
-        : { registro: "lancamento", lancamento: estado.lancamentos.find((l) => l.id === o.lancamento)! },
-    );
-
-  /**
-   * Renomear troca o nome em todos os meses, então o grupo aberto passa a ser o
-   * da tag nova — ou o da que ela absorveu, na fusão —, e o detalhe continua
-   * onde estava em vez de sumir com o nome antigo.
-   */
-  async function renomearTag(de: string, para: string, fundir: boolean): Promise<string | null> {
-    const erro = await mandar({ tipo: "renomear-tag", de, para, fundir });
-    if (erro) return erro;
-    setTagARenomear(null);
-    setAberto({ tipo: "grupo", chave: normalizarTag(para) });
-    return null;
-  }
-
-  const novaEntrada = () => setFormulario({ registro: "entrada", entrada: null });
-  const novoLancamento = () => setFormulario({ registro: "lancamento", lancamento: null });
-
-  async function salvarPercentuais(percentuais: Percentuais): Promise<string | null> {
-    const erro = await mandar({ tipo: "salvar-percentuais", mes, percentuais });
-    if (!erro) setRascunho(null);
-    return erro;
-  }
+  const mesDeHoje = mesDaData(hoje);
+  const novaEntrada = () => fluxo.abrirEntrada(null);
+  const novoLancamento = () => fluxo.abrirLancamento(null);
 
   return (
     <main className="wrap">
       <header className="topo">
         <nav className="navegacao-mes" aria-label="Mês">
-          <button type="button" className="btn seta" onClick={() => setMes(somarMeses(mes, -1))} aria-label="Mês anterior">
+          <button type="button" className="btn seta" onClick={() => fluxo.mudarMes(somarMeses(mes, -1))} aria-label="Mês anterior">
             ‹
           </button>
           <h1>{maiuscula(nomeDoMes(mes))}</h1>
-          <button type="button" className="btn seta" onClick={() => setMes(somarMeses(mes, 1))} aria-label="Próximo mês">
+          <button type="button" className="btn seta" onClick={() => fluxo.mudarMes(somarMeses(mes, 1))} aria-label="Próximo mês">
             ›
           </button>
           {mes !== mesDeHoje && (
-            <button type="button" className="btn" onClick={() => setMes(mesDeHoje)}>
+            <button type="button" className="btn" onClick={() => fluxo.mudarMes(mesDeHoje)}>
               Hoje
             </button>
           )}
@@ -190,7 +78,7 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         </div>
         <div className="acoes">
           <AlternadorDeTema />
-          <button type="button" className="btn" onClick={() => setLixeiraAberta(true)} title="O que foi apagado, para restaurar">
+          <button type="button" className="btn" onClick={fluxo.abrirLixeira} title="O que foi apagado, para restaurar">
             Lixeira{lixeira.length > 0 && <span className="contagem num">{lixeira.length}</span>}
           </button>
           <BotoesDeLancar novaEntrada={novaEntrada} novoLancamento={novoLancamento} />
@@ -202,10 +90,10 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           <span>
             {aviso.texto} A tela continua em {nomeDoMes(mes)}.
           </span>
-          <button type="button" className="btn" onClick={() => setMes(aviso.mes)}>
+          <button type="button" className="btn" onClick={() => fluxo.mudarMes(aviso.mes)}>
             Ir para {nomeDoMes(aviso.mes)}
           </button>
-          <button type="button" className="fechar" onClick={() => setAviso(null)} aria-label="Dispensar aviso">
+          <button type="button" className="fechar" onClick={fluxo.dispensarAviso} aria-label="Dispensar aviso">
             ×
           </button>
         </div>
@@ -216,13 +104,13 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         agregados={vista.agregados}
         entradas={vista.entradas.length}
         despesasAbertas={aberto?.tipo === "todos"}
-        abrirDespesas={() => setAberto((a) => (a?.tipo === "todos" ? null : { tipo: "todos" }))}
+        abrirDespesas={fluxo.alternarDespesas}
       />
 
       <Secao titulo={eixo === "pote" ? "Os potes" : `Por ${NOME_DO_EIXO[eixo].toLowerCase()}`}>
-        <SeletorDeEixo eixo={eixo} mudar={setEixo} />
+        <SeletorDeEixo eixo={eixo} mudar={fluxo.mudarEixo} />
         {eixo === "pote" && !rascunho && (
-          <button type="button" className="btn" onClick={() => setRascunho(rascunhoDe(vista.potes))}>
+          <button type="button" className="btn" onClick={fluxo.editarPercentuais}>
             Editar percentuais
           </button>
         )}
@@ -244,9 +132,9 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
       {rascunho && (
         <EditorDePercentuais
           rascunho={rascunho}
-          mudar={setRascunho}
-          salvar={salvarPercentuais}
-          cancelar={() => setRascunho(null)}
+          mudar={fluxo.mudarRascunho}
+          salvar={fluxo.salvarPercentuais}
+          cancelar={fluxo.cancelarRascunho}
         />
       )}
       {vista.receita === 0 && (
@@ -258,9 +146,9 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         vista={vista}
         eixo={eixo}
         aberto={aberto}
-        abrir={setAberto}
-        abrirOcorrencia={abrirOcorrencia}
-        renomearTag={setTagARenomear}
+        abrir={fluxo.abrir}
+        abrirOcorrencia={fluxo.abrirOcorrencia}
+        renomearTag={fluxo.abrirRenomear}
       />
 
       <Secao titulo="Entradas do mês">
@@ -268,15 +156,15 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           + Entrada
         </button>
       </Secao>
-      <ListaDeEntradas vista={vista} abrir={(entrada) => setFormulario({ registro: "entrada", entrada })} />
+      <ListaDeEntradas vista={vista} abrir={fluxo.abrirEntrada} />
 
       {formulario?.registro === "entrada" && (
         <FormularioDeEntrada
           entrada={formulario.entrada}
           dataProposta={dataProposta(mes, hoje)}
-          salvar={(entrada) => salvarEntrada(entrada, formulario.entrada ? "Entrada salva" : "Entrada lançada")}
-          apagar={() => apagar("entrada", formulario.entrada!.id)}
-          fechar={() => setFormulario(null)}
+          salvar={(entrada) => fluxo.salvar({ tipo: "salvar-entrada", entrada }, mesDaData(entrada.data))}
+          apagar={fluxo.apagar}
+          fechar={fluxo.fecharFormulario}
         />
       )}
       {formulario?.registro === "lancamento" && (
@@ -285,22 +173,22 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           mes={mes}
           tags={tagsEmUso(estado)}
           dataProposta={dataProposta(mes, hoje)}
-          salvar={(comando, destino) => salvarRegistro(comando, destino, formulario.lancamento ? "Gasto salvo" : "Gasto lançado")}
-          apagar={() => apagar("lancamento", formulario.lancamento!.id)}
-          encerrar={() => encerrar(formulario.lancamento!.id)}
-          antecipar={() => setFormulario({ registro: "antecipacao", parcelado: formulario.lancamento!.id, antecipacao: null })}
-          fechar={() => setFormulario(null)}
+          salvar={fluxo.salvar}
+          apagar={fluxo.apagar}
+          encerrar={fluxo.encerrar}
+          antecipar={fluxo.antecipar}
+          fechar={fluxo.fecharFormulario}
         />
       )}
       {formulario?.registro === "antecipacao" && (
         <FormularioDeAntecipacao
-          parcelado={parceladoDe(estado, formulario.parcelado)}
-          antecipacao={formulario.antecipacao === null ? null : antecipacaoEm(estado, formulario.antecipacao)!.antecipacao}
+          parcelado={formulario.parcelado}
+          antecipacao={formulario.antecipacao}
           dataProposta={dataProposta(mes, hoje)}
           hoje={hoje}
-          salvar={(comando, destino) => salvarRegistro(comando, destino, formulario.antecipacao ? "Antecipação salva" : "Parcelas antecipadas")}
-          desfazer={() => apagar("antecipacao", formulario.antecipacao!)}
-          fechar={() => setFormulario(null)}
+          salvar={fluxo.salvar}
+          desfazer={fluxo.apagar}
+          fechar={fluxo.fecharFormulario}
         />
       )}
       {tagARenomear !== null && (
@@ -309,11 +197,11 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           tags={tagsEmUso(estado)}
           tagsDoHistorico={tagsNoHistorico(estado)}
           lancamentosComATag={(tag) => lancamentosComATag(estado, tag)}
-          renomear={(para, fundir) => renomearTag(tagARenomear, para, fundir)}
-          fechar={() => setTagARenomear(null)}
+          renomear={fluxo.renomearTag}
+          fechar={fluxo.fecharRenomear}
         />
       )}
-      {lixeiraAberta && <Lixeira itens={lixeira} restaurar={restaurar} fechar={() => setLixeiraAberta(false)} />}
+      {lixeiraAberta && <Lixeira itens={lixeira} restaurar={fluxo.restaurar} fechar={fluxo.fecharLixeira} />}
 
       {/* Em janela estreita, lançar é por aqui; no layout largo, pelo topo. */}
       <BotaoFlutuante novaEntrada={novaEntrada} novoLancamento={novoLancamento} />
@@ -433,5 +321,3 @@ function Saldo({ centavos }: { centavos: Centavos }) {
 }
 
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-const parceladoDe = (estado: Estado, id: number) => estado.lancamentos.find((l) => l.id === id) as Compra;
