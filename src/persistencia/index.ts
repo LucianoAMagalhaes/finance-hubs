@@ -1,4 +1,5 @@
-// Persistência: carrega o estado do SQLite e grava o resultado de um comando.
+// Persistência: carrega o estado do SQLite e executa comandos contra ele.
 // Só roda no servidor.
 export { abrirBanco, type Banco } from "./banco";
-export { carregarEstado, gravarEstado } from "./repositorio";
+export { executarNoBanco, type ResultadoNoBanco } from "./executar";
+export { carregarEstado } from "./repositorio";
