@@ -1,6 +1,15 @@
 // O módulo de domínio: puro, sem I/O, sem DOM, sem framework. Roda igual no
 // servidor e no navegador (ADR-0004). `hoje` sempre entra como parâmetro.
-export { aplicar, type Comando, type Resultado } from "./comandos";
+export {
+  aplicar,
+  oQuePodeVirar,
+  porQueNaoParcela,
+  type Comando,
+  type Encerramento,
+  type Forma,
+  type OQuePodeVirar,
+  type Resultado,
+} from "./comandos";
 export { centavosParaCampo, formatarReais, reaisParaCentavos, type Centavos } from "./dinheiro";
 export {
   ehFonte,
