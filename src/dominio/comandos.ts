@@ -1,13 +1,18 @@
+import type { Centavos } from "./dinheiro";
 import { ehFonte, type EntradaASalvar } from "./entradas";
 import { antecipacaoEm, compras, type Estado } from "./estado";
 import {
   antecipacoesDe,
   caiEm,
+  comAntecipacaoEmProva,
   inicioDe,
   maximoAntecipavel,
+  mesDaParcela,
+  somaDasParcelas,
   type Antecipacao,
   type AntecipacaoASalvar,
   type Compra,
+  type Corte,
   type Lancamento,
   type LancamentoASalvar,
   type Recorrente,
@@ -101,6 +106,44 @@ export function oQuePodeVirar(lancamento: Lancamento | null, mes: Mes): OQuePode
     return { formas: { "a-vista": trava, parcelado: null, recorrente: COMPRA_NAO_VIRA_RECORRENTE }, trava, encerrar: null };
   }
   return LIVRE;
+}
+
+/**
+ * O que uma antecipação sendo montada levaria, dito antes de a pessoa salvar:
+ * `maximo` é o "até 4" (0 com a data inválida ou sem o que antecipar);
+ * `recusa`, a mesma que `aplicar` daria, das que dependem só do parcelado e da
+ * antecipação; `corte`, as parcelas que saem, de que meses, e quais deles já
+ * passaram — null quando há recusa.
+ */
+export type PreviaDaAntecipacao = { maximo: number; recusa: string | null; corte: CorteNaPrevia | null };
+
+/** O corte que a antecipação faria, com quanto as parcelas somavam e em que meses caíam. */
+export type CorteNaPrevia = Omit<Corte, "antecipacao"> & { soma: Centavos; primeiroMes: Mes; ultimoMes: Mes; mesesPassados: Mes[] };
+
+export function previaDaAntecipacao(parcelado: Compra, prova: { id?: number; data: string; parcelas: number }, hoje: Data): PreviaDaAntecipacao {
+  const data = prova.data as Data;
+  // O máximo sobrevive a um N errado: é a dica para corrigi-lo.
+  const maximo = ehDataValida(data) ? maximoAntecipavel(parcelado, { id: prova.id, data }) : 0;
+  const invalida = porQueNaoVale(data, prova.parcelas) ?? porQueNaoAntecipa(parcelado);
+  if (invalida) return { maximo, recusa: invalida, corte: null };
+  const { serie, id } = comAntecipacaoEmProva(parcelado, { ...prova, data });
+  const { cortes, recusada } = antecipacoesDe(serie);
+  if (recusada) return { maximo, recusa: naoCoube(serie, recusada), corte: null };
+  // Sem recusada, toda antecipação viva da série cortou — a em prova também.
+  const { primeira, ultima } = cortes.find((c) => c.antecipacao.id === id)!;
+  const meses = Array.from({ length: ultima - primeira + 1 }, (_, i) => mesDaParcela(parcelado, primeira + i));
+  return {
+    maximo,
+    recusa: null,
+    corte: {
+      primeira,
+      ultima,
+      soma: somaDasParcelas(parcelado, primeira, ultima),
+      primeiroMes: meses[0]!,
+      ultimoMes: meses.at(-1)!,
+      mesesPassados: meses.filter((m) => m < mesDaData(hoje)),
+    },
+  };
 }
 
 const RECORRENTE_NAO_VIRA_COMPRA = "Um recorrente não vira compra: apague e lance de novo.";
@@ -215,12 +258,10 @@ const TRAVA_DA_ANTECIPACAO =
 
 /** Sem id, acrescenta uma antecipação; com id, corrige a que já existe. */
 function salvarAntecipacao(estado: Estado, dados: AntecipacaoASalvar): Resultado<Estado> {
-  if (typeof dados.data !== "string" || !ehDataValida(dados.data)) return { ok: false, erro: "Informe uma data válida." };
+  const campos = porQueNaoVale(dados.data, dados.parcelas);
+  if (campos) return { ok: false, erro: campos };
   if (!Number.isInteger(dados.valor) || dados.valor <= 0) {
     return { ok: false, erro: "A antecipação tem valor pago positivo, em centavos inteiros: é o que saiu, já com o desconto." };
-  }
-  if (!Number.isInteger(dados.parcelas) || dados.parcelas < 1) {
-    return { ok: false, erro: "Informe quantas parcelas antecipar, um inteiro de 1 em diante." };
   }
   const alvo = parceladoQueAntecipa(estado, dados.lancamento);
   if (!alvo.ok) return alvo;
@@ -281,9 +322,22 @@ function parceladoQueAntecipa(estado: Estado, id: number): Resultado<Compra> {
   if (!l) return { ok: false, erro: "Esse lançamento não existe mais." };
   if (l.forma !== "compra") return { ok: false, erro: "Um recorrente não tem parcelas para antecipar." };
   if (l.apagadoEm !== null) return { ok: false, erro: "Esse gasto está na lixeira: restaure-o antes." };
-  if (l.parcelas < 2) return { ok: false, erro: "Um gasto à vista não tem parcelas para antecipar." };
-  if (l.valor < 0) return { ok: false, erro: "Um reembolso não se antecipa: o valor pago de uma antecipação é positivo." };
-  return { ok: true, valor: l };
+  const erro = porQueNaoAntecipa(l);
+  return erro ? { ok: false, erro } : { ok: true, valor: l };
+}
+
+/** Por que a compra não aceita antecipação; null no parcelado de valor positivo. */
+function porQueNaoAntecipa(l: Compra): string | null {
+  if (l.parcelas < 2) return "Um gasto à vista não tem parcelas para antecipar.";
+  if (l.valor < 0) return "Um reembolso não se antecipa: o valor pago de uma antecipação é positivo.";
+  return null;
+}
+
+/** Por que a data ou o número de parcelas de uma antecipação não valem, antes de olhar a série. */
+function porQueNaoVale(data: unknown, parcelas: unknown): string | null {
+  if (typeof data !== "string" || !ehDataValida(data)) return "Informe uma data válida.";
+  if (!Number.isInteger(parcelas) || (parcelas as number) < 1) return "Informe quantas parcelas antecipar, um inteiro de 1 em diante.";
+  return null;
 }
 
 /** A data da primeira ocorrência dá o mês de início e o dia, que não muda mais. */

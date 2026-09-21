@@ -5,8 +5,7 @@ import {
   estadoVazio,
   grupos,
   itensNaLixeira,
-  maximoAntecipavel,
-  parcelasAntecipadas,
+  previaDaAntecipacao,
   projetarMes,
   todosOsGastos,
   type AntecipacaoASalvar,
@@ -59,7 +58,7 @@ describe("antecipar parcelas", () => {
   });
 
   it("o valor pago é o que a pessoa informou, com ou sem desconto, e não precisa caber na soma das parcelas", () => {
-    const soma = parcelasAntecipadas(compraDe(salvar(estadoVazio(), EM_DEZ), 1), { data: "2026-07-20", parcelas: 3 })!.soma;
+    const soma = previaDaAntecipacao(compraDe(salvar(estadoVazio(), EM_DEZ), 1), { data: "2026-07-20", parcelas: 3 }, HOJE).corte!.soma;
     expect(soma).toBe(38_990 * 3);
 
     const caro = comAntecipacao(EM_DEZ, { data: "2026-07-20", parcelas: 3, valor: 500_000 });
@@ -87,45 +86,130 @@ describe("antecipar parcelas", () => {
   });
 });
 
+describe("a prévia da antecipação", () => {
+  it("em julho, 3 parcelas de um 10× de janeiro: leva 8/10 a 10/10, de agosto a outubro, e agosto já passou", () => {
+    const compra = compraDe(salvar(estadoVazio(), EM_DEZ), 1);
+
+    expect(previaDaAntecipacao(compra, { data: "2026-07-20", parcelas: 3 }, HOJE)).toEqual({
+      maximo: 3,
+      recusa: null,
+      corte: {
+        primeira: 8,
+        ultima: 10,
+        soma: 38_990 * 3,
+        primeiroMes: "2026-08",
+        ultimoMes: "2026-10",
+        mesesPassados: ["2026-08"],
+      },
+    });
+  });
+
+  it.each([
+    ["data inválida", EM_DEZ, { data: "2026-02-31", parcelas: 3 }],
+    ["data vazia", EM_DEZ, { data: "", parcelas: 3 }],
+    ["zero parcelas", EM_DEZ, { data: "2026-07-20", parcelas: 0 }],
+    ["parcelas fracionadas", EM_DEZ, { data: "2026-07-20", parcelas: 1.5 }],
+    ["um à vista", { ...EM_DEZ, parcelas: 1 }, { data: "2025-12-05", parcelas: 1 }],
+    ["um reembolso", { ...EM_DEZ, valor: -389_900 }, { data: "2026-07-20", parcelas: 3 }],
+    ["mais parcelas que o máximo", EM_DEZ, { data: "2026-07-20", parcelas: 4 }],
+    ["nada depois do mês da antecipação", EM_DEZ, { data: "2026-10-05", parcelas: 1 }],
+  ])("%s: a prévia recusa com a mesma frase que aplicar, e não mostra corte", (_, lancamento, prova) => {
+    const estado = salvar(estadoVazio(), lancamento);
+    const recusado = aplicar(estado, antecipar({ ...prova, data: prova.data as Data, valor: 1_000 }), HOJE);
+    if (recusado.ok) throw new Error("aplicar deveria recusar");
+
+    const previa = previaDaAntecipacao(compraDe(estado, 1), prova, HOJE);
+
+    expect(previa.recusa).toBe(recusado.erro);
+    expect(previa.corte).toBeNull();
+  });
+
+  it("uma parcela só: o corte começa e termina no mesmo mês, e nada passou quando hoje ainda é julho", () => {
+    const compra = compraDe(salvar(estadoVazio(), EM_DEZ), 1);
+
+    expect(previaDaAntecipacao(compra, { data: "2026-07-20", parcelas: 1 }, "2026-07-25").corte).toMatchObject({
+      primeira: 10,
+      ultima: 10,
+      primeiroMes: "2026-10",
+      ultimoMes: "2026-10",
+      mesesPassados: [],
+    });
+  });
+
+  it("antecipar em janeiro, já em setembro: sete das parcelas que saem caem em meses que passaram", () => {
+    const compra = compraDe(salvar(estadoVazio(), EM_DEZ), 1);
+
+    expect(previaDaAntecipacao(compra, { data: "2026-01-20", parcelas: 9 }, HOJE).corte!.mesesPassados).toEqual([
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+    ]);
+  });
+
+  it("corrigir a de julho para cima da de agosto: a prévia recusa com a mesma frase que aplicar", () => {
+    let estado = salvar(estadoVazio(), EM_DEZ);
+    estado = aplicarOk(estado, antecipar({ data: "2026-07-20", parcelas: 1, valor: 35_000 }));
+    estado = aplicarOk(estado, antecipar({ data: "2026-08-10", parcelas: 1, valor: 35_000 }));
+    const recusado = aplicar(estado, antecipar({ id: 1, data: "2026-07-20", parcelas: 3, valor: 90_000 }), HOJE);
+    if (recusado.ok) throw new Error("aplicar deveria recusar");
+
+    const previa = previaDaAntecipacao(compraDe(estado, 1), { id: 1, data: "2026-07-20", parcelas: 3 }, HOJE);
+
+    expect(previa).toEqual({ maximo: 1, recusa: recusado.erro, corte: null });
+  });
+
+  it("com N acima do máximo, o máximo continua dito para a pessoa corrigir", () => {
+    const compra = compraDe(salvar(estadoVazio(), EM_DEZ), 1);
+
+    expect(previaDaAntecipacao(compra, { data: "2026-07-20", parcelas: 4 }, HOJE).maximo).toBe(3);
+    expect(previaDaAntecipacao(compra, { data: "2026-07-20", parcelas: 0 }, HOJE).maximo).toBe(3);
+    expect(previaDaAntecipacao(compra, { data: "2026-02-31", parcelas: 3 }, HOJE).maximo).toBe(0);
+  });
+});
+
 describe("quantas parcelas cabem numa antecipação", () => {
   it("só entram parcelas de meses posteriores ao da antecipação: em julho, o máximo de um 10× de janeiro é 3", () => {
     const compra = compraDe(salvar(estadoVazio(), EM_DEZ), 1);
 
-    expect(maximoAntecipavel(compra, { data: "2026-07-20" })).toBe(3);
-    expect(parcelasAntecipadas(compra, { data: "2026-07-20", parcelas: 3 })).toMatchObject({ primeira: 8, ultima: 10 });
+    expect(maximoEm(compra, "2026-07-20")).toBe(3);
+    expect(previaDaAntecipacao(compra, { data: "2026-07-20", parcelas: 3 }, HOJE).corte).toMatchObject({ primeira: 8, ultima: 10 });
   });
 
   it("N maior que o máximo é recusado, e o máximo é exatamente o maior N aceito", () => {
     const estado = salvar(estadoVazio(), EM_DEZ);
-    const maximo = maximoAntecipavel(compraDe(estado, 1), { data: "2026-07-20" });
+    const maximo = maximoEm(compraDe(estado, 1), "2026-07-20");
 
     expect(aplicar(estado, antecipar({ data: "2026-07-20", parcelas: maximo, valor: 1_000 }), HOJE).ok).toBe(true);
     expect(aplicar(estado, antecipar({ data: "2026-07-20", parcelas: maximo + 1, valor: 1_000 }), HOJE)).toEqual({
       ok: false,
       erro: expect.stringContaining("3"),
     });
-    expect(parcelasAntecipadas(compraDe(estado, 1), { data: "2026-07-20", parcelas: maximo + 1 })).toBeNull();
+    expect(previaDaAntecipacao(compraDe(estado, 1), { data: "2026-07-20", parcelas: maximo + 1 }, HOJE).corte).toBeNull();
   });
 
   it("no mês da última parcela, e depois dele, não sobra nada para antecipar", () => {
     const estado = salvar(estadoVazio(), EM_DEZ);
 
-    expect(maximoAntecipavel(compraDe(estado, 1), { data: "2026-10-05" })).toBe(0);
-    expect(maximoAntecipavel(compraDe(estado, 1), { data: "2026-12-05" })).toBe(0);
+    expect(maximoEm(compraDe(estado, 1), "2026-10-05")).toBe(0);
+    expect(maximoEm(compraDe(estado, 1), "2026-12-05")).toBe(0);
     expect(aplicar(estado, antecipar({ data: "2026-10-05", parcelas: 1, valor: 1_000 }), HOJE).ok).toBe(false);
   });
 
   it("antes da compra, todas as parcelas são posteriores: o máximo é o parcelado inteiro", () => {
     const estado = salvar(estadoVazio(), EM_DEZ);
 
-    expect(maximoAntecipavel(compraDe(estado, 1), { data: "2025-12-05" })).toBe(10);
+    expect(maximoEm(compraDe(estado, 1), "2025-12-05")).toBe(10);
   });
 
   it("um à vista não tem parcelas para antecipar, em data nenhuma", () => {
     const estado = salvar(estadoVazio(), { ...EM_DEZ, parcelas: 1 });
 
-    expect(maximoAntecipavel(compraDe(estado, 1), { data: "2025-12-05" })).toBe(0);
-    expect(maximoAntecipavel(compraDe(estado, 1), { data: "2026-01-20" })).toBe(0);
+    expect(maximoEm(compraDe(estado, 1), "2025-12-05")).toBe(0);
+    expect(maximoEm(compraDe(estado, 1), "2026-01-20")).toBe(0);
     expect(aplicar(estado, antecipar({ data: "2025-12-05", parcelas: 1, valor: 100 }), HOJE)).toEqual({
       ok: false,
       erro: expect.stringMatching(/à vista/),
@@ -192,7 +276,7 @@ describe("várias antecipações no mesmo parcelado", () => {
     estado = aplicarOk(estado, antecipar({ data: "2026-07-20", parcelas: 2, valor: 70_000 }));
 
     // Sobram as parcelas 1 a 8, e nenhuma delas cai depois de agosto.
-    expect(maximoAntecipavel(compraDe(estado, 1), { data: "2026-08-10" })).toBe(0);
+    expect(maximoEm(compraDe(estado, 1), "2026-08-10")).toBe(0);
     expect(aplicar(estado, antecipar({ data: "2026-08-10", parcelas: 1, valor: 35_000 }), HOJE)).toEqual({
       ok: false,
       erro: expect.stringMatching(/agosto de 2026/),
@@ -203,7 +287,7 @@ describe("várias antecipações no mesmo parcelado", () => {
     let estado = salvar(estadoVazio(), EM_DEZ);
     estado = aplicarOk(estado, antecipar({ data: "2026-07-20", parcelas: 2, valor: 70_000 }));
 
-    expect(maximoAntecipavel(compraDe(estado, 1), { data: "2026-07-25" })).toBe(1);
+    expect(maximoEm(compraDe(estado, 1), "2026-07-25")).toBe(1);
     expect(aplicar(estado, antecipar({ data: "2026-07-25", parcelas: 2, valor: 70_000 }), HOJE).ok).toBe(false);
   });
 
@@ -212,11 +296,11 @@ describe("várias antecipações no mesmo parcelado", () => {
     estado = aplicarOk(estado, antecipar({ data: "2026-04-10", parcelas: 3, valor: 100_000 }));
     const compra = compraDe(estado, 1);
 
-    estado = aplicarOk(estado, antecipar({ data: "2026-05-10", parcelas: maximoAntecipavel(compra, { data: "2026-05-10" }), valor: 90_000 }));
+    estado = aplicarOk(estado, antecipar({ data: "2026-05-10", parcelas: maximoEm(compra, "2026-05-10"), valor: 90_000 }));
 
     expect(antecipacoesDe(compraDe(estado, 1)).ultima).toBe(5);
     expect(valoresPorMes(estado, ["2026-05", "2026-06", "2026-07", "2026-08"])).toEqual([[90_000, 38_990], [], [], []]);
-    expect(maximoAntecipavel(compraDe(estado, 1), { data: "2026-05-20" })).toBe(0);
+    expect(maximoEm(compraDe(estado, 1), "2026-05-20")).toBe(0);
   });
 
   it("corrigir uma antecipação revalida a série inteira: a de julho não pode crescer sobre a de agosto", () => {
@@ -224,7 +308,7 @@ describe("várias antecipações no mesmo parcelado", () => {
     estado = aplicarOk(estado, antecipar({ data: "2026-07-20", parcelas: 1, valor: 35_000 }));
     estado = aplicarOk(estado, antecipar({ data: "2026-08-10", parcelas: 1, valor: 35_000 }));
 
-    expect(maximoAntecipavel(compraDe(estado, 1), { data: "2026-07-20", id: 1 })).toBe(1);
+    expect(maximoEm(compraDe(estado, 1), "2026-07-20", 1)).toBe(1);
     expect(aplicar(estado, antecipar({ id: 1, data: "2026-07-20", parcelas: 3, valor: 90_000 }), HOJE).ok).toBe(false);
 
     const corrigida = aplicarOk(estado, antecipar({ id: 1, data: "2026-07-20", parcelas: 1, valor: 30_000 }));
@@ -405,6 +489,10 @@ function valoresPorMes(estado: Estado, meses: Mes[]): number[][] {
 }
 
 const compraDe = (estado: Estado, id: number): Compra => estado.lancamentos.find((l) => l.id === id) as Compra;
+
+/** O "até N" que a prévia diz para uma antecipação nessa data; com id, para corrigir a que já existe. */
+const maximoEm = (compra: Compra, data: Data, id?: number): number =>
+  previaDaAntecipacao(compra, { ...(id !== undefined && { id }), data, parcelas: 1 }, HOJE).maximo;
 
 function salvarLancamento(lancamento: LancamentoASalvar): Comando {
   return { tipo: "salvar-lancamento", lancamento };

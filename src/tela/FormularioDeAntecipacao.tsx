@@ -3,23 +3,20 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   centavosParaCampo,
-  ehDataValida,
   formatarReais,
-  maximoAntecipavel,
   mesDaData,
-  mesDaParcela,
   nomeDoMes,
   nomeDoPote,
   nomeDoTipo,
-  parcelasAntecipadas,
+  previaDaAntecipacao,
   reaisParaCentavos,
   type Antecipacao,
   type Centavos,
   type Comando,
   type Compra,
+  type CorteNaPrevia,
   type Data,
   type Mes,
-  type ParcelasAntecipadas,
 } from "@/dominio";
 import { faixaDeParcelas, PilulaDaTag } from "./pecas";
 
@@ -58,10 +55,8 @@ export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, 
   // <dialog> modal: o navegador cuida do foco, do Esc e do fundo inerte.
   useEffect(() => dialogo.current?.showModal(), []);
 
-  const prova = { id: antecipacao?.id, data: data as Data, parcelas: Number(parcelas) };
-  const dataValida = ehDataValida(data);
-  const maximo = dataValida ? maximoAntecipavel(parcelado, { id: prova.id, data: prova.data }) : 0;
-  const corte = dataValida ? parcelasAntecipadas(parcelado, prova) : null;
+  const prova = { ...(antecipacao && { id: antecipacao.id }), data, parcelas: Number(parcelas) };
+  const { maximo, recusa, corte } = previaDaAntecipacao(parcelado, prova, hoje);
   const valorMostrado = valorEditado ? valor : corte ? centavosParaCampo(corte.soma) : "";
 
   function mudarValor(novo: string) {
@@ -78,7 +73,7 @@ export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, 
     }
     const comando: Comando = {
       tipo: "salvar-antecipacao",
-      antecipacao: { lancamento: parcelado.id, ...(antecipacao && { id: antecipacao.id }), data: data as Data, parcelas: prova.parcelas, valor: centavos },
+      antecipacao: { lancamento: parcelado.id, ...prova, data: data as Data, valor: centavos },
     };
     await enquantoSalva(() => salvar(comando, mesDaData(data as Data)));
   }
@@ -128,11 +123,7 @@ export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, 
               />
             </label>
           </div>
-          {maximo === 0 && dataValida && (
-            <p className="aviso ruim">
-              Nenhuma parcela deste parcelado cai depois de {nomeDoMes(mesDaData(data as Data))}: não há o que antecipar nesta data.
-            </p>
-          )}
+          {recusa && <p className="aviso ruim">{recusa}</p>}
           {corte && <Previa parcelado={parcelado} corte={corte} />}
           <label className="campo">
             <span>
@@ -148,7 +139,7 @@ export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, 
             />
           </label>
           {corte && <Desconto soma={corte.soma} pago={reaisParaCentavos(valorMostrado)} />}
-          {corte && <AvisoDeMesPassado parcelado={parcelado} corte={corte} hoje={hoje} />}
+          {corte && <AvisoDeMesPassado passados={corte.mesesPassados} />}
           {erro && (
             <p className="aviso ruim" role="alert">
               {erro}
@@ -170,7 +161,7 @@ export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, 
           <button type="button" className="btn" onClick={fechar}>
             Cancelar
           </button>
-          <button type="submit" className="btn primario" disabled={salvando || maximo === 0}>
+          <button type="submit" className="btn primario" disabled={salvando || recusa !== null}>
             Salvar
           </button>
         </footer>
@@ -191,12 +182,11 @@ function FichaDoParcelado({ parcelado }: { parcelado: Compra }) {
 }
 
 /** Que parcelas saem, de que meses, e quanto elas somavam. */
-function Previa({ parcelado, corte }: { parcelado: Compra; corte: ParcelasAntecipadas }) {
-  const mes = (numero: number) => nomeDoMes(mesDaParcela(parcelado, numero));
+function Previa({ parcelado, corte }: { parcelado: Compra; corte: CorteNaPrevia }) {
   return (
     <p className="dica previa-parcelas num">
-      Leva as parcelas {faixaDeParcelas(corte)}/{parcelado.parcelas} · {mes(corte.primeira)}
-      {corte.primeira !== corte.ultima && ` a ${mes(corte.ultima)}`} · somam {formatarReais(corte.soma)}
+      Leva as parcelas {faixaDeParcelas(corte)}/{parcelado.parcelas} · {nomeDoMes(corte.primeiroMes)}
+      {corte.primeira !== corte.ultima && ` a ${nomeDoMes(corte.ultimoMes)}`} · somam {formatarReais(corte.soma)}
     </p>
   );
 }
@@ -213,11 +203,7 @@ function Desconto({ soma, pago }: { soma: Centavos; pago: Centavos | null }) {
 }
 
 /** O aviso de que uma parcela que sai já pesava num mês fechado, cujo veredito vai mudar. */
-function AvisoDeMesPassado({ parcelado, corte, hoje }: { parcelado: Compra; corte: ParcelasAntecipadas; hoje: Data }) {
-  const mesDeHoje = mesDaData(hoje);
-  const passados = Array.from({ length: corte.ultima - corte.primeira + 1 }, (_, i) => mesDaParcela(parcelado, corte.primeira + i)).filter(
-    (m) => m < mesDeHoje,
-  );
+function AvisoDeMesPassado({ passados }: { passados: Mes[] }) {
   if (passados.length === 0) return null;
   return (
     <p className="aviso">
