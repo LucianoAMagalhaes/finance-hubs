@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Antecipacao, Compra, Entrada, Estado, Lancamento, Mes, Percentuais, Recorrente, Vigencia } from "@/dominio";
-import type { Banco } from "./banco";
+import type { Banco, Conexao } from "./banco";
 import { antecipacao, entrada, lancamento, orcamentoDoMes, recorrente, vigencia } from "./esquema";
 
 // Sem regra de negócio aqui: validar e derivar é do domínio. Este módulo só
@@ -79,7 +79,9 @@ function paraLinhaDeVigencia(id: number, { tipo, ...v }: Vigencia): LinhaVigenci
   return { ...v, recorrente: id, tipoDePagamento: tipo };
 }
 
-export function carregarEstado({ db }: Banco): Estado {
+export const carregarEstado = ({ db }: Banco): Estado => carregar(db);
+
+export function carregar(db: Conexao): Estado {
   const orcamentos: Estado["orcamentos"] = {};
   for (const linha of db.select().from(orcamentoDoMes).all()) {
     orcamentos[linha.mes as Mes] = paraPercentuais(linha);
@@ -103,42 +105,40 @@ export function carregarEstado({ db }: Banco): Estado {
 }
 
 /**
- * Grava o estado que um comando devolveu, numa transação só: ou tudo entra,
- * ou nada entra. Quase nada é apagado (orçamento nunca, o resto vai para a
- * lixeira como marca), então só se insere ou se troca. A exceção são as
- * vigências, que se regravam por recorrente: a descartada ao encerrar some.
+ * Grava o estado que os comandos devolveram, dentro da transação de quem
+ * chama. Quase nada é apagado (orçamento nunca, o resto vai para a lixeira
+ * como marca), então só se insere ou se troca. A exceção são as vigências,
+ * que se regravam por recorrente: a descartada ao encerrar some.
  */
-export function gravarEstado({ db }: Banco, estado: Estado): void {
-  db.transaction((tx) => {
-    for (const [mes, percentuais] of Object.entries(estado.orcamentos)) {
-      if (!percentuais) continue;
-      const linha = paraLinha(mes as Mes, percentuais);
-      tx.insert(orcamentoDoMes)
-        .values(linha)
-        .onConflictDoUpdate({ target: orcamentoDoMes.mes, set: linha })
-        .run();
-    }
-    for (const e of estado.entradas) {
-      const linha = paraLinhaDeEntrada(e);
-      tx.insert(entrada).values(linha).onConflictDoUpdate({ target: entrada.id, set: linha }).run();
-    }
-    for (const l of estado.lancamentos) {
-      if (l.forma === "compra") {
-        const linha = paraLinhaDeCompra(l);
-        tx.insert(lancamento).values(linha).onConflictDoUpdate({ target: lancamento.id, set: linha }).run();
-        for (const a of l.antecipacoes) {
-          const linhaDaAntecipacao = paraLinhaDeAntecipacao(l.id, a);
-          tx.insert(antecipacao)
-            .values(linhaDaAntecipacao)
-            .onConflictDoUpdate({ target: antecipacao.id, set: linhaDaAntecipacao })
-            .run();
-        }
-        continue;
+export function gravar(tx: Conexao, estado: Estado): void {
+  for (const [mes, percentuais] of Object.entries(estado.orcamentos)) {
+    if (!percentuais) continue;
+    const linha = paraLinha(mes as Mes, percentuais);
+    tx.insert(orcamentoDoMes)
+      .values(linha)
+      .onConflictDoUpdate({ target: orcamentoDoMes.mes, set: linha })
+      .run();
+  }
+  for (const e of estado.entradas) {
+    const linha = paraLinhaDeEntrada(e);
+    tx.insert(entrada).values(linha).onConflictDoUpdate({ target: entrada.id, set: linha }).run();
+  }
+  for (const l of estado.lancamentos) {
+    if (l.forma === "compra") {
+      const linha = paraLinhaDeCompra(l);
+      tx.insert(lancamento).values(linha).onConflictDoUpdate({ target: lancamento.id, set: linha }).run();
+      for (const a of l.antecipacoes) {
+        const linhaDaAntecipacao = paraLinhaDeAntecipacao(l.id, a);
+        tx.insert(antecipacao)
+          .values(linhaDaAntecipacao)
+          .onConflictDoUpdate({ target: antecipacao.id, set: linhaDaAntecipacao })
+          .run();
       }
-      const linha = paraLinhaDeRecorrente(l);
-      tx.insert(recorrente).values(linha).onConflictDoUpdate({ target: recorrente.id, set: linha }).run();
-      tx.delete(vigencia).where(eq(vigencia.recorrente, l.id)).run();
-      tx.insert(vigencia).values(l.vigencias.map((v) => paraLinhaDeVigencia(l.id, v))).run();
+      continue;
     }
-  });
+    const linha = paraLinhaDeRecorrente(l);
+    tx.insert(recorrente).values(linha).onConflictDoUpdate({ target: recorrente.id, set: linha }).run();
+    tx.delete(vigencia).where(eq(vigencia.recorrente, l.id)).run();
+    tx.insert(vigencia).values(l.vigencias.map((v) => paraLinhaDeVigencia(l.id, v))).run();
+  }
 }

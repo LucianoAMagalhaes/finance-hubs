@@ -1,7 +1,8 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
+import Database, { type RunResult } from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as esquema from "./esquema";
 
@@ -9,6 +10,9 @@ export type Banco = {
   db: BetterSQLite3Database<typeof esquema>;
   fechar(): void;
 };
+
+/** O banco aberto ou uma transação dele: quem lê e grava não precisa saber qual. */
+export type Conexao = BaseSQLiteDatabase<"sync", RunResult, typeof esquema>;
 
 const PASTA_DAS_MIGRATIONS = path.join(process.cwd(), "drizzle");
 

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { estadoVazio, POTES, type Percentuais } from "@/dominio";
-import { abrirBanco, carregarEstado, gravarEstado } from "@/persistencia";
+import { abrirBanco, carregarEstado, executarNoBanco } from "@/persistencia";
 import { configuracaoDoAmbiente, inicializar } from "./inicializacao";
 
 let pasta: string;
@@ -33,7 +33,8 @@ describe("inicialização", () => {
     const arquivoDb = path.join(pasta, "dados", "finance-hubs.db");
     const pastaBackup = path.join(pasta, "copias");
     const anterior = abrirBanco(arquivoDb);
-    gravarEstado(anterior, { ...estadoVazio(), orcamentos: { "2026-09": setembro } });
+    const preparado = executarNoBanco(anterior, [{ tipo: "salvar-percentuais", mes: "2026-09", percentuais: setembro }], "2026-09-18");
+    expect(preparado.ok).toBe(true);
     anterior.fechar();
 
     const banco = inicializar({ arquivoDb, pastaBackup }, new Date(2026, 8, 18, 7, 5, 9));
