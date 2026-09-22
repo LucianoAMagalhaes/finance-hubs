@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import {
   apply,
   emptyState,
@@ -69,6 +69,33 @@ describe("saving a record", () => {
     expect(error).toBe("Informe uma descrição.");
     expect(server.calls).toEqual([]);
     expect(flow.snapshot().form).toEqual({ record: "expense", expense: null });
+  });
+
+  it("if the server cannot be reached, the form stays open and usable instead of stuck on 'saving'", async () => {
+    const failure = new Error("fetch failed");
+    const errors = trackConsoleErrors();
+    const flow = createMonthFlow(emptyState(), {
+      today: TODAY,
+      execute: () => Promise.reject(failure),
+    });
+    flow.openExpense(null);
+
+    const error = await flow.save(saveExpense(GROCERIES));
+
+    expect(error).toBe("Não foi possível falar com o servidor. Tente de novo.");
+    expect(flow.snapshot().form).toEqual({ record: "expense", expense: null });
+    expect(flow.snapshot().view.occurrences).toEqual([]);
+    // The refusal reaches the screen, but the cause is not swallowed with it.
+    expect(errors()).toEqual([failure]);
+  });
+
+  it("a refusal the domain gives is never an exception, so it does not go through the same door", async () => {
+    const errors = trackConsoleErrors();
+    const { flow } = build(after(saveExpense(GROCERIES)), emptyState());
+    flow.openExpense(flow.snapshot().state.expenses[0]!);
+
+    expect(await flow.delete()).toBe("Esse lançamento não existe mais.");
+    expect(errors()).toEqual([]);
   });
 
   it("if the server refuses, the error comes back and the screen's state does not change", async () => {
@@ -242,6 +269,17 @@ function build(initial: State = emptyState(), onServer: State = initial) {
     return result;
   };
   return { flow: createMonthFlow(initial, { today: TODAY, execute }), server };
+}
+
+/** Keeps `console.error` quiet for one test and hands back what it was given. */
+function trackConsoleErrors(): () => unknown[] {
+  const received: unknown[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => received.push(...args);
+  onTestFinished(() => {
+    console.error = original;
+  });
+  return () => received;
 }
 
 const saveExpense = (expense: ExpenseToSave): Command => ({ type: "save-expense", expense });

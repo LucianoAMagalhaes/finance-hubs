@@ -101,7 +101,15 @@ export function createMonthFlow(initialState: State, { today, execute }: { today
   async function send(command: Command, then: () => Partial<Memory> = () => ({})): Promise<string | null> {
     const preview = apply(memory.state, command, today);
     if (!preview.ok) return preview.error;
-    const result = await execute(command);
+    let result: Result<State>;
+    try {
+      result = await execute(command);
+    } catch (cause) {
+      // Only around the door to the server: the domain's refusals come back as values,
+      // so anything thrown here is the process not being reachable — or a bug worth the stack.
+      console.error(cause);
+      return "Não foi possível falar com o servidor. Tente de novo.";
+    }
     if (!result.ok) return result.error;
     update({ state: result.value, ...then() });
     return null;
