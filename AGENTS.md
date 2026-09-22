@@ -1,5 +1,9 @@
 # finance-hubs
 
+## Language
+
+Code is written in English: identifiers, file and folder names, comments, test titles, database schema, stored ids, env vars and commit messages. Anything a person reads stays in Portuguese: UI text (including validation errors that reach the screen), `CONTEXT.md`, ADRs, README, issues and PRs. The glossary is in Portuguese; each term's `_Code_:` line gives the one English name to use for it. See `docs/adr/0006-codigo-em-ingles-documentacao-em-portugues.md`.
+
 ## Agent skills
 
 ### Issue tracker
