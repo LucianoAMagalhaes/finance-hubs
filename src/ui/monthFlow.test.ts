@@ -49,8 +49,9 @@ describe("saving a record", () => {
   });
 
   it("the notice says whether the record is new or corrected, in each form", async () => {
-    const { flow } = build(after(saveExpense(GROCERIES)));
-    const groceries = flow.snapshot().state.expenses[0]!;
+    const initial = after(saveExpense(GROCERIES));
+    const { flow } = build(initial);
+    const groceries = initial.expenses[0]!;
     flow.openExpense(groceries);
     await flow.save(saveExpense({ ...GROCERIES, id: groceries.id, date: "2026-10-05" }));
     expect(flow.snapshot().notice?.text).toBe("Gasto salvo em outubro de 2026.");
@@ -91,8 +92,9 @@ describe("saving a record", () => {
 
   it("a refusal the domain gives is never an exception, so it does not go through the same door", async () => {
     const errors = trackConsoleErrors();
-    const { flow } = build(after(saveExpense(GROCERIES)), emptyState());
-    flow.openExpense(flow.snapshot().state.expenses[0]!);
+    const initial = after(saveExpense(GROCERIES));
+    const { flow } = build(initial, emptyState());
+    flow.openExpense(initial.expenses[0]!);
 
     expect(await flow.delete()).toBe("Esse lançamento não existe mais.");
     expect(errors()).toEqual([]);
@@ -100,14 +102,16 @@ describe("saving a record", () => {
 
   it("if the server refuses, the error comes back and the screen's state does not change", async () => {
     // Another tab already deleted the expense: the screen still has it, the server does not.
-    const { flow } = build(after(saveExpense(GROCERIES)), emptyState());
-    const before = flow.snapshot().state;
-    flow.openExpense(before.expenses[0]!);
+    const initial = after(saveExpense(GROCERIES));
+    const { flow } = build(initial, emptyState());
+    const before = flow.snapshot();
+    flow.openExpense(initial.expenses[0]!);
 
     const error = await flow.delete();
 
     expect(error).toBe("Esse lançamento não existe mais.");
-    expect(flow.snapshot().state).toBe(before);
+    // Nothing was swapped in: the projection is the very same object as before.
+    expect(flow.snapshot().view).toBe(before.view);
     expect(flow.snapshot().form).not.toBeNull();
   });
 });
@@ -159,8 +163,9 @@ describe("navigating the screen", () => {
   });
 
   it("from the installment purchase's form, prepaying opens a new prepayment of it", () => {
-    const { flow } = build(after(saveExpense({ ...GROCERIES, paymentMethod: "credit-card", installments: 3 })));
-    flow.openExpense(flow.snapshot().state.expenses[0]!);
+    const initial = after(saveExpense({ ...GROCERIES, paymentMethod: "credit-card", installments: 3 }));
+    const { flow } = build(initial);
+    flow.openExpense(initial.expenses[0]!);
 
     flow.prepay();
 
@@ -178,7 +183,18 @@ describe("renaming a tag", () => {
     const error = await flow.renameTag("Minha Casa", false);
 
     expect(error).toBeNull();
-    expect(flow.snapshot()).toMatchObject({ tagToRename: null, opened: { kind: "group", key: "minha-casa" } });
+    expect(flow.snapshot()).toMatchObject({ rename: null, opened: { kind: "group", key: "minha-casa" } });
+  });
+
+  it("the open tag is the one the preview answers about, and the others are what it suggests", () => {
+    const initial = after(saveExpense({ ...GROCERIES, tag: "casa" }), saveExpense({ ...GROCERIES, tag: "lar" }));
+    const { flow } = build(initial);
+
+    flow.openRename("casa");
+
+    expect(flow.snapshot().rename).toEqual({ tag: "casa", suggestions: ["lar"] });
+    expect(flow.previewRename("lar")).toEqual({ normalized: "lar", merge: "lar", expenses: 1, mergeExpenses: 1 });
+    expect(flow.previewRename("Minha Casa")).toEqual({ normalized: "minha-casa", merge: null, expenses: 1, mergeExpenses: 0 });
   });
 });
 
@@ -188,8 +204,9 @@ describe("deleting, ending and restoring", () => {
       type: "create-recurring",
       recurring: { date: "2026-08-05", description: "Aluguel", jar: "fixed-costs", paymentMethod: "pix", amount: 200_000 },
     };
-    const { flow } = build(after(saveExpense(GROCERIES), recurring));
-    const [groceries, rent] = flow.snapshot().state.expenses;
+    const initial = after(saveExpense(GROCERIES), recurring);
+    const { flow } = build(initial);
+    const [groceries, rent] = initial.expenses;
 
     flow.openExpense(groceries!);
     expect(await flow.delete()).toBeNull();

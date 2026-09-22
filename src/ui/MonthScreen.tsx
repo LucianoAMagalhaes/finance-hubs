@@ -4,14 +4,11 @@ import { useState, useSyncExternalStore } from "react";
 import {
   proposedDate,
   formatReais,
-  expensesWithTag,
   monthOf,
   incomeSourceName,
   monthName,
   paymentMethodName,
   addMonths,
-  tagsInUse,
-  tagsInHistory,
   type MonthAggregates,
   type Cents,
   type IsoDate,
@@ -41,7 +38,7 @@ type Props = { initialState: State; today: IsoDate };
  */
 export function MonthScreen({ initialState, today }: Props) {
   const [flow] = useState(() => createMonthFlow(initialState, { today, execute }));
-  const { state, month, view, trash, form, notice, draft, axis, opened, trashOpen, tagToRename } = useSyncExternalStore(
+  const { month, view, trash, tags, form, notice, draft, axis, opened, trashOpen, rename } = useSyncExternalStore(
     flow.subscribe,
     flow.snapshot,
     flow.snapshot,
@@ -171,7 +168,7 @@ export function MonthScreen({ initialState, today }: Props) {
         <ExpenseForm
           expense={form.expense}
           month={month}
-          tags={tagsInUse(state)}
+          tags={tags}
           proposedDate={proposedDate(month, today)}
           save={flow.save}
           delete={flow.delete}
@@ -191,15 +188,8 @@ export function MonthScreen({ initialState, today }: Props) {
           close={flow.closeForm}
         />
       )}
-      {tagToRename !== null && (
-        <RenameTagForm
-          tag={tagToRename}
-          tags={tagsInUse(state)}
-          historyTags={tagsInHistory(state)}
-          expensesWithTag={(tag) => expensesWithTag(state, tag)}
-          rename={flow.renameTag}
-          close={flow.closeRename}
-        />
+      {rename !== null && (
+        <RenameTagForm rename={rename} preview={flow.previewRename} submit={flow.renameTag} close={flow.closeRename} />
       )}
       {trashOpen && <Trash items={trash} restore={flow.restore} close={flow.closeTrash} />}
 

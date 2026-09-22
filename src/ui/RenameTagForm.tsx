@@ -1,22 +1,19 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { mergeOnRename, normalizeTag } from "@/domain";
+import type { RenamePreview } from "@/domain";
+import type { Rename } from "./monthFlow";
 import { Refusal, plural, TagPill } from "./parts";
 import { Sheet } from "./Sheet";
 import { useAction } from "./useAction";
 
 type Props = {
-  /** The tag being renamed, as it is stored. */
-  tag: string;
-  /** The tags in use, suggested while typing: picking one of them is merging. */
-  tags: string[];
-  /** The tags of the whole history, trash included: the new name merges against them. */
-  historyTags: string[];
-  /** How many expenses use a tag, to tell the size of the rename and of the merge. */
-  expensesWithTag: (tag: string) => number;
-  /** Sends the rename. Returns the validation error, or null if it renamed. */
-  rename: (to: string, merge: boolean) => Promise<string | null>;
+  /** The tag being renamed, and the other tags in use, suggested while typing. */
+  rename: Rename;
+  /** What saving this name would do, asked on every keystroke. */
+  preview: (to: string) => RenamePreview;
+  /** Sends the rename; `confirmed` is the merge checkbox. Returns the validation error, or null if it renamed. */
+  submit: (to: string, confirmed: boolean) => Promise<string | null>;
   close: () => void;
 };
 
@@ -26,23 +23,21 @@ type Props = {
  * separates the occurrences anymore —, so it only goes out with the
  * confirmation checked, which is what the command requires.
  */
-export function RenameTagForm({ tag, tags, historyTags, expensesWithTag, rename, close }: Props) {
+export function RenameTagForm({ rename: { tag, suggestions }, preview, submit, close }: Props) {
   const [name, setName] = useState(tag);
   const [confirmed, setConfirmed] = useState(false);
   const { run, running, refusal } = useAction();
-  const normalized = normalizeTag(name);
-  const expenses = expensesWithTag(tag);
-  // The same question the command asks: the confirmation requested here is the one it requires.
-  const merge = mergeOnRename(historyTags, tag, name);
+  // The same question the command asks, asked before the person presses anything.
+  const { normalized, merge, expenses, mergeExpenses } = preview(name);
 
-  async function submit(event: FormEvent) {
+  async function send(event: FormEvent) {
     event.preventDefault();
-    await run(() => rename(name, merge !== null && confirmed));
+    await run(() => submit(name, confirmed));
   }
 
   return (
     <Sheet labelledBy="rename-tag-title" close={close}>
-      <form onSubmit={submit}>
+      <form onSubmit={send}>
         <header>
           <h2 id="rename-tag-title">
             Renomear <TagPill tag={tag} />
@@ -67,11 +62,9 @@ export function RenameTagForm({ tag, tags, historyTags, expensesWithTag, rename,
               placeholder="Ex.: mobilidade"
             />
             <datalist id="merge-tags">
-              {tags
-                .filter((t) => t !== tag)
-                .map((t) => (
-                  <option key={t} value={t} />
-                ))}
+              {suggestions.map((t) => (
+                <option key={t} value={t} />
+              ))}
             </datalist>
             {normalized && normalized !== name && (
               <span className="hint">
@@ -84,9 +77,9 @@ export function RenameTagForm({ tag, tags, historyTags, expensesWithTag, rename,
               <p className="notice">
                 Já existe a tag <TagPill tag={merge} />,{" "}
                 {/* Zero is the tag that only sleeps in the trash: it is on no live expense, but comes back on restore. */}
-                {expensesWithTag(merge) === 0 ? "num gasto que está na lixeira" : `em ${plural(expensesWithTag(merge), "gasto")}`}.
-                Renomear <strong>funde as duas</strong>: {plural(expenses, "gasto")} de #{tag} passam para #{merge}, e #{tag}{" "}
-                deixa de existir. Depois nada diz de qual nome cada gasto veio.
+                {mergeExpenses === 0 ? "num gasto que está na lixeira" : `em ${plural(mergeExpenses, "gasto")}`}. Renomear{" "}
+                <strong>funde as duas</strong>: {plural(expenses, "gasto")} de #{tag} passam para #{merge}, e #{tag} deixa de
+                existir. Depois nada diz de qual nome cada gasto veio.
               </p>
               <label className="check">
                 <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />

@@ -89,4 +89,4 @@ export {
   type Verdict,
   type MonthView,
 } from "./projection";
-export { mergeOnRename, expensesWithTag, tagHue, normalizeTag, tagsInUse, tagsInHistory } from "./tags";
+export { mergeOnRename, renamePreview, tagHue, normalizeTag, tagsInUse, type RenamePreview } from "./tags";

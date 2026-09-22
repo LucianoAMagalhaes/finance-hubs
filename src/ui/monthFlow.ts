@@ -7,6 +7,8 @@ import {
   monthName,
   normalizeTag,
   projectMonth,
+  renamePreview,
+  tagsInUse,
   type Prepayment,
   type Command,
   type Purchase,
@@ -19,6 +21,7 @@ import {
   type Month,
   type Occurrence,
   type Percentages,
+  type RenamePreview,
   type Result,
   type MonthView,
 } from "@/domain";
@@ -35,12 +38,16 @@ export type OpenForm =
 /** After saving something dated in another month, the screen stays where it is and points there. */
 type Notice = { text: string; month: Month };
 
+/** The tag being renamed, and the other tags in use, to suggest while typing. */
+export type Rename = { tag: string; suggestions: string[] };
+
 /** Everything the month screen draws. */
 export type Screen = {
-  state: State;
   month: Month;
   view: MonthView;
   trash: TrashItem[];
+  /** The tags in use, suggested while typing one on an expense. */
+  tags: string[];
   form: OpenForm | null;
   notice: Notice | null;
   /** The percentages being edited; while it exists, the projection uses them. */
@@ -49,8 +56,8 @@ export type Screen = {
   /** The group open in the master-detail; it stays open when the month changes, if it exists there. */
   opened: Opened | null;
   trashOpen: boolean;
-  /** The tag being renamed; it is not a record, and so not a form like the others. */
-  tagToRename: string | null;
+  /** Open when a tag is being renamed; it is not a record, and so not a form like the others. */
+  rename: Rename | null;
 };
 
 /** The door to the server: stores the command and returns the new state, or the refusal. */
@@ -62,7 +69,14 @@ type Form =
   | { record: "expense"; expense: Expense | null }
   | { record: "prepayment"; purchase: number; prepayment: number | null };
 
-type Memory = Omit<Screen, "view" | "trash" | "form"> & { form: Form | null };
+type Memory = Omit<Screen, "view" | "trash" | "tags" | "form" | "rename"> & {
+  state: State;
+  form: Form | null;
+  tagToRename: string | null;
+};
+
+/** What the last screen was built from, to rebuild only what changed. */
+type Before = { memory: Memory; screen: Screen };
 
 /**
  * The month screen's flow, outside React. It keeps the state in memory and
@@ -87,8 +101,9 @@ export function createMonthFlow(initialState: State, { today, execute }: { today
   const listeners = new Set<() => void>();
 
   function update(change: Partial<Memory>) {
+    const before = { memory, screen };
     memory = { ...memory, ...change };
-    screen = buildScreen(memory, screen);
+    screen = buildScreen(memory, before);
     for (const listener of listeners) listener();
   }
 
@@ -172,14 +187,16 @@ export function createMonthFlow(initialState: State, { today, execute }: { today
 
     openRename: (tag: string) => update({ tagToRename: tag }),
     closeRename: () => update({ tagToRename: null }),
+    /** What saving this name would do, asked while it is being typed. */
+    previewRename: (to: string): RenamePreview => renamePreview(memory.state, memory.tagToRename!, to),
     /**
      * Renaming changes the name in every month, so the open group becomes the
      * new tag's — or the one it absorbed, in a merge —, and the detail stays
      * where it was instead of vanishing with the old name.
      */
-    renameTag(to: string, merge: boolean): Promise<string | null> {
+    renameTag(to: string, confirmed: boolean): Promise<string | null> {
       const from = memory.tagToRename!;
-      return send({ type: "rename-tag", from, to, merge }, () => ({
+      return send({ type: "rename-tag", from, to, merge: confirmed }, () => ({
         tagToRename: null,
         opened: { kind: "group", key: normalizeTag(to) },
       }));
@@ -193,16 +210,25 @@ export function createMonthFlow(initialState: State, { today, execute }: { today
   };
 }
 
-/** The screen from memory; the projection and the trash are only rebuilt when what they read changes. */
-function buildScreen(memory: Memory, before: Screen | null): Screen {
-  const { state, month, draft, form } = memory;
-  const sameState = before?.state === state;
+/** The screen from memory; the projection, the trash and the tags are only rebuilt when what they read changes. */
+function buildScreen(memory: Memory, before: Before | null): Screen {
+  const { state, tagToRename, form, ...rest } = memory;
+  const { month, draft } = rest;
+  const sameState = before?.memory.state === state;
   const view =
-    sameState && before.month === month && before.draft === draft
-      ? before.view
+    sameState && before.memory.month === month && before.memory.draft === draft
+      ? before.screen.view
       : projectMonth(state, month, draft ? previewPercentages(draft) : undefined);
-  const trash = sameState ? before.trash : trashItems(state);
-  return { ...memory, view, trash, form: form && resolve(state, form) };
+  const trash = sameState ? before.screen.trash : trashItems(state);
+  const tags = sameState ? before.screen.tags : tagsInUse(state);
+  return {
+    ...rest,
+    view,
+    trash,
+    tags,
+    form: form && resolve(state, form),
+    rename: tagToRename === null ? null : { tag: tagToRename, suggestions: tags.filter((t) => t !== tagToRename) },
+  };
 }
 
 function resolve(state: State, form: Form): OpenForm {

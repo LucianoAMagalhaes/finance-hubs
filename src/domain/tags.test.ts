@@ -4,7 +4,6 @@ import {
   emptyState,
   groups,
   trashItems,
-  expensesWithTag,
   tagHue,
   projectMonth,
   tagsInUse,
@@ -19,6 +18,7 @@ import {
   type Recurring,
   type PeriodToSave,
 } from "@/domain";
+import { expensesWithTag, renamePreview } from "./tags";
 
 const TODAY: IsoDate = "2026-09-18";
 
@@ -111,6 +111,41 @@ describe("how many expenses use the tag", () => {
     state = applyOk(state, { type: "delete", record: "expense", id: 1 });
 
     expect(expensesWithTag(state, "transporte")).toBe(2);
+  });
+});
+
+describe("what renaming to this name would do", () => {
+  it("only a rename: the new name is nobody else's", () => {
+    expect(renamePreview(history(), "transporte", "#Mobilidade")).toEqual({
+      normalized: "mobilidade",
+      merge: null,
+      expenses: 3,
+      mergeExpenses: 0,
+    });
+  });
+
+  it("a merge: the new name is a tag in use, and each side says its size", () => {
+    expect(renamePreview(history(), "casa", "Transporte")).toEqual({
+      normalized: "transporte",
+      merge: "transporte",
+      expenses: 1,
+      mergeExpenses: 3,
+    });
+  });
+
+  it("a name that only sleeps in the trash still merges, with no live expense on its side", () => {
+    // #casa goes to the trash: it is no longer in use, but it comes back on restore.
+    const state = applyOk(history(), { type: "delete", record: "expense", id: 3 });
+
+    expect(renamePreview(state, "transporte", "casa")).toMatchObject({ merge: "casa", expenses: 3, mergeExpenses: 0 });
+  });
+
+  it("the tag's own name is not a merge with itself, however it is typed", () => {
+    expect(renamePreview(history(), "transporte", "#Transporte")).toMatchObject({ normalized: "transporte", merge: null });
+  });
+
+  it("a name with nothing left normalizes to null and merges with nobody", () => {
+    expect(renamePreview(history(), "transporte", " # ")).toMatchObject({ normalized: null, merge: null, expenses: 3 });
   });
 });
 

@@ -53,6 +53,33 @@ export function expensesWithTag(state: State, tag: string): number {
   return live(state.expenses).filter((e) => (e.kind === "purchase" ? e.tag === tag : e.periods.some((p) => p.tag === tag))).length;
 }
 
+/**
+ * What saving this new name would do, asked while it is being typed: how it
+ * would be stored, which tag in use it would merge with, and the size of each
+ * side — the same merge the command asks about, so the confirmation requested
+ * is the one it requires.
+ */
+export type RenamePreview = {
+  /** The name as it would be stored; null when no name is left. */
+  normalized: string | null;
+  /** The tag in use the new name would merge with; null when it is only a rename. */
+  merge: string | null;
+  /** How many live expenses use the tag being renamed. */
+  expenses: number;
+  /** How many use the one it would merge with; 0 is a name that only sleeps in the trash. */
+  mergeExpenses: number;
+};
+
+export function renamePreview(state: State, from: string, to: string): RenamePreview {
+  const merge = mergeOnRename(tagsInHistory(state), from, to);
+  return {
+    normalized: normalizeTag(to),
+    merge,
+    expenses: expensesWithTag(state, from),
+    mergeExpenses: merge === null ? 0 : expensesWithTag(state, merge),
+  };
+}
+
 /** The tags of a list of expenses or occurrences, without repeats, in alphabetical order. */
 export function distinctTags(records: { tag: string | null }[]): string[] {
   const tags = new Set(records.flatMap((r) => (r.tag ? [r.tag] : [])));
