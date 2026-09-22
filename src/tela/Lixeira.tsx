@@ -2,23 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  formatarReais,
-  inicioDe,
-  mesDaData,
-  nomeDaFonte,
-  nomeDoMes,
-  nomeDoPote,
-  type Data,
-  type ItemNaLixeira,
-  type Lancamento,
-  type Registro,
-} from "@/dominio";
+  formatReais,
+  startOf,
+  monthOf,
+  incomeSourceName,
+  monthName,
+  jarName,
+  type IsoDate,
+  type TrashItem,
+  type Expense,
+  type RecordType,
+} from "@/domain";
 import { Valor } from "./pecas";
 
 type Props = {
-  itens: ItemNaLixeira[];
+  itens: TrashItem[];
   /** Devolve o erro, ou null se restaurou. */
-  restaurar: (registro: Registro, id: number) => Promise<string | null>;
+  restaurar: (registro: RecordType, id: number) => Promise<string | null>;
   fechar: () => void;
 };
 
@@ -35,9 +35,9 @@ export function Lixeira({ itens, restaurar, fechar }: Props) {
   // <dialog> modal: o navegador cuida do foco, do Esc e do fundo inerte.
   useEffect(() => dialogo.current?.showModal(), []);
 
-  async function devolver(item: ItemNaLixeira) {
+  async function devolver(item: TrashItem) {
     setRestaurando(true);
-    setErro(await restaurar(item.registro, item.id));
+    setErro(await restaurar(item.record, item.id));
     setRestaurando(false);
   }
 
@@ -58,11 +58,11 @@ export function Lixeira({ itens, restaurar, fechar }: Props) {
         {itens.length > 0 && (
           <ul className="lixeira-itens">
             {itens.map((item) => (
-              <li key={`${item.registro}-${item.id}`}>
+              <li key={`${item.record}-${item.id}`}>
                 <div className="lixeira-texto">
                   <span className="lixeira-descricao">{descricaoDe(item)}</span>
                   <span className="dica">
-                    {ondeCai(item)} · apagado em {dataCurta(item.apagadoEm)}
+                    {ondeCai(item)} · apagado em {dataCurta(item.deletedAt)}
                   </span>
                 </div>
                 <span className="num">{valorDe(item)}</span>
@@ -88,45 +88,45 @@ export function Lixeira({ itens, restaurar, fechar }: Props) {
   );
 }
 
-function descricaoDe(item: ItemNaLixeira): string {
-  switch (item.registro) {
-    case "entrada":
-      return item.entrada.descricao;
-    case "lancamento":
-      return camposDe(item.lancamento).descricao;
-    case "antecipacao":
-      return item.parcelado.descricao;
+function descricaoDe(item: TrashItem): string {
+  switch (item.record) {
+    case "income":
+      return item.income.description;
+    case "expense":
+      return camposDe(item.expense).description;
+    case "prepayment":
+      return item.purchase.description;
   }
 }
 
 /** O que o lançamento mostra: a compra, ou a última vigência do recorrente. */
-const camposDe = (l: Lancamento) => (l.forma === "compra" ? l : l.vigencias.at(-1)!);
+const camposDe = (l: Expense) => (l.kind === "purchase" ? l : l.periods.at(-1)!);
 
 /** Que registro é, e em que mês pesa quando volta. */
-function ondeCai(item: ItemNaLixeira): string {
-  if (item.registro === "entrada") {
-    const e = item.entrada;
-    return `Entrada · ${nomeDaFonte(e.fonte)} · ${nomeDoMes(mesDaData(e.data))}`;
+function ondeCai(item: TrashItem): string {
+  if (item.record === "income") {
+    const e = item.income;
+    return `Entrada · ${incomeSourceName(e.source)} · ${monthName(monthOf(e.date))}`;
   }
-  if (item.registro === "antecipacao") {
-    const a = item.antecipacao;
-    const quantas = a.parcelas === 1 ? "1 parcela" : `${a.parcelas} parcelas`;
-    return `Antecipação de ${quantas} · ${nomeDoMes(mesDaData(a.data))} · volta a cortar as últimas que sobrarem`;
+  if (item.record === "prepayment") {
+    const a = item.prepayment;
+    const quantas = a.installments === 1 ? "1 parcela" : `${a.installments} parcelas`;
+    return `Antecipação de ${quantas} · ${monthName(monthOf(a.date))} · volta a cortar as últimas que sobrarem`;
   }
-  const l = item.lancamento;
+  const l = item.expense;
   const forma =
-    l.forma === "recorrente"
-      ? `recorrente desde ${nomeDoMes(inicioDe(l))}${l.encerradoEm ? `, encerrado em ${nomeDoMes(l.encerradoEm)}` : ""}`
-      : l.parcelas > 1
-        ? `${l.parcelas}× a partir de ${nomeDoMes(mesDaData(l.data))}`
-        : nomeDoMes(mesDaData(l.data));
-  return `Gasto · ${nomeDoPote(camposDe(l).pote)} · ${forma}`;
+    l.kind === "recurring"
+      ? `recorrente desde ${monthName(startOf(l))}${l.endedIn ? `, encerrado em ${monthName(l.endedIn)}` : ""}`
+      : l.installments > 1
+        ? `${l.installments}× a partir de ${monthName(monthOf(l.date))}`
+        : monthName(monthOf(l.date));
+  return `Gasto · ${jarName(camposDe(l).jar)} · ${forma}`;
 }
 
-function valorDe(item: ItemNaLixeira) {
-  if (item.registro === "entrada") return <span className="val entrada">+ {formatarReais(item.entrada.valor)}</span>;
-  if (item.registro === "antecipacao") return <Valor centavos={item.antecipacao.valor} />;
-  return <Valor centavos={camposDe(item.lancamento).valor} />;
+function valorDe(item: TrashItem) {
+  if (item.record === "income") return <span className="val entrada">+ {formatReais(item.income.amount)}</span>;
+  if (item.record === "prepayment") return <Valor centavos={item.prepayment.amount} />;
+  return <Valor centavos={camposDe(item.expense).amount} />;
 }
 
-const dataCurta = (data: Data) => `${data.slice(8)}/${data.slice(5, 7)}/${data.slice(0, 4)}`;
+const dataCurta = (data: IsoDate) => `${data.slice(8)}/${data.slice(5, 7)}/${data.slice(0, 4)}`;

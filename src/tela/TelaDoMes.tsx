@@ -2,24 +2,24 @@
 
 import { useState, useSyncExternalStore } from "react";
 import {
-  dataProposta,
-  formatarReais,
-  lancamentosComATag,
-  mesDaData,
-  nomeDaFonte,
-  nomeDoMes,
-  nomeDoTipo,
-  somarMeses,
-  tagsEmUso,
-  tagsNoHistorico,
-  type AgregadosDoMes,
-  type Centavos,
-  type Data,
-  type Eixo,
-  type Entrada,
-  type Estado,
-  type VistaDoMes,
-} from "@/dominio";
+  proposedDate,
+  formatReais,
+  expensesWithTag,
+  monthOf,
+  incomeSourceName,
+  monthName,
+  paymentMethodName,
+  addMonths,
+  tagsInUse,
+  tagsInHistory,
+  type MonthAggregates,
+  type Cents,
+  type IsoDate,
+  type Axis,
+  type Income,
+  type State,
+  type MonthView,
+} from "@/domain";
 import { executar } from "@/servidor/acoes";
 import { AlternadorDeTema } from "./AlternadorDeTema";
 import { BotaoFlutuante } from "./BotaoFlutuante";
@@ -33,7 +33,7 @@ import { Lixeira } from "./Lixeira";
 import { MestreDetalhe, NOME_DO_EIXO } from "./MestreDetalhe";
 import { BotoesDeLancar, Valor } from "./pecas";
 
-type Props = { estadoInicial: Estado; hoje: Data };
+type Props = { estadoInicial: State; hoje: IsoDate };
 
 /**
  * A tela do mês: só desenha o fluxo do mês, que guarda o estado, projeta o
@@ -46,7 +46,7 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
     fluxo.agora,
     fluxo.agora,
   );
-  const mesDeHoje = mesDaData(hoje);
+  const mesDeHoje = monthOf(hoje);
   const novaEntrada = () => fluxo.abrirEntrada(null);
   const novoLancamento = () => fluxo.abrirLancamento(null);
 
@@ -54,11 +54,11 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
     <main className="wrap">
       <header className="topo">
         <nav className="navegacao-mes" aria-label="Mês">
-          <button type="button" className="btn seta" onClick={() => fluxo.mudarMes(somarMeses(mes, -1))} aria-label="Mês anterior">
+          <button type="button" className="btn seta" onClick={() => fluxo.mudarMes(addMonths(mes, -1))} aria-label="Mês anterior">
             ‹
           </button>
-          <h1>{maiuscula(nomeDoMes(mes))}</h1>
-          <button type="button" className="btn seta" onClick={() => fluxo.mudarMes(somarMeses(mes, 1))} aria-label="Próximo mês">
+          <h1>{maiuscula(monthName(mes))}</h1>
+          <button type="button" className="btn seta" onClick={() => fluxo.mudarMes(addMonths(mes, 1))} aria-label="Próximo mês">
             ›
           </button>
           {mes !== mesDeHoje && (
@@ -69,10 +69,10 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
         </nav>
         <div className="status">
           <span className="chip">{mes === mesDeHoje ? "mês em curso" : mes < mesDeHoje ? "mês passado · editável" : "mês futuro"}</span>
-          {!vista.orcamento.nascido && (
+          {!vista.budget.born && (
             <span className="chip nascimento">
               ainda não nasceu · herdaria{" "}
-              {vista.orcamento.herdadoDe ? `de ${nomeDoMes(vista.orcamento.herdadoDe)}` : "os padrão"}
+              {vista.budget.inheritedFrom ? `de ${monthName(vista.budget.inheritedFrom)}` : "os padrão"}
             </span>
           )}
         </div>
@@ -88,10 +88,10 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
       {aviso && (
         <div className="aviso-salvo" role="status">
           <span>
-            {aviso.texto} A tela continua em {nomeDoMes(mes)}.
+            {aviso.texto} A tela continua em {monthName(mes)}.
           </span>
           <button type="button" className="btn" onClick={() => fluxo.mudarMes(aviso.mes)}>
-            Ir para {nomeDoMes(aviso.mes)}
+            Ir para {monthName(aviso.mes)}
           </button>
           <button type="button" className="fechar" onClick={fluxo.dispensarAviso} aria-label="Dispensar aviso">
             ×
@@ -101,27 +101,27 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
 
       <Secao titulo="O mês" primeira />
       <FaixaDeAgregados
-        agregados={vista.agregados}
-        entradas={vista.entradas.length}
+        agregados={vista.aggregates}
+        entradas={vista.incomes.length}
         despesasAbertas={aberto?.tipo === "todos"}
         abrirDespesas={fluxo.alternarDespesas}
       />
 
-      <Secao titulo={eixo === "pote" ? "Os potes" : `Por ${NOME_DO_EIXO[eixo].toLowerCase()}`}>
+      <Secao titulo={eixo === "jar" ? "Os potes" : `Por ${NOME_DO_EIXO[eixo].toLowerCase()}`}>
         <SeletorDeEixo eixo={eixo} mudar={fluxo.mudarEixo} />
-        {eixo === "pote" && !rascunho && (
+        {eixo === "jar" && !rascunho && (
           <button type="button" className="btn" onClick={fluxo.editarPercentuais}>
             Editar percentuais
           </button>
         )}
-        {eixo === "pote" ? (
+        {eixo === "jar" ? (
           <span className="extra num">
-            {vista.potes.map((p) => p.percentual).join(" / ")}
-            {vista.naoAlocado.percentual > 0 && (
+            {vista.jars.map((p) => p.percentage).join(" / ")}
+            {vista.unallocated.percentage > 0 && (
               <strong className="nao-alocado">
                 {" "}
-                · {vista.naoAlocado.percentual}% não alocado
-                {vista.naoAlocado.valor !== null && ` (${formatarReais(vista.naoAlocado.valor)})`}
+                · {vista.unallocated.percentage}% não alocado
+                {vista.unallocated.amount !== null && ` (${formatReais(vista.unallocated.amount)})`}
               </strong>
             )}
           </span>
@@ -137,9 +137,9 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           cancelar={fluxo.cancelarRascunho}
         />
       )}
-      {vista.receita === 0 && (
+      {vista.monthIncome === 0 && (
         <p className="aviso">
-          Nenhuma entrada em {nomeDoMes(mes)}: sem receita, os potes não têm limite nem veredito.
+          Nenhuma entrada em {monthName(mes)}: sem receita, os potes não têm limite nem veredito.
         </p>
       )}
       <MestreDetalhe
@@ -158,21 +158,21 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
       </Secao>
       <ListaDeEntradas vista={vista} abrir={fluxo.abrirEntrada} />
 
-      {formulario?.registro === "entrada" && (
+      {formulario?.registro === "income" && (
         <FormularioDeEntrada
           entrada={formulario.entrada}
-          dataProposta={dataProposta(mes, hoje)}
-          salvar={(entrada) => fluxo.salvar({ tipo: "salvar-entrada", entrada }, mesDaData(entrada.data))}
+          dataProposta={proposedDate(mes, hoje)}
+          salvar={(entrada) => fluxo.salvar({ type: "save-income", income: entrada }, monthOf(entrada.date))}
           apagar={fluxo.apagar}
           fechar={fluxo.fecharFormulario}
         />
       )}
-      {formulario?.registro === "lancamento" && (
+      {formulario?.registro === "expense" && (
         <FormularioDeLancamento
           lancamento={formulario.lancamento}
           mes={mes}
-          tags={tagsEmUso(estado)}
-          dataProposta={dataProposta(mes, hoje)}
+          tags={tagsInUse(estado)}
+          dataProposta={proposedDate(mes, hoje)}
           salvar={fluxo.salvar}
           apagar={fluxo.apagar}
           encerrar={fluxo.encerrar}
@@ -180,11 +180,11 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
           fechar={fluxo.fecharFormulario}
         />
       )}
-      {formulario?.registro === "antecipacao" && (
+      {formulario?.registro === "prepayment" && (
         <FormularioDeAntecipacao
           parcelado={formulario.parcelado}
           antecipacao={formulario.antecipacao}
-          dataProposta={dataProposta(mes, hoje)}
+          dataProposta={proposedDate(mes, hoje)}
           hoje={hoje}
           salvar={fluxo.salvar}
           desfazer={fluxo.apagar}
@@ -194,9 +194,9 @@ export function TelaDoMes({ estadoInicial, hoje }: Props) {
       {tagARenomear !== null && (
         <FormularioDeRenomearTag
           tag={tagARenomear}
-          tags={tagsEmUso(estado)}
-          tagsDoHistorico={tagsNoHistorico(estado)}
-          lancamentosComATag={(tag) => lancamentosComATag(estado, tag)}
+          tags={tagsInUse(estado)}
+          tagsDoHistorico={tagsInHistory(estado)}
+          lancamentosComATag={(tag) => expensesWithTag(estado, tag)}
           renomear={fluxo.renomearTag}
           fechar={fluxo.fecharRenomear}
         />
@@ -220,7 +220,7 @@ function Secao({ titulo, primeira, children }: { titulo: string; primeira?: bool
 }
 
 type PropsDaFaixa = {
-  agregados: AgregadosDoMes;
+  agregados: MonthAggregates;
   entradas: number;
   despesasAbertas: boolean;
   abrirDespesas: () => void;
@@ -231,12 +231,12 @@ function FaixaDeAgregados({ agregados, entradas, despesasAbertas, abrirDespesas 
   const cards = [
     {
       rotulo: "Receitas",
-      valor: <span className="val entrada">{formatarReais(agregados.receitas)}</span>,
+      valor: <span className="val entrada">{formatReais(agregados.monthIncome)}</span>,
       dica: entradas === 1 ? "1 entrada" : `${entradas} entradas`,
     },
-    { rotulo: "Despesas", valor: <Valor centavos={agregados.despesas} />, dica: "líquido · ver todos os gastos", abrir: abrirDespesas },
-    { rotulo: "Saldo do mês", valor: <Saldo centavos={agregados.saldoDoMes} />, dica: "receitas − despesas" },
-    { rotulo: "Saldo em conta", valor: <Saldo centavos={agregados.saldoEmConta} />, dica: "sem cartão · aproximado" },
+    { rotulo: "Despesas", valor: <Valor centavos={agregados.monthExpenses} />, dica: "líquido · ver todos os gastos", abrir: abrirDespesas },
+    { rotulo: "Saldo do mês", valor: <Saldo centavos={agregados.monthBalance} />, dica: "receitas − despesas" },
+    { rotulo: "Saldo em conta", valor: <Saldo centavos={agregados.accountBalance} />, dica: "sem cartão · aproximado" },
   ];
   return (
     <div className="faixa">
@@ -263,7 +263,7 @@ function FaixaDeAgregados({ agregados, entradas, despesasAbertas, abrirDespesas 
 }
 
 /** As entradas do mês, com a fonte como coluna. Fonte não tem drill-down (ADR-0003). */
-function ListaDeEntradas({ vista, abrir }: { vista: VistaDoMes; abrir: (entrada: Entrada) => void }) {
+function ListaDeEntradas({ vista, abrir }: { vista: MonthView; abrir: (entrada: Income) => void }) {
   return (
     <div className="tabela">
       <div className="linha cabecalho" aria-hidden>
@@ -273,20 +273,20 @@ function ListaDeEntradas({ vista, abrir }: { vista: VistaDoMes; abrir: (entrada:
         <span>Tipo</span>
         <span className="direita">Valor</span>
       </div>
-      {vista.entradas.map((e) => (
+      {vista.incomes.map((e) => (
         <button type="button" key={e.id} className="linha clicavel" onClick={() => abrir(e)} title="Corrigir a entrada">
           <span className="data num">
-            {e.data.slice(8)}/{e.data.slice(5, 7)}
+            {e.date.slice(8)}/{e.date.slice(5, 7)}
           </span>
-          <span>{e.descricao}</span>
+          <span>{e.description}</span>
           <span>
-            <span className="pilula-fonte">{nomeDaFonte(e.fonte)}</span>
+            <span className="pilula-fonte">{incomeSourceName(e.source)}</span>
           </span>
-          <span className="tipo">{nomeDoTipo(e.tipo)}</span>
-          <span className="direita num val entrada">+ {formatarReais(e.valor)}</span>
+          <span className="tipo">{paymentMethodName(e.paymentMethod)}</span>
+          <span className="direita num val entrada">+ {formatReais(e.amount)}</span>
         </button>
       ))}
-      {vista.entradas.length === 0 && (
+      {vista.incomes.length === 0 && (
         <div className="linha vazia">
           <span />
           <span>Nenhuma entrada. Sem entrada, sem receita, sem limite.</span>
@@ -297,16 +297,16 @@ function ListaDeEntradas({ vista, abrir }: { vista: VistaDoMes; abrir: (entrada:
         <span>Receita do mês</span>
         <span />
         <span />
-        <span className="direita num val entrada">{formatarReais(vista.receita)}</span>
+        <span className="direita num val entrada">{formatReais(vista.monthIncome)}</span>
       </div>
     </div>
   );
 }
 
-function SeletorDeEixo({ eixo, mudar }: { eixo: Eixo; mudar: (eixo: Eixo) => void }) {
+function SeletorDeEixo({ eixo, mudar }: { eixo: Axis; mudar: (eixo: Axis) => void }) {
   return (
     <div className="seletor-eixo" role="group" aria-label="Agrupar os gastos por">
-      {(Object.keys(NOME_DO_EIXO) as Eixo[]).map((e) => (
+      {(Object.keys(NOME_DO_EIXO) as Axis[]).map((e) => (
         <button type="button" key={e} aria-pressed={e === eixo} onClick={() => mudar(e)}>
           {NOME_DO_EIXO[e]}
         </button>
@@ -316,8 +316,8 @@ function SeletorDeEixo({ eixo, mudar }: { eixo: Eixo; mudar: (eixo: Eixo) => voi
 }
 
 /** Saldo: negativo é déficit, em vermelho. */
-function Saldo({ centavos }: { centavos: Centavos }) {
-  return <span className={centavos < 0 ? "deficit" : undefined}>{formatarReais(centavos)}</span>;
+function Saldo({ centavos }: { centavos: Cents }) {
+  return <span className={centavos < 0 ? "deficit" : undefined}>{formatReais(centavos)}</span>;
 }
 
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

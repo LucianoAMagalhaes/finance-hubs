@@ -3,20 +3,20 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  aplicar,
-  estadoVazio,
-  POTES,
-  projetarMes,
-  tagsEmUso,
-  type Comando,
-  type Compra,
-  type Estado,
-  type Mes,
-  type Percentuais,
-  type PoteId,
-  type Recorrente,
-  type VigenciaASalvar,
-} from "@/dominio";
+  apply,
+  emptyState,
+  JARS,
+  projectMonth,
+  tagsInUse,
+  type Command,
+  type Purchase,
+  type State,
+  type Month,
+  type Percentages,
+  type Jar,
+  type Recurring,
+  type PeriodToSave,
+} from "@/domain";
 import { abrirBanco, carregarEstado, executarNoBanco, type Banco } from "@/persistencia";
 import { gravar } from "./repositorio";
 
@@ -44,7 +44,7 @@ afterEach(() => {
 
 describe("persistência", () => {
   it("um banco novo começa com o estado vazio", () => {
-    expect(carregarEstado(abrir())).toEqual(estadoVazio());
+    expect(carregarEstado(abrir())).toEqual(emptyState());
   });
 
   it("percentuais de vários meses voltam idênticos ao recarregar do banco", () => {
@@ -58,7 +58,7 @@ describe("persistência", () => {
 
     expect(recarregado).toEqual(estado);
     for (const mes of ["2026-08", "2026-09", "2026-10"] as const) {
-      expect(projetarMes(recarregado, mes)).toEqual(projetarMes(estado, mes));
+      expect(projectMonth(recarregado, mes)).toEqual(projectMonth(estado, mes));
     }
   });
 
@@ -68,88 +68,88 @@ describe("persistência", () => {
 
     executarOk(banco, salvarPercentuais("2026-09", pcts(40, 20, 15, 15, 10, 0)));
 
-    expect(carregarEstado(abrir()).orcamentos["2026-09"]).toEqual(pcts(40, 20, 15, 15, 10, 0));
+    expect(carregarEstado(abrir()).budgets["2026-09"]).toEqual(pcts(40, 20, 15, 15, 10, 0));
   });
 
   it("uma entrada gravada volta idêntica ao recarregar, com o mês que ela fez nascer", () => {
-    const estado = executarOk(abrir(), salvarEntrada({ data: "2026-09-05", valor: 720_050 }));
+    const estado = executarOk(abrir(), salvarEntrada({ date: "2026-09-05", amount: 720_050 }));
 
     const recarregado = carregarEstado(abrir());
 
     expect(recarregado).toEqual(estado);
-    expect(projetarMes(recarregado, "2026-09")).toEqual(projetarMes(estado, "2026-09"));
-    expect(projetarMes(recarregado, "2026-09").orcamento.nascido).toBe(true);
+    expect(projectMonth(recarregado, "2026-09")).toEqual(projectMonth(estado, "2026-09"));
+    expect(projectMonth(recarregado, "2026-09").budget.born).toBe(true);
   });
 
   it("corrigir a data de uma entrada grava a mudança e o mês de destino", () => {
     const banco = abrir();
-    const antes = executarOk(banco, salvarEntrada({ data: "2026-10-05" }));
-    const id = antes.entradas[0]!.id;
+    const antes = executarOk(banco, salvarEntrada({ date: "2026-10-05" }));
+    const id = antes.incomes[0]!.id;
 
-    const depois = executarOk(banco, salvarEntrada({ id, data: "2026-09-30" }));
+    const depois = executarOk(banco, salvarEntrada({ id, date: "2026-09-30" }));
 
     const recarregado = carregarEstado(abrir());
     expect(recarregado).toEqual(depois);
-    expect(projetarMes(recarregado, "2026-09").receita).toBe(720_000);
-    expect(projetarMes(recarregado, "2026-10").receita).toBe(0);
+    expect(projectMonth(recarregado, "2026-09").monthIncome).toBe(720_000);
+    expect(projectMonth(recarregado, "2026-10").monthIncome).toBe(0);
   });
 
   it("percentuais salvos por comando voltam idênticos, sem mexer nos outros meses", () => {
     const banco = abrir();
-    executarOk(banco, salvarEntrada({ data: "2026-09-05" }));
+    executarOk(banco, salvarEntrada({ date: "2026-09-05" }));
 
     const depois = executarOk(banco, salvarPercentuais("2026-10", pcts(40, 20, 15, 10, 5, 0)));
 
     const recarregado = carregarEstado(abrir());
     expect(recarregado).toEqual(depois);
-    expect(recarregado.orcamentos["2026-10"]).toEqual(pcts(40, 20, 15, 10, 5, 0));
-    expect(recarregado.orcamentos["2026-09"]).toEqual(pcts(30, 25, 15, 15, 10, 5));
+    expect(recarregado.budgets["2026-10"]).toEqual(pcts(40, 20, 15, 10, 5, 0));
+    expect(recarregado.budgets["2026-09"]).toEqual(pcts(30, 25, 15, 15, 10, 5));
   });
 
   it("um lançamento à vista, inclusive negativo, volta idêntico ao recarregar", () => {
     const estado = executarOk(
       abrir(),
-      salvarEntrada({ data: "2026-09-05" }),
-      salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 42_050 }),
-      salvarLancamento({ data: "2026-09-19", pote: "conforto", valor: -29_790 }),
-      salvarLancamento({ data: "2026-10-02", pote: "metas", valor: 10_000 }),
+      salvarEntrada({ date: "2026-09-05" }),
+      salvarLancamento({ date: "2026-09-12", jar: "conforto", amount: 42_050 }),
+      salvarLancamento({ date: "2026-09-19", jar: "conforto", amount: -29_790 }),
+      salvarLancamento({ date: "2026-10-02", jar: "metas", amount: 10_000 }),
     );
 
     const recarregado = carregarEstado(abrir());
 
     expect(recarregado).toEqual(estado);
     for (const mes of ["2026-09", "2026-10"] as const) {
-      expect(projetarMes(recarregado, mes)).toEqual(projetarMes(estado, mes));
+      expect(projectMonth(recarregado, mes)).toEqual(projectMonth(estado, mes));
     }
-    expect(recarregado.orcamentos["2026-10"]).toBeDefined();
+    expect(recarregado.budgets["2026-10"]).toBeDefined();
   });
 
   it("um parcelado, inclusive reembolso parcelado, volta idêntico ao recarregar", () => {
     const estado = executarOk(
       abrir(),
-      salvarLancamento({ data: "2026-08-31", pote: "conforto", valor: 389_900, parcelas: 10 }),
-      salvarLancamento({ data: "2026-09-10", pote: "conforto", valor: -100_000, parcelas: 3 }),
+      salvarLancamento({ date: "2026-08-31", jar: "conforto", amount: 389_900, installments: 10 }),
+      salvarLancamento({ date: "2026-09-10", jar: "conforto", amount: -100_000, installments: 3 }),
     );
 
     const recarregado = carregarEstado(abrir());
 
     expect(recarregado).toEqual(estado);
     for (const mes of ["2026-08", "2026-09", "2026-11", "2027-05", "2027-06"] as const) {
-      expect(projetarMes(recarregado, mes)).toEqual(projetarMes(estado, mes));
+      expect(projectMonth(recarregado, mes)).toEqual(projectMonth(estado, mes));
     }
     // Em ordem de data: o reembolso cai no dia 10; a compra do dia 31, no último dia de novembro.
-    expect(projetarMes(recarregado, "2026-11").ocorrencias.map((o) => [o.data, o.parcela])).toEqual([
-      ["2026-11-10", { numero: 3, de: 3, total: -100_000 }],
-      ["2026-11-30", { numero: 4, de: 10, total: 389_900 }],
+    expect(projectMonth(recarregado, "2026-11").occurrences.map((o) => [o.date, o.installment])).toEqual([
+      ["2026-11-10", { number: 3, of: 3, total: -100_000 }],
+      ["2026-11-30", { number: 4, of: 10, total: 389_900 }],
     ]);
   });
 
   it("corrigir um lançamento grava a mudança", () => {
     const banco = abrir();
-    const antes = executarOk(banco, salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 42_050 }));
-    const id = antes.lancamentos[0]!.id;
+    const antes = executarOk(banco, salvarLancamento({ date: "2026-09-12", jar: "conforto", amount: 42_050 }));
+    const id = antes.expenses[0]!.id;
 
-    const depois = executarOk(banco, salvarLancamento({ id, data: "2026-09-12", pote: "metas", valor: -500 }));
+    const depois = executarOk(banco, salvarLancamento({ id, date: "2026-09-12", jar: "metas", amount: -500 }));
 
     expect(carregarEstado(abrir())).toEqual(depois);
   });
@@ -157,80 +157,80 @@ describe("persistência", () => {
   it("a tag gravada volta normalizada, e sem tag volta sem tag", () => {
     const estado = executarOk(
       abrir(),
-      salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 4_000, tag: "#Saúde Mental" }),
-      salvarLancamento({ data: "2026-09-13", pote: "conforto", valor: 2_000 }),
+      salvarLancamento({ date: "2026-09-12", jar: "conforto", amount: 4_000, tag: "#Saúde Mental" }),
+      salvarLancamento({ date: "2026-09-13", jar: "conforto", amount: 2_000 }),
     );
 
     const recarregado = carregarEstado(abrir());
 
-    expect(recarregado.lancamentos.map((l) => (l as Compra).tag)).toEqual(["saúde-mental", null]);
+    expect(recarregado.expenses.map((l) => (l as Purchase).tag)).toEqual(["saúde-mental", null]);
     expect(recarregado).toEqual(estado);
-    expect(projetarMes(recarregado, "2026-09")).toEqual(projetarMes(estado, "2026-09"));
+    expect(projectMonth(recarregado, "2026-09")).toEqual(projectMonth(estado, "2026-09"));
   });
 
   it("a marca de lixeira sobrevive a recarregar, e restaurar a tira do banco", () => {
     const banco = abrir();
     const apagado = executarOk(
       banco,
-      salvarEntrada({ data: "2026-09-05" }),
-      salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 100_000, parcelas: 3 }),
-      { tipo: "apagar", registro: "entrada", id: 1 },
-      { tipo: "apagar", registro: "lancamento", id: 1 },
+      salvarEntrada({ date: "2026-09-05" }),
+      salvarLancamento({ date: "2026-09-12", jar: "conforto", amount: 100_000, installments: 3 }),
+      { type: "delete", record: "income", id: 1 },
+      { type: "delete", record: "expense", id: 1 },
     );
 
     const recarregado = carregarEstado(abrir());
 
     expect(recarregado).toEqual(apagado);
-    expect(recarregado.entradas[0]!.apagadoEm).toBe(HOJE);
-    expect(recarregado.lancamentos[0]!.apagadoEm).toBe(HOJE);
+    expect(recarregado.incomes[0]!.deletedAt).toBe(HOJE);
+    expect(recarregado.expenses[0]!.deletedAt).toBe(HOJE);
     for (const mes of ["2026-09", "2026-10", "2026-11"] as const) {
-      expect(projetarMes(recarregado, mes)).toEqual(projetarMes(apagado, mes));
-      expect(projetarMes(recarregado, mes).ocorrencias).toEqual([]);
+      expect(projectMonth(recarregado, mes)).toEqual(projectMonth(apagado, mes));
+      expect(projectMonth(recarregado, mes).occurrences).toEqual([]);
     }
-    expect(projetarMes(recarregado, "2026-09").receita).toBe(0);
-    expect(recarregado.orcamentos["2026-09"]).toBeDefined();
+    expect(projectMonth(recarregado, "2026-09").monthIncome).toBe(0);
+    expect(recarregado.budgets["2026-09"]).toBeDefined();
 
-    const restaurado = executarOk(banco, { tipo: "restaurar", registro: "lancamento", id: 1 });
+    const restaurado = executarOk(banco, { type: "restore", record: "expense", id: 1 });
 
     expect(carregarEstado(abrir())).toEqual(restaurado);
-    expect(carregarEstado(abrir()).lancamentos[0]!.apagadoEm).toBeNull();
+    expect(carregarEstado(abrir()).expenses[0]!.deletedAt).toBeNull();
   });
 
   it("as antecipações de um parcelado voltam idênticas ao recarregar, com a série já cortada", () => {
     const estado = executarOk(
       abrir(),
-      salvarLancamento({ data: "2026-01-15", pote: "conforto", valor: 389_900, parcelas: 10 }),
-      antecipar({ data: "2026-07-20", parcelas: 1, valor: 36_000 }),
-      antecipar({ data: "2026-08-10", parcelas: 1, valor: 35_000 }),
+      salvarLancamento({ date: "2026-01-15", jar: "conforto", amount: 389_900, installments: 10 }),
+      antecipar({ date: "2026-07-20", installments: 1, amount: 36_000 }),
+      antecipar({ date: "2026-08-10", installments: 1, amount: 35_000 }),
     );
 
     const recarregado = carregarEstado(abrir());
 
     expect(recarregado).toEqual(estado);
-    expect((recarregado.lancamentos[0] as Compra).antecipacoes).toEqual([
-      { id: 1, data: "2026-07-20", parcelas: 1, valor: 36_000, apagadoEm: null },
-      { id: 2, data: "2026-08-10", parcelas: 1, valor: 35_000, apagadoEm: null },
+    expect((recarregado.expenses[0] as Purchase).prepayments).toEqual([
+      { id: 1, date: "2026-07-20", installments: 1, amount: 36_000, deletedAt: null },
+      { id: 2, date: "2026-08-10", installments: 1, amount: 35_000, deletedAt: null },
     ]);
     for (const mes of ["2026-07", "2026-08", "2026-09", "2026-10"] as const) {
-      expect(projetarMes(recarregado, mes), mes).toEqual(projetarMes(estado, mes));
+      expect(projectMonth(recarregado, mes), mes).toEqual(projectMonth(estado, mes));
     }
-    expect(projetarMes(recarregado, "2026-09").ocorrencias).toEqual([]);
+    expect(projectMonth(recarregado, "2026-09").occurrences).toEqual([]);
   });
 
   it("corrigir uma antecipação não muda o lugar dela: o estado gravado volta idêntico", () => {
     const banco = abrir();
     executarOk(
       banco,
-      salvarLancamento({ data: "2026-01-15", pote: "conforto", valor: 389_900, parcelas: 10 }),
-      antecipar({ data: "2026-07-20", parcelas: 1, valor: 36_000 }),
-      antecipar({ data: "2026-08-10", parcelas: 1, valor: 35_000 }),
+      salvarLancamento({ date: "2026-01-15", jar: "conforto", amount: 389_900, installments: 10 }),
+      antecipar({ date: "2026-07-20", installments: 1, amount: 36_000 }),
+      antecipar({ date: "2026-08-10", installments: 1, amount: 35_000 }),
     );
 
-    const depois = executarOk(banco, antecipar({ id: 1, data: "2026-07-20", parcelas: 1, valor: 30_000 }));
+    const depois = executarOk(banco, antecipar({ id: 1, date: "2026-07-20", installments: 1, amount: 30_000 }));
 
     const recarregado = carregarEstado(abrir());
     expect(recarregado).toEqual(depois);
-    expect((recarregado.lancamentos[0] as Compra).antecipacoes.map((a) => [a.id, a.valor])).toEqual([
+    expect((recarregado.expenses[0] as Purchase).prepayments.map((a) => [a.id, a.amount])).toEqual([
       [1, 30_000],
       [2, 35_000],
     ]);
@@ -240,18 +240,18 @@ describe("persistência", () => {
     const banco = abrir();
     const antes = executarOk(
       banco,
-      salvarLancamento({ data: "2026-01-15", pote: "conforto", valor: 389_900, parcelas: 10 }),
-      antecipar({ data: "2026-07-20", parcelas: 3, valor: 300_000 }),
+      salvarLancamento({ date: "2026-01-15", jar: "conforto", amount: 389_900, installments: 10 }),
+      antecipar({ date: "2026-07-20", installments: 3, amount: 300_000 }),
     );
-    const desfeita = executarOk(banco, { tipo: "apagar", registro: "antecipacao", id: 1 });
+    const desfeita = executarOk(banco, { type: "delete", record: "prepayment", id: 1 });
 
     const recarregado = carregarEstado(abrir());
 
     expect(recarregado).toEqual(desfeita);
-    expect((recarregado.lancamentos[0] as Compra).antecipacoes[0]!.apagadoEm).toBe(HOJE);
-    expect(projetarMes(recarregado, "2026-10").ocorrencias).toHaveLength(1);
+    expect((recarregado.expenses[0] as Purchase).prepayments[0]!.deletedAt).toBe(HOJE);
+    expect(projectMonth(recarregado, "2026-10").occurrences).toHaveLength(1);
 
-    executarOk(banco, { tipo: "restaurar", registro: "antecipacao", id: 1 });
+    executarOk(banco, { type: "restore", record: "prepayment", id: 1 });
 
     expect(carregarEstado(abrir())).toEqual(antes);
   });
@@ -259,34 +259,34 @@ describe("persistência", () => {
   it("um recorrente com várias vigências, inclusive encerrado ou reembolso, volta idêntico ao recarregar", () => {
     const estado = executarOk(
       abrir(),
-      criarRecorrente({ data: "2026-01-31", valor: 150_000, tag: "casa" }),
-      mudarRecorrente(1, "2026-03", { valor: 155_000, pote: "metas", tag: null }),
-      mudarRecorrente(1, "2026-07", { valor: 165_000, tag: "#Moradia" }),
-      criarRecorrente({ data: "2026-02-10", valor: -2_000 }),
-      { tipo: "encerrar-recorrente", id: 2, mes: "2026-06" },
+      criarRecorrente({ date: "2026-01-31", amount: 150_000, tag: "casa" }),
+      mudarRecorrente(1, "2026-03", { amount: 155_000, jar: "metas", tag: null }),
+      mudarRecorrente(1, "2026-07", { amount: 165_000, tag: "#Moradia" }),
+      criarRecorrente({ date: "2026-02-10", amount: -2_000 }),
+      { type: "end-recurring", id: 2, month: "2026-06" },
     );
 
     const recarregado = carregarEstado(abrir());
 
     expect(recarregado).toEqual(estado);
     for (const mes of ["2026-01", "2026-02", "2026-03", "2026-05", "2026-06", "2026-07", "2030-02"] as const) {
-      expect(projetarMes(recarregado, mes)).toEqual(projetarMes(estado, mes));
+      expect(projectMonth(recarregado, mes)).toEqual(projectMonth(estado, mes));
     }
-    expect(projetarMes(recarregado, "2028-02").ocorrencias.map((o) => [o.data, o.valor, o.tag])).toEqual([["2028-02-29", 165_000, "moradia"]]);
+    expect(projectMonth(recarregado, "2028-02").occurrences.map((o) => [o.date, o.amount, o.tag])).toEqual([["2028-02-29", 165_000, "moradia"]]);
   });
 
   it("compras e recorrentes voltam na ordem em que foram lançados", () => {
     executarOk(
       abrir(),
-      salvarLancamento({ data: "2026-09-12", pote: "conforto", valor: 1_000 }),
-      criarRecorrente({ data: "2026-09-05" }),
-      salvarLancamento({ data: "2026-09-13", pote: "conforto", valor: 2_000 }),
+      salvarLancamento({ date: "2026-09-12", jar: "conforto", amount: 1_000 }),
+      criarRecorrente({ date: "2026-09-05" }),
+      salvarLancamento({ date: "2026-09-13", jar: "conforto", amount: 2_000 }),
     );
 
-    expect(carregarEstado(abrir()).lancamentos.map((l) => [l.id, l.forma])).toEqual([
-      [1, "compra"],
-      [2, "recorrente"],
-      [3, "compra"],
+    expect(carregarEstado(abrir()).expenses.map((l) => [l.id, l.kind])).toEqual([
+      [1, "purchase"],
+      [2, "recurring"],
+      [3, "purchase"],
     ]);
   });
 
@@ -294,16 +294,16 @@ describe("persistência", () => {
     const banco = abrir();
     executarOk(
       banco,
-      criarRecorrente({ data: "2026-01-05" }),
-      mudarRecorrente(1, "2026-10", { valor: 11_000 }),
-      mudarRecorrente(1, "2026-12", { valor: 12_000 }),
+      criarRecorrente({ date: "2026-01-05" }),
+      mudarRecorrente(1, "2026-10", { amount: 11_000 }),
+      mudarRecorrente(1, "2026-12", { amount: 12_000 }),
     );
 
-    const depois = executarOk(banco, { tipo: "encerrar-recorrente", id: 1, mes: "2026-09" });
+    const depois = executarOk(banco, { type: "end-recurring", id: 1, month: "2026-09" });
 
     const recarregado = carregarEstado(abrir());
     expect(recarregado).toEqual(depois);
-    expect(projetarMes(recarregado, "2026-12").ocorrencias).toEqual([]);
+    expect(projectMonth(recarregado, "2026-12").occurrences).toEqual([]);
   });
 
   // As três gravações quebradas abaixo não saem de comando nenhum — o domínio
@@ -313,16 +313,16 @@ describe("persistência", () => {
     const banco = abrir();
     const antes = executarOk(
       banco,
-      criarRecorrente({ data: "2026-01-05" }),
-      mudarRecorrente(1, "2026-05", { valor: 11_000 }),
-      mudarRecorrente(1, "2026-10", { valor: 12_000 }),
+      criarRecorrente({ date: "2026-01-05" }),
+      mudarRecorrente(1, "2026-05", { amount: 11_000 }),
+      mudarRecorrente(1, "2026-10", { amount: 12_000 }),
     );
-    const encerrado = aplicarOk(antes, { tipo: "encerrar-recorrente", id: 1, mes: "2026-09" });
+    const encerrado = aplicarOk(antes, { type: "end-recurring", id: 1, month: "2026-09" });
     // Uma vigência que o banco recusa (descrição nula), gravada depois do fim e da limpeza das descartadas.
-    const r = encerrado.lancamentos[0] as Recorrente;
-    const quebrado: Estado = {
+    const r = encerrado.expenses[0] as Recurring;
+    const quebrado: State = {
       ...encerrado,
-      lancamentos: [{ ...r, vigencias: [r.vigencias[0]!, { ...r.vigencias[1]!, descricao: null as never }] }],
+      expenses: [{ ...r, periods: [r.periods[0]!, { ...r.periods[1]!, description: null as never }] }],
     };
 
     expect(() => gravarEstado(banco, quebrado)).toThrow();
@@ -334,24 +334,24 @@ describe("persistência", () => {
     const banco = abrir();
     executarOk(
       banco,
-      salvarLancamento({ data: "2026-01-10", pote: "conforto", valor: 30_000, tag: "transporte" }),
-      salvarLancamento({ data: "2026-02-05", pote: "conforto", valor: 120_000, parcelas: 12, tag: "uber" }),
-      criarRecorrente({ data: "2026-01-15", tag: "transporte" }),
-      mudarRecorrente(3, "2026-06", { valor: 28_000, tag: "uber" }),
+      salvarLancamento({ date: "2026-01-10", jar: "conforto", amount: 30_000, tag: "transporte" }),
+      salvarLancamento({ date: "2026-02-05", jar: "conforto", amount: 120_000, installments: 12, tag: "uber" }),
+      criarRecorrente({ date: "2026-01-15", tag: "transporte" }),
+      mudarRecorrente(3, "2026-06", { amount: 28_000, tag: "uber" }),
     );
 
     // A fusão junta as duas: uma compra, um parcelado e as duas vigências passam a #uber.
-    const depois = executarOk(banco, { tipo: "renomear-tag", de: "transporte", para: "uber", fundir: true });
+    const depois = executarOk(banco, { type: "rename-tag", from: "transporte", to: "uber", merge: true });
 
     const recarregado = carregarEstado(abrir());
     expect(recarregado).toEqual(depois);
-    expect(recarregado.lancamentos.map((l) => (l.forma === "compra" ? l.tag : l.vigencias.map((v) => v.tag)))).toEqual([
+    expect(recarregado.expenses.map((l) => (l.kind === "purchase" ? l.tag : l.periods.map((v) => v.tag)))).toEqual([
       "uber",
       "uber",
       ["uber", "uber"],
     ]);
     for (const mes of ["2026-01", "2026-02", "2026-06", "2027-01"] as const) {
-      expect(projetarMes(recarregado, mes), mes).toEqual(projetarMes(depois, mes));
+      expect(projectMonth(recarregado, mes), mes).toEqual(projectMonth(depois, mes));
     }
   });
 
@@ -359,15 +359,15 @@ describe("persistência", () => {
     const banco = abrir();
     const antes = executarOk(
       banco,
-      salvarLancamento({ data: "2026-01-10", pote: "conforto", valor: 30_000, tag: "transporte" }),
-      criarRecorrente({ data: "2026-01-15", tag: "transporte" }),
+      salvarLancamento({ date: "2026-01-10", jar: "conforto", amount: 30_000, tag: "transporte" }),
+      criarRecorrente({ date: "2026-01-15", tag: "transporte" }),
     );
-    const renomeado = aplicarOk(antes, { tipo: "renomear-tag", de: "transporte", para: "mobilidade", fundir: false });
+    const renomeado = aplicarOk(antes, { type: "rename-tag", from: "transporte", to: "mobilidade", merge: false });
     // Uma vigência que o banco recusa (descrição nula), gravada depois da compra já renomeada.
-    const r = renomeado.lancamentos[1] as Recorrente;
-    const quebrado: Estado = {
+    const r = renomeado.expenses[1] as Recurring;
+    const quebrado: State = {
       ...renomeado,
-      lancamentos: [renomeado.lancamentos[0]!, { ...r, vigencias: [{ ...r.vigencias[0]!, descricao: null as never }] }],
+      expenses: [renomeado.expenses[0]!, { ...r, periods: [{ ...r.periods[0]!, description: null as never }] }],
     };
 
     expect(() => gravarEstado(banco, quebrado)).toThrow();
@@ -375,18 +375,18 @@ describe("persistência", () => {
     const recarregado = carregarEstado(abrir());
     expect(recarregado).toEqual(antes);
     // A compra é gravada antes do recorrente: sem a transação, ela teria ficado com o nome novo.
-    expect((recarregado.lancamentos[0] as Compra).tag).toBe("transporte");
-    expect(tagsEmUso(recarregado)).toEqual(["transporte"]);
+    expect((recarregado.expenses[0] as Purchase).tag).toBe("transporte");
+    expect(tagsInUse(recarregado)).toEqual(["transporte"]);
   });
 
   it("o orçamento nascido e a entrada entram na mesma transação: ou os dois, ou nenhum", () => {
-    const estado = aplicarOk(estadoVazio(), salvarEntrada({ data: "2026-09-05" }));
+    const estado = aplicarOk(emptyState(), salvarEntrada({ date: "2026-09-05" }));
     // Uma entrada que o banco recusa (descrição nula), gravada depois do orçamento.
-    const quebrado: Estado = { ...estado, entradas: [{ ...estado.entradas[0]!, descricao: null as never }] };
+    const quebrado: State = { ...estado, incomes: [{ ...estado.incomes[0]!, description: null as never }] };
 
     expect(() => gravarEstado(abrir(), quebrado)).toThrow();
 
-    expect(carregarEstado(abrir())).toEqual(estadoVazio());
+    expect(carregarEstado(abrir())).toEqual(emptyState());
   });
 });
 
@@ -394,99 +394,99 @@ describe("executar no banco", () => {
   it("uma sequência aceita é gravada inteira, e devolve o estado que o banco recarrega", () => {
     const resultado = executarNoBanco(
       abrir(),
-      [salvarEntrada({ data: "2026-09-05" }), salvarLancamento({ data: "2026-09-10", pote: "conforto", valor: 30_000 })],
+      [salvarEntrada({ date: "2026-09-05" }), salvarLancamento({ date: "2026-09-10", jar: "conforto", amount: 30_000 })],
       HOJE,
     );
 
-    if (!resultado.ok) throw new Error(resultado.erro);
-    expect(resultado.valor.entradas).toHaveLength(1);
-    expect(resultado.valor.lancamentos).toHaveLength(1);
-    expect(carregarEstado(abrir())).toEqual(resultado.valor);
+    if (!resultado.ok) throw new Error(resultado.error);
+    expect(resultado.value.incomes).toHaveLength(1);
+    expect(resultado.value.expenses).toHaveLength(1);
+    expect(carregarEstado(abrir())).toEqual(resultado.value);
   });
 
   it("um comando recusado devolve o texto do domínio e o seu índice, e deixa o banco como estava", () => {
     const banco = abrir();
-    const antes = executarOk(banco, salvarEntrada({ data: "2026-09-05" }));
+    const antes = executarOk(banco, salvarEntrada({ date: "2026-09-05" }));
 
     const resultado = executarNoBanco(
       banco,
       [
-        salvarLancamento({ data: "2026-09-10", pote: "conforto", valor: 30_000 }),
-        salvarEntrada({ data: "2026-09-20" }),
-        { tipo: "apagar", registro: "lancamento", id: 99 },
+        salvarLancamento({ date: "2026-09-10", jar: "conforto", amount: 30_000 }),
+        salvarEntrada({ date: "2026-09-20" }),
+        { type: "delete", record: "expense", id: 99 },
       ],
       HOJE,
     );
 
-    expect(resultado).toEqual({ ok: false, erro: "Esse lançamento não existe mais.", indice: 2 });
+    expect(resultado).toEqual({ ok: false, error: "Esse lançamento não existe mais.", indice: 2 });
     // Nem o lançamento nem a segunda entrada, aceitos antes da recusa, ficaram.
     expect(carregarEstado(abrir())).toEqual(antes);
   });
 });
 
-function salvarEntrada(campos: { id?: number; data: `${number}-${number}-${number}`; valor?: number }): Comando {
+function salvarEntrada(campos: { id?: number; date: `${number}-${number}-${number}`; amount?: number }): Command {
   return {
-    tipo: "salvar-entrada",
-    entrada: { descricao: "Salário", fonte: "salario", tipo: "transferencia", valor: 720_000, ...campos },
+    type: "save-income",
+    income: { description: "Salário", source: "salario", paymentMethod: "transferencia", amount: 720_000, ...campos },
   };
 }
 
-function salvarPercentuais(mes: Mes, percentuais: Percentuais): Comando {
-  return { tipo: "salvar-percentuais", mes, percentuais };
+function salvarPercentuais(mes: Month, percentuais: Percentages): Command {
+  return { type: "save-percentages", month: mes, percentages: percentuais };
 }
 
-function antecipar(campos: { id?: number; data: `${number}-${number}-${number}`; parcelas: number; valor: number }): Comando {
-  return { tipo: "salvar-antecipacao", antecipacao: { lancamento: 1, ...campos } };
+function antecipar(campos: { id?: number; date: `${number}-${number}-${number}`; installments: number; amount: number }): Command {
+  return { type: "save-prepayment", prepayment: { expense: 1, ...campos } };
 }
 
 function salvarLancamento(campos: {
   id?: number;
-  data: `${number}-${number}-${number}`;
-  pote: PoteId;
-  valor: number;
-  parcelas?: number;
+  date: `${number}-${number}-${number}`;
+  jar: Jar;
+  amount: number;
+  installments?: number;
   tag?: string;
-}): Comando {
+}): Command {
   return {
-    tipo: "salvar-lancamento",
-    lancamento: { descricao: "Restaurante", tipo: "cartao-de-credito", parcelas: 1, ...campos },
+    type: "save-expense",
+    expense: { description: "Restaurante", paymentMethod: "cartao-de-credito", installments: 1, ...campos },
   };
 }
 
-function criarRecorrente(campos: Partial<VigenciaASalvar> & { data: `${number}-${number}-${number}` }): Comando {
+function criarRecorrente(campos: Partial<PeriodToSave> & { date: `${number}-${number}-${number}` }): Command {
   return {
-    tipo: "criar-recorrente",
-    recorrente: { descricao: "Aluguel", pote: "custos-fixos", tipo: "boleto", valor: 10_000, ...campos },
+    type: "create-recurring",
+    recurring: { description: "Aluguel", jar: "custos-fixos", paymentMethod: "boleto", amount: 10_000, ...campos },
   };
 }
 
-function mudarRecorrente(id: number, mes: Mes, campos: Partial<VigenciaASalvar>): Comando {
+function mudarRecorrente(id: number, mes: Month, campos: Partial<PeriodToSave>): Command {
   return {
-    tipo: "mudar-recorrente",
+    type: "change-recurring",
     id,
-    mes,
-    vigencia: { descricao: "Aluguel", pote: "custos-fixos", tipo: "boleto", valor: 10_000, ...campos },
+    month: mes,
+    period: { description: "Aluguel", jar: "custos-fixos", paymentMethod: "boleto", amount: 10_000, ...campos },
   };
 }
 
 /** Grava um estado qualquer numa transação só, como o executarNoBanco faria com o que o domínio devolve. */
-function gravarEstado({ db }: Banco, estado: Estado): void {
+function gravarEstado({ db }: Banco, estado: State): void {
   db.transaction((tx) => gravar(tx, estado));
 }
 
 /** Executa no banco comandos que o domínio aceita, e devolve o estado gravado. */
-function executarOk(banco: Banco, ...comandos: Comando[]): Estado {
+function executarOk(banco: Banco, ...comandos: Command[]): State {
   const resultado = executarNoBanco(banco, comandos, HOJE);
-  if (!resultado.ok) throw new Error(resultado.erro);
-  return resultado.valor;
+  if (!resultado.ok) throw new Error(resultado.error);
+  return resultado.value;
 }
 
-function aplicarOk(estado: Estado, comando: Comando): Estado {
-  const resultado = aplicar(estado, comando, HOJE);
-  if (!resultado.ok) throw new Error(resultado.erro);
-  return resultado.valor;
+function aplicarOk(estado: State, comando: Command): State {
+  const resultado = apply(estado, comando, HOJE);
+  if (!resultado.ok) throw new Error(resultado.error);
+  return resultado.value;
 }
 
-function pcts(...valores: [number, number, number, number, number, number]): Percentuais {
-  return Object.fromEntries(POTES.map((p, i) => [p.id, valores[i]])) as Percentuais;
+function pcts(...valores: [number, number, number, number, number, number]): Percentages {
+  return Object.fromEntries(JARS.map((p, i) => [p.id, valores[i]])) as Percentages;
 }

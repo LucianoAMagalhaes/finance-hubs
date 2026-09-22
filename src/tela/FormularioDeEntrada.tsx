@@ -2,24 +2,24 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  centavosParaCampo,
-  FONTES,
-  reaisParaCentavos,
-  TIPOS_DE_ENTRADA,
-  type Data,
-  type Entrada,
-  type EntradaASalvar,
-  type FonteId,
-  type TipoDeEntrada,
-} from "@/dominio";
+  centsToField,
+  INCOME_SOURCES,
+  reaisToCents,
+  INCOME_METHODS,
+  type IsoDate,
+  type Income,
+  type IncomeToSave,
+  type IncomeSource,
+  type IncomeMethod,
+} from "@/domain";
 
 type Props = {
   /** A entrada que se corrige; null numa entrada nova. */
-  entrada: Entrada | null;
+  entrada: Income | null;
   /** A data que o formulário propõe numa entrada nova. */
-  dataProposta: Data;
+  dataProposta: IsoDate;
   /** Devolve o erro de validação, ou null se salvou. */
-  salvar: (entrada: EntradaASalvar) => Promise<string | null>;
+  salvar: (entrada: IncomeToSave) => Promise<string | null>;
   /** Manda a entrada que se corrige para a lixeira. Devolve o erro, ou null se apagou. */
   apagar: () => Promise<string | null>;
   fechar: () => void;
@@ -27,11 +27,11 @@ type Props = {
 
 export function FormularioDeEntrada({ entrada, dataProposta, salvar, apagar, fechar }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
-  const [data, setData] = useState<string>(entrada?.data ?? dataProposta);
-  const [descricao, setDescricao] = useState(entrada?.descricao ?? "");
-  const [valor, setValor] = useState(entrada ? centavosParaCampo(entrada.valor) : "");
-  const [fonte, setFonte] = useState<FonteId>(entrada?.fonte ?? "salario");
-  const [tipo, setTipo] = useState<TipoDeEntrada>(entrada?.tipo ?? "transferencia");
+  const [data, setData] = useState<string>(entrada?.date ?? dataProposta);
+  const [descricao, setDescricao] = useState(entrada?.description ?? "");
+  const [valor, setValor] = useState(entrada ? centsToField(entrada.amount) : "");
+  const [fonte, setFonte] = useState<IncomeSource>(entrada?.source ?? "salario");
+  const [tipo, setTipo] = useState<IncomeMethod>(entrada?.paymentMethod ?? "transferencia");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -40,7 +40,7 @@ export function FormularioDeEntrada({ entrada, dataProposta, salvar, apagar, fec
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
-    const centavos = reaisParaCentavos(valor);
+    const centavos = reaisToCents(valor);
     if (centavos === null) {
       setErro("Informe o valor em reais, como 7.200,00.");
       return;
@@ -48,11 +48,11 @@ export function FormularioDeEntrada({ entrada, dataProposta, salvar, apagar, fec
     setSalvando(true);
     const recusa = await salvar({
       ...(entrada && { id: entrada.id }),
-      data: data as Data,
-      descricao,
-      fonte,
-      tipo,
-      valor: centavos,
+      date: data as IsoDate,
+      description: descricao,
+      source: fonte,
+      paymentMethod: tipo,
+      amount: centavos,
     });
     setSalvando(false);
     setErro(recusa);
@@ -101,10 +101,10 @@ export function FormularioDeEntrada({ entrada, dataProposta, salvar, apagar, fec
             </label>
             <label className="campo">
               <span>Fonte</span>
-              <select value={fonte} onChange={(e) => setFonte(e.target.value as FonteId)}>
-                {FONTES.map((f) => (
+              <select value={fonte} onChange={(e) => setFonte(e.target.value as IncomeSource)}>
+                {INCOME_SOURCES.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.nome}
+                    {f.name}
                   </option>
                 ))}
               </select>
@@ -114,10 +114,10 @@ export function FormularioDeEntrada({ entrada, dataProposta, salvar, apagar, fec
             <span>
               Tipo de pagamento <span className="dica">(só os três que creditam)</span>
             </span>
-            <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoDeEntrada)}>
-              {TIPOS_DE_ENTRADA.map((t) => (
+            <select value={tipo} onChange={(e) => setTipo(e.target.value as IncomeMethod)}>
+              {INCOME_METHODS.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.nome}
+                  {t.name}
                 </option>
               ))}
             </select>

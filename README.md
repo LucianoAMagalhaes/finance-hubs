@@ -30,7 +30,7 @@ npm run typecheck
 npm run db:generate  # gera a migration depois de mudar src/persistencia/esquema.ts
 ```
 
-- `src/dominio/`: o domínio, puro (sem I/O, sem DOM). Projeção do mês e comandos.
+- `src/domain/`: o domínio, puro (sem I/O, sem DOM). Projeção do mês e comandos.
 - `src/persistencia/`: esquema do Drizzle, carregar e gravar o estado.
 - `src/servidor/`: inicialização (backup, migrations) e as ações do servidor.
 - `src/tela/`: a tela do mês.

@@ -1,4 +1,4 @@
-import type { Data } from "@/dominio";
+import type { IsoDate } from "@/domain";
 import type { Banco } from "@/persistencia";
 import { configuracaoDoAmbiente, inicializar } from "./inicializacao";
 
@@ -13,7 +13,7 @@ export function bancoDoApp(): Banco {
 }
 
 /** A data de hoje no fuso da máquina, que é o fuso da pessoa: o app roda local. */
-export function hojeLocal(agora: Date = new Date()): Data {
+export function hojeLocal(agora: Date = new Date()): IsoDate {
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${agora.getFullYear()}-${p(agora.getMonth() + 1)}-${p(agora.getDate())}` as Data;
+  return `${agora.getFullYear()}-${p(agora.getMonth() + 1)}-${p(agora.getDate())}` as IsoDate;
 }

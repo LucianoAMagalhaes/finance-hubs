@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { estadoVazio, POTES, type Percentuais } from "@/dominio";
+import { emptyState, JARS, type Percentages } from "@/domain";
 import { abrirBanco, carregarEstado, executarNoBanco } from "@/persistencia";
 import { configuracaoDoAmbiente, inicializar } from "./inicializacao";
 
@@ -16,7 +16,7 @@ afterEach(() => {
   rmSync(pasta, { recursive: true, force: true });
 });
 
-const setembro = Object.fromEntries(POTES.map((p) => [p.id, 10])) as Percentuais;
+const setembro = Object.fromEntries(JARS.map((p) => [p.id, 10])) as Percentages;
 
 describe("inicialização", () => {
   it("cria o banco se não existir e aplica as migrations", () => {
@@ -25,7 +25,7 @@ describe("inicialização", () => {
     const banco = inicializar({ arquivoDb, pastaBackup: path.join(pasta, "backups") });
 
     expect(existsSync(arquivoDb)).toBe(true);
-    expect(carregarEstado(banco)).toEqual(estadoVazio());
+    expect(carregarEstado(banco)).toEqual(emptyState());
     banco.fechar();
   });
 
@@ -33,7 +33,7 @@ describe("inicialização", () => {
     const arquivoDb = path.join(pasta, "dados", "finance-hubs.db");
     const pastaBackup = path.join(pasta, "copias");
     const anterior = abrirBanco(arquivoDb);
-    const preparado = executarNoBanco(anterior, [{ tipo: "salvar-percentuais", mes: "2026-09", percentuais: setembro }], "2026-09-18");
+    const preparado = executarNoBanco(anterior, [{ type: "save-percentages", month: "2026-09", percentages: setembro }], "2026-09-18");
     expect(preparado.ok).toBe(true);
     anterior.fechar();
 
@@ -42,7 +42,7 @@ describe("inicialização", () => {
 
     expect(readdirSync(pastaBackup)).toEqual(["finance-hubs-2026-09-18_07-05-09.db"]);
     const copia = abrirBanco(path.join(pastaBackup, "finance-hubs-2026-09-18_07-05-09.db"));
-    expect(carregarEstado(copia).orcamentos["2026-09"]).toEqual(setembro);
+    expect(carregarEstado(copia).budgets["2026-09"]).toEqual(setembro);
     copia.fechar();
   });
 

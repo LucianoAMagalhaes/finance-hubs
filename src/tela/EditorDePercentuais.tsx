@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, type CSSProperties, type FormEvent } from "react";
-import { POTES, type Percentuais } from "@/dominio";
+import { JARS, type Percentages } from "@/domain";
 import { conferirRascunho, type Rascunho } from "./rascunhoDePercentuais";
 
 type Props = {
   rascunho: Rascunho;
   mudar: (rascunho: Rascunho) => void;
   /** Devolve o erro, ou null se salvou. */
-  salvar: (percentuais: Percentuais) => Promise<string | null>;
+  salvar: (percentuais: Percentages) => Promise<string | null>;
   cancelar: () => void;
 };
 
@@ -33,11 +33,11 @@ export function EditorDePercentuais({ rascunho, mudar, salvar, cancelar }: Props
   return (
     <form className="cartao editor-percentuais" onSubmit={enviar} aria-label="Percentuais do mês">
       <div className="campos-percentuais">
-        {POTES.map((p) => (
+        {JARS.map((p) => (
           <label className="campo" key={p.id} style={{ "--pote": `var(--p-${p.id})` } as CSSProperties}>
             <span>
               <span className="quadrado" />
-              {p.nome}
+              {p.name}
             </span>
             <span className="com-sufixo">
               <input

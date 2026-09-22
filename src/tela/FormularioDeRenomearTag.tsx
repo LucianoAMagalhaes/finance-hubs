@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { fusaoAoRenomear, normalizarTag } from "@/dominio";
+import { mergeOnRename, normalizeTag } from "@/domain";
 import { plural, PilulaDaTag } from "./pecas";
 
 type Props = {
@@ -29,10 +29,10 @@ export function FormularioDeRenomearTag({ tag, tags, tagsDoHistorico, lancamento
   const [confirmada, setConfirmada] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
-  const nova = normalizarTag(nome);
+  const nova = normalizeTag(nome);
   const gastos = lancamentosComATag(tag);
   // A mesma pergunta que o comando faz: a confirmação pedida aqui é a que ele exige.
-  const fusao = fusaoAoRenomear(tagsDoHistorico, tag, nome);
+  const fusao = mergeOnRename(tagsDoHistorico, tag, nome);
 
   // <dialog> modal: o navegador cuida do foco, do Esc e do fundo inerte.
   useEffect(() => dialogo.current?.showModal(), []);

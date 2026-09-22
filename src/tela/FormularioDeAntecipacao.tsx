@@ -2,35 +2,35 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  centavosParaCampo,
-  formatarReais,
-  mesDaData,
-  nomeDoMes,
-  nomeDoPote,
-  nomeDoTipo,
-  previaDaAntecipacao,
-  reaisParaCentavos,
-  type Antecipacao,
-  type Centavos,
-  type Comando,
-  type Compra,
-  type CorteNaPrevia,
-  type Data,
-  type Mes,
-} from "@/dominio";
+  centsToField,
+  formatReais,
+  monthOf,
+  monthName,
+  jarName,
+  paymentMethodName,
+  prepaymentPreview,
+  reaisToCents,
+  type Prepayment,
+  type Cents,
+  type Command,
+  type Purchase,
+  type PreviewCut,
+  type IsoDate,
+  type Month,
+} from "@/domain";
 import { faixaDeParcelas, PilulaDaTag } from "./pecas";
 
 type Props = {
   /** O parcelado de quem é a antecipação. */
-  parcelado: Compra;
+  parcelado: Purchase;
   /** A antecipação que se revê; null numa nova. */
-  antecipacao: Antecipacao | null;
+  antecipacao: Prepayment | null;
   /** A data que o formulário propõe numa antecipação nova. */
-  dataProposta: Data;
+  dataProposta: IsoDate;
   /** Para avisar quando uma parcela removida cai num mês que já passou. */
-  hoje: Data;
+  hoje: IsoDate;
   /** Manda o comando e diz em que mês ele pesa. Devolve o erro de validação, ou null se salvou. */
-  salvar: (comando: Comando, mes: Mes) => Promise<string | null>;
+  salvar: (comando: Command, mes: Month) => Promise<string | null>;
   /** Manda a antecipação para a lixeira. Devolve o erro, ou null se desfez. */
   desfazer: () => Promise<string | null>;
   fechar: () => void;
@@ -44,9 +44,9 @@ type Props = {
  */
 export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, hoje, salvar, desfazer, fechar }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
-  const [data, setData] = useState<string>(antecipacao?.data ?? dataProposta);
-  const [parcelas, setParcelas] = useState(String(antecipacao?.parcelas ?? 1));
-  const [valor, setValor] = useState(antecipacao ? centavosParaCampo(antecipacao.valor) : "");
+  const [data, setData] = useState<string>(antecipacao?.date ?? dataProposta);
+  const [parcelas, setParcelas] = useState(String(antecipacao?.installments ?? 1));
+  const [valor, setValor] = useState(antecipacao ? centsToField(antecipacao.amount) : "");
   // Enquanto a pessoa não mexer no valor, ele acompanha a soma das parcelas que saem.
   const [valorEditado, setValorEditado] = useState(antecipacao !== null);
   const [erro, setErro] = useState<string | null>(null);
@@ -55,9 +55,9 @@ export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, 
   // <dialog> modal: o navegador cuida do foco, do Esc e do fundo inerte.
   useEffect(() => dialogo.current?.showModal(), []);
 
-  const prova = { ...(antecipacao && { id: antecipacao.id }), data, parcelas: Number(parcelas) };
-  const { maximo, recusa, corte } = previaDaAntecipacao(parcelado, prova, hoje);
-  const valorMostrado = valorEditado ? valor : corte ? centavosParaCampo(corte.soma) : "";
+  const prova = { ...(antecipacao && { id: antecipacao.id }), date: data, installments: Number(parcelas) };
+  const { max: maximo, refusal: recusa, cut: corte } = prepaymentPreview(parcelado, prova, hoje);
+  const valorMostrado = valorEditado ? valor : corte ? centsToField(corte.sum) : "";
 
   function mudarValor(novo: string) {
     setValorEditado(true);
@@ -66,16 +66,16 @@ export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, 
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
-    const centavos = reaisParaCentavos(valorMostrado);
+    const centavos = reaisToCents(valorMostrado);
     if (centavos === null || centavos <= 0) {
       setErro("Informe o valor pago em reais, como 3.899,00.");
       return;
     }
-    const comando: Comando = {
-      tipo: "salvar-antecipacao",
-      antecipacao: { lancamento: parcelado.id, ...prova, data: data as Data, valor: centavos },
+    const comando: Command = {
+      type: "save-prepayment",
+      prepayment: { expense: parcelado.id, ...prova, date: data as IsoDate, amount: centavos },
     };
-    await enquantoSalva(() => salvar(comando, mesDaData(data as Data)));
+    await enquantoSalva(() => salvar(comando, monthOf(data as IsoDate)));
   }
 
   async function enquantoSalva(acao: () => Promise<string | null>) {
@@ -138,8 +138,8 @@ export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, 
               placeholder="0,00"
             />
           </label>
-          {corte && <Desconto soma={corte.soma} pago={reaisParaCentavos(valorMostrado)} />}
-          {corte && <AvisoDeMesPassado passados={corte.mesesPassados} />}
+          {corte && <Desconto soma={corte.sum} pago={reaisToCents(valorMostrado)} />}
+          {corte && <AvisoDeMesPassado passados={corte.pastMonths} />}
           {erro && (
             <p className="aviso ruim" role="alert">
               {erro}
@@ -171,45 +171,45 @@ export function FormularioDeAntecipacao({ parcelado, antecipacao, dataProposta, 
 }
 
 /** De que parcelado é a antecipação, e de quem ela herda pote, tipo e tag. */
-function FichaDoParcelado({ parcelado }: { parcelado: Compra }) {
+function FichaDoParcelado({ parcelado }: { parcelado: Purchase }) {
   return (
     <p className="aviso">
-      <strong>{parcelado.descricao}</strong> · {parcelado.parcelas}× de {formatarReais(parcelado.valor)} desde{" "}
-      {nomeDoMes(mesDaData(parcelado.data))}. A antecipação entra em {nomeDoPote(parcelado.pote)}, por {nomeDoTipo(parcelado.tipo)}{" "}
+      <strong>{parcelado.description}</strong> · {parcelado.installments}× de {formatReais(parcelado.amount)} desde{" "}
+      {monthName(monthOf(parcelado.date))}. A antecipação entra em {jarName(parcelado.jar)}, por {paymentMethodName(parcelado.paymentMethod)}{" "}
       <PilulaDaTag tag={parcelado.tag} />, acompanhando o parcelado quando ele mudar.
     </p>
   );
 }
 
 /** Que parcelas saem, de que meses, e quanto elas somavam. */
-function Previa({ parcelado, corte }: { parcelado: Compra; corte: CorteNaPrevia }) {
+function Previa({ parcelado, corte }: { parcelado: Purchase; corte: PreviewCut }) {
   return (
     <p className="dica previa-parcelas num">
-      Leva as parcelas {faixaDeParcelas(corte)}/{parcelado.parcelas} · {nomeDoMes(corte.primeiroMes)}
-      {corte.primeira !== corte.ultima && ` a ${nomeDoMes(corte.ultimoMes)}`} · somam {formatarReais(corte.soma)}
+      Leva as parcelas {faixaDeParcelas(corte)}/{parcelado.installments} · {monthName(corte.firstMonth)}
+      {corte.first !== corte.last && ` a ${monthName(corte.lastMonth)}`} · somam {formatReais(corte.sum)}
     </p>
   );
 }
 
 /** Quanto a antecipação economizou, ou custou a mais, contra a soma das parcelas. */
-function Desconto({ soma, pago }: { soma: Centavos; pago: Centavos | null }) {
+function Desconto({ soma, pago }: { soma: Cents; pago: Cents | null }) {
   if (pago === null || pago <= 0 || pago === soma) return null;
   const diferenca = soma - pago;
   return (
     <p className="dica num">
-      {diferenca > 0 ? `Desconto de ${formatarReais(diferenca)}` : `${formatarReais(-diferenca)} a mais que a soma das parcelas`}
+      {diferenca > 0 ? `Desconto de ${formatReais(diferenca)}` : `${formatReais(-diferenca)} a mais que a soma das parcelas`}
     </p>
   );
 }
 
 /** O aviso de que uma parcela que sai já pesava num mês fechado, cujo veredito vai mudar. */
-function AvisoDeMesPassado({ passados }: { passados: Mes[] }) {
+function AvisoDeMesPassado({ passados }: { passados: Month[] }) {
   if (passados.length === 0) return null;
   return (
     <p className="aviso">
       {passados.length === 1
-        ? `Uma das parcelas que saem cai em ${nomeDoMes(passados[0]!)}, um mês que já passou:`
-        : `${passados.length} das parcelas que saem caem em meses que já passaram (de ${nomeDoMes(passados[0]!)} a ${nomeDoMes(passados.at(-1)!)}):`}{" "}
+        ? `Uma das parcelas que saem cai em ${monthName(passados[0]!)}, um mês que já passou:`
+        : `${passados.length} das parcelas que saem caem em meses que já passaram (de ${monthName(passados[0]!)} a ${monthName(passados.at(-1)!)}):`}{" "}
       o veredito desses meses muda.
     </p>
   );

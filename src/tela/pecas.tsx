@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react";
-import { formatarReais, matizDaTag, type Centavos, type PoteId } from "@/dominio";
+import { formatReais, tagHue, type Cents, type Jar } from "@/domain";
 
 /** Valor de gasto: negativo é reembolso, em violeta com ↺. */
-export function Valor({ centavos }: { centavos: Centavos }) {
-  return centavos < 0 ? <span className="val reembolso">↺ {formatarReais(centavos)}</span> : <span className="val">{formatarReais(centavos)}</span>;
+export function Valor({ centavos }: { centavos: Cents }) {
+  return centavos < 0 ? <span className="val reembolso">↺ {formatReais(centavos)}</span> : <span className="val">{formatReais(centavos)}</span>;
 }
 
 /**
@@ -36,18 +36,18 @@ export function BotoesDeLancar({
 export const plural = (n: number, substantivo: string) => `${n} ${substantivo}${n === 1 ? "" : "s"}`;
 
 /** As parcelas que uma antecipação levou: "8–10" quando são várias, "10" quando é uma. */
-export const faixaDeParcelas = ({ primeira, ultima }: { primeira: number; ultima: number }) =>
+export const faixaDeParcelas = ({ first: primeira, last: ultima }: { first: number; last: number }) =>
   primeira === ultima ? `${ultima}` : `${primeira}–${ultima}`;
 
 /** A cor fixa do pote como `--pote`: quadrado, filete e barra a usam. */
-export const corDoPote = (pote: PoteId) => ({ "--pote": `var(--p-${pote})` }) as CSSProperties;
+export const corDoPote = (pote: Jar) => ({ "--pote": `var(--p-${pote})` }) as CSSProperties;
 
 /**
  * A cor da tag como variáveis de CSS: o matiz sai do nome, igual em qualquer mês.
  * `--pote` faz o quadrado e o filete do card usarem a cor da tag.
  */
 export function corDaTag(tag: string): CSSProperties {
-  const matiz = matizDaTag(tag);
+  const matiz = tagHue(tag);
   return { "--matiz": matiz, "--pote": `hsl(${matiz} var(--tag-cor))` } as CSSProperties;
 }
 

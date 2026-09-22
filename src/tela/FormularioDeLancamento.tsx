@@ -2,48 +2,48 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  antecipacoesDe,
-  centavosParaCampo,
-  divisaoEmParcelas,
-  formatarReais,
-  mesDaData,
-  nomeDoMes,
-  nomeDoPote,
-  nomeDoTipo,
-  normalizarTag,
-  oQuePodeVirar,
-  porQueNaoParcela,
-  POTES,
-  reaisParaCentavos,
-  inicioDe,
-  somarMeses,
-  TIPOS_DE_PAGAMENTO,
-  vigenciaEm,
-  vigenciasComFim,
-  type Comando,
-  type Compra,
-  type Data,
-  type Encerramento,
-  type Forma,
-  type Lancamento,
-  type Mes,
-  type PoteId,
-  type Recorrente,
-  type TipoDePagamento,
-} from "@/dominio";
+  prepaymentsOf,
+  centsToField,
+  splitIntoInstallments,
+  formatReais,
+  monthOf,
+  monthName,
+  jarName,
+  paymentMethodName,
+  normalizeTag,
+  whatItCanBecome,
+  whyNoInstallments,
+  JARS,
+  reaisToCents,
+  startOf,
+  addMonths,
+  PAYMENT_METHODS,
+  periodIn,
+  periodsWithEnd,
+  type Command,
+  type Purchase,
+  type IsoDate,
+  type Ending,
+  type ExpenseShape,
+  type Expense,
+  type Month,
+  type Jar,
+  type Recurring,
+  type PaymentMethod,
+} from "@/domain";
 import { faixaDeParcelas, PilulaDaTag } from "./pecas";
 
 type Props = {
   /** O lançamento que se corrige; null num gasto novo. */
-  lancamento: Lancamento | null;
+  lancamento: Expense | null;
   /** O mês aberto na tela: é dele em diante que um recorrente muda ou se encerra. */
-  mes: Mes;
+  mes: Month;
   /** As tags já usadas, sugeridas enquanto se digita. */
   tags: string[];
   /** A data que o formulário propõe num gasto novo. */
-  dataProposta: Data;
+  dataProposta: IsoDate;
   /** Manda o comando e diz em que mês ele pesa. Devolve o erro de validação, ou null se salvou. */
-  salvar: (comando: Comando, mes: Mes) => Promise<string | null>;
+  salvar: (comando: Command, mes: Month) => Promise<string | null>;
   /** Manda a compra que se corrige para a lixeira. Devolve o erro, ou null se apagou. */
   apagar: () => Promise<string | null>;
   /** Encerra o recorrente que se corrige a partir do mês aberto. Devolve o erro, ou null se encerrou. */
@@ -53,10 +53,10 @@ type Props = {
   fechar: () => void;
 };
 
-const FORMAS: { id: Forma; nome: string }[] = [
-  { id: "a-vista", nome: "À vista" },
-  { id: "parcelado", nome: "Parcelado" },
-  { id: "recorrente", nome: "Recorrente" },
+const FORMAS: { id: ExpenseShape; nome: string }[] = [
+  { id: "upfront", nome: "À vista" },
+  { id: "installments", nome: "Parcelado" },
+  { id: "recurring", nome: "Recorrente" },
 ];
 
 /**
@@ -67,27 +67,27 @@ const FORMAS: { id: Forma; nome: string }[] = [
  */
 export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, salvar, apagar, encerrar, antecipar, fechar }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
-  const compra = lancamento?.forma === "compra" ? lancamento : null;
-  const recorrente = lancamento?.forma === "recorrente" ? lancamento : null;
+  const compra = lancamento?.kind === "purchase" ? lancamento : null;
+  const recorrente = lancamento?.kind === "recurring" ? lancamento : null;
   // O recorrente abre com a vigência que vale no mês aberto.
-  const campos = compra ?? (recorrente && (vigenciaEm(recorrente, mes) ?? recorrente.vigencias.at(-1)!));
-  const [data, setData] = useState<string>(compra?.data ?? dataProposta);
-  const [descricao, setDescricao] = useState(campos?.descricao ?? "");
-  const [valor, setValor] = useState(campos ? centavosParaCampo(Math.abs(campos.valor)) : "");
-  const [reembolso, setReembolso] = useState(campos ? campos.valor < 0 : false);
-  const [pote, setPote] = useState<PoteId>(campos?.pote ?? "custos-fixos");
-  const [tipo, setTipo] = useState<TipoDePagamento>(campos?.tipo ?? "pix");
+  const campos = compra ?? (recorrente && (periodIn(recorrente, mes) ?? recorrente.periods.at(-1)!));
+  const [data, setData] = useState<string>(compra?.date ?? dataProposta);
+  const [descricao, setDescricao] = useState(campos?.description ?? "");
+  const [valor, setValor] = useState(campos ? centsToField(Math.abs(campos.amount)) : "");
+  const [reembolso, setReembolso] = useState(campos ? campos.amount < 0 : false);
+  const [pote, setPote] = useState<Jar>(campos?.jar ?? "custos-fixos");
+  const [tipo, setTipo] = useState<PaymentMethod>(campos?.paymentMethod ?? "pix");
   const [tag, setTag] = useState(campos?.tag ?? "");
-  const eraParcelado = compra !== null && compra.parcelas > 1;
-  const [forma, setForma] = useState<Forma>(recorrente ? "recorrente" : eraParcelado ? "parcelado" : "a-vista");
-  const [parcelas, setParcelas] = useState(String(eraParcelado ? compra.parcelas : 2));
-  const parcelado = forma === "parcelado";
-  const naoParcela = porQueNaoParcela(tipo);
-  const tagNormalizada = normalizarTag(tag);
+  const eraParcelado = compra !== null && compra.installments > 1;
+  const [forma, setForma] = useState<ExpenseShape>(recorrente ? "recurring" : eraParcelado ? "installments" : "upfront");
+  const [parcelas, setParcelas] = useState(String(eraParcelado ? compra.installments : 2));
+  const parcelado = forma === "installments";
+  const naoParcela = whyNoInstallments(tipo);
+  const tagNormalizada = normalizeTag(tag);
   // O domínio diz o que este gasto ainda pode virar, com a mesma recusa que daria ao salvar.
-  const podeVirar = oQuePodeVirar(lancamento, mes);
+  const podeVirar = whatItCanBecome(lancamento, mes);
   // Com antecipação ativa, data, total e parcelas ficam travados (ADR-0005).
-  const travado = podeVirar.trava !== null;
+  const travado = podeVirar.lock !== null;
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -95,19 +95,19 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
   useEffect(() => dialogo.current?.showModal(), []);
 
   // Só Cartão de Crédito parcela: sair dele volta a compra para à vista.
-  function mudarTipo(novo: TipoDePagamento) {
+  function mudarTipo(novo: PaymentMethod) {
     setTipo(novo);
-    if (porQueNaoParcela(novo) && parcelado) setForma("a-vista");
+    if (whyNoInstallments(novo) && parcelado) setForma("upfront");
   }
 
   /** Por que a forma não pode ser escolhida; null quando pode. O tipo em edição só pesa no parcelado. */
-  function bloqueio(f: Forma): string | null {
-    return podeVirar.formas[f] ?? (f === "parcelado" ? naoParcela : null);
+  function bloqueio(f: ExpenseShape): string | null {
+    return podeVirar.shapes[f] ?? (f === "installments" ? naoParcela : null);
   }
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
-    const centavos = reaisParaCentavos(valor);
+    const centavos = reaisToCents(valor);
     if (centavos === null || centavos === 0) {
       setErro("Informe o valor em reais, como 297,90.");
       return;
@@ -117,17 +117,17 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
       setErro("Parcelado tem 2 parcelas ou mais.");
       return;
     }
-    const comuns = { descricao, pote, tipo, valor: reembolso ? -centavos : centavos, tag };
-    const [comando, mesDoComando]: [Comando, Mes] = recorrente
-      ? [{ tipo: "mudar-recorrente", id: recorrente.id, mes, vigencia: comuns }, mes]
-      : forma === "recorrente"
-        ? [{ tipo: "criar-recorrente", recorrente: { ...comuns, data: data as Data } }, mesDaData(data as Data)]
+    const comuns = { description: descricao, jar: pote, paymentMethod: tipo, amount: reembolso ? -centavos : centavos, tag };
+    const [comando, mesDoComando]: [Command, Month] = recorrente
+      ? [{ type: "change-recurring", id: recorrente.id, month: mes, period: comuns }, mes]
+      : forma === "recurring"
+        ? [{ type: "create-recurring", recurring: { ...comuns, date: data as IsoDate } }, monthOf(data as IsoDate)]
         : [
             {
-              tipo: "salvar-lancamento",
-              lancamento: { ...(compra && { id: compra.id }), ...comuns, data: data as Data, parcelas: parcelado ? n : 1 },
+              type: "save-expense",
+              expense: { ...(compra && { id: compra.id }), ...comuns, date: data as IsoDate, installments: parcelado ? n : 1 },
             },
-            mesDaData(data as Data),
+            monthOf(data as IsoDate),
           ];
     await enquantoSalva(() => salvar(comando, mesDoComando));
   }
@@ -149,9 +149,9 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
     >
       <form onSubmit={enviar}>
         <header>
-          <h2 id="titulo-lancamento">{recorrente ? `Recorrente, aberto em ${nomeDoMes(mes)}` : lancamento ? "Gasto" : "Novo gasto"}</h2>
+          <h2 id="titulo-lancamento">{recorrente ? `Recorrente, aberto em ${monthName(mes)}` : lancamento ? "Gasto" : "Novo gasto"}</h2>
           <p className="dica">
-            {forma === "recorrente"
+            {forma === "recurring"
               ? "Recorrente: o mesmo valor todo mês, sem fim até ser encerrado."
               : parcelado
                 ? "Parcelado: o total se divide entre os meses, a 1ª parcela no mês da compra."
@@ -175,7 +175,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
           </div>
           {eraParcelado && (
             <p className="aviso">
-              Compra única em {compra.parcelas}×. Salvar muda <strong>todas as parcelas</strong>, inclusive as de meses
+              Compra única em {compra.installments}×. Salvar muda <strong>todas as parcelas</strong>, inclusive as de meses
               passados, e com elas o veredito desses meses.
             </p>
           )}
@@ -184,12 +184,12 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
           {recorrente ? (
             <label className="campo">
               <span>Dia do mês</span>
-              <input disabled value={`todo dia ${recorrente.dia} · desde ${nomeDoMes(inicioDe(recorrente))}`} />
+              <input disabled value={`todo dia ${recorrente.day} · desde ${monthName(startOf(recorrente))}`} />
             </label>
           ) : (
             <label className="campo">
               <span>
-                {forma === "recorrente"
+                {forma === "recurring"
                   ? "Primeira ocorrência (o dia se repete todo mês)"
                   : parcelado
                     ? "Data da compra (a 1ª parcela cai neste mês)"
@@ -232,7 +232,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
             )}
           </div>
           {parcelado && <PreviaDasParcelas valor={valor} parcelas={parcelas} data={data} reembolso={reembolso} />}
-          {forma === "recorrente" && !recorrente && <PreviaDoRecorrente data={data} />}
+          {forma === "recurring" && !recorrente && <PreviaDoRecorrente data={data} />}
           <label className="check">
             <input type="checkbox" disabled={travado} checked={reembolso} onChange={(e) => setReembolso(e.target.checked)} />
             <span>
@@ -242,10 +242,10 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
           <div className="linha-2">
             <label className="campo">
               <span>Pote</span>
-              <select value={pote} onChange={(e) => setPote(e.target.value as PoteId)}>
-                {POTES.map((p) => (
+              <select value={pote} onChange={(e) => setPote(e.target.value as Jar)}>
+                {JARS.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.nome}
+                    {p.name}
                   </option>
                 ))}
               </select>
@@ -254,10 +254,10 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
               <span>
                 Tipo de pagamento {naoParcela && <span className="dica">— só cartão parcela</span>}
               </span>
-              <select value={tipo} onChange={(e) => mudarTipo(e.target.value as TipoDePagamento)}>
-                {TIPOS_DE_PAGAMENTO.map((t) => (
+              <select value={tipo} onChange={(e) => mudarTipo(e.target.value as PaymentMethod)}>
+                {PAYMENT_METHODS.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.nome}
+                    {t.name}
                   </option>
                 ))}
               </select>
@@ -279,7 +279,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
               </span>
             )}
           </label>
-          {podeVirar.encerrar && <p className="dica">{oQueEncerrarFaz(podeVirar.encerrar, mes)}</p>}
+          {podeVirar.end && <p className="dica">{oQueEncerrarFaz(podeVirar.end, mes)}</p>}
           {erro && (
             <p className="aviso ruim" role="alert">
               {erro}
@@ -309,19 +309,19 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
                   : "Vai para a lixeira, de onde volta intacto"
               }
             >
-              {eraParcelado ? `Apagar as ${compra.parcelas} parcelas` : "Apagar"}
+              {eraParcelado ? `Apagar as ${compra.installments} parcelas` : "Apagar"}
             </button>
           )}
           {recorrente && (
             <button type="button" className="btn apagar" disabled={salvando} onClick={() => enquantoSalva(encerrar)}>
-              Encerrar a partir de {nomeDoMes(mes)}
+              Encerrar a partir de {monthName(mes)}
             </button>
           )}
           <button type="button" className="btn" onClick={fechar}>
             Cancelar
           </button>
           <button type="submit" className="btn primario" disabled={salvando}>
-            {recorrente ? `Salvar a partir de ${nomeDoMes(mes)}` : "Salvar"}
+            {recorrente ? `Salvar a partir de ${monthName(mes)}` : "Salvar"}
           </button>
         </footer>
       </form>
@@ -334,17 +334,17 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
  * 1ª de R$ 333,34)", e em que meses caem. Com juros, o total já é o pago.
  */
 function PreviaDasParcelas({ valor, parcelas, data, reembolso }: { valor: string; parcelas: string; data: string; reembolso: boolean }) {
-  const centavos = reaisParaCentavos(valor);
+  const centavos = reaisToCents(valor);
   const n = Number(parcelas);
   if (!centavos || !Number.isInteger(n) || n < 2 || !data) return null;
   const total = reembolso ? -centavos : centavos;
-  const { primeira, demais } = divisaoEmParcelas(total, n);
-  const primeiroMes = mesDaData(data as Data);
+  const { first: primeira, rest: demais } = splitIntoInstallments(total, n);
+  const primeiroMes = monthOf(data as IsoDate);
   return (
     <p className="dica previa-parcelas num">
-      {n}× de {formatarReais(demais)}
-      {primeira !== demais && ` (a 1ª de ${formatarReais(primeira)})`} · de {nomeDoMes(primeiroMes)} a{" "}
-      {nomeDoMes(somarMeses(primeiroMes, n - 1))}
+      {n}× de {formatReais(demais)}
+      {primeira !== demais && ` (a 1ª de ${formatReais(primeira)})`} · de {monthName(primeiroMes)} a{" "}
+      {monthName(addMonths(primeiroMes, n - 1))}
     </p>
   );
 }
@@ -353,8 +353,8 @@ function PreviaDasParcelas({ valor, parcelas, data, reembolso }: { valor: string
  * As antecipações que valem, e o que elas travam: com uma delas viva, data,
  * total e número de parcelas do parcelado não mudam (ADR-0005).
  */
-function Antecipacoes({ compra }: { compra: Compra }) {
-  const { cortes } = antecipacoesDe(compra);
+function Antecipacoes({ compra }: { compra: Purchase }) {
+  const { cuts: cortes } = prepaymentsOf(compra);
   return (
     <>
       <p className="aviso">
@@ -365,13 +365,13 @@ function Antecipacoes({ compra }: { compra: Compra }) {
       <div>
         <span className="dica">Antecipações</span>
         <ol className="vigencias">
-          {cortes.map(({ antecipacao, primeira, ultima }) => (
+          {cortes.map(({ prepayment: antecipacao, first: primeira, last: ultima }) => (
             <li key={antecipacao.id}>
-              <span className="num">{nomeDoMes(mesDaData(antecipacao.data))}</span>
+              <span className="num">{monthName(monthOf(antecipacao.date))}</span>
               <span>
-                parcelas {faixaDeParcelas({ primeira, ultima })}/{compra.parcelas}
+                parcelas {faixaDeParcelas({ first: primeira, last: ultima })}/{compra.installments}
               </span>
-              <span className="num direita">{formatarReais(antecipacao.valor)}</span>
+              <span className="num direita">{formatReais(antecipacao.amount)}</span>
             </li>
           ))}
         </ol>
@@ -384,40 +384,40 @@ function Antecipacoes({ compra }: { compra: Compra }) {
  * As vigências do recorrente, cada uma com os meses em que vale, e a do mês
  * aberto em destaque. Diz até quando a mudança de agora vai valer.
  */
-function Vigencias({ recorrente, mes }: { recorrente: Recorrente; mes: Mes }) {
-  const vigencias = vigenciasComFim(recorrente);
-  const proxima = vigencias.find((v) => v.desde > mes);
-  const inicio = inicioDe(recorrente);
+function Vigencias({ recorrente, mes }: { recorrente: Recurring; mes: Month }) {
+  const vigencias = periodsWithEnd(recorrente);
+  const proxima = vigencias.find((v) => v.since > mes);
+  const inicio = startOf(recorrente);
   return (
     <>
       <p className="aviso">
-        Mudar vale de <strong>{nomeDoMes(mes)}</strong> em diante,{" "}
+        Mudar vale de <strong>{monthName(mes)}</strong> em diante,{" "}
         {proxima
-          ? `até ${nomeDoMes(somarMeses(proxima.desde, -1))}: em ${nomeDoMes(proxima.desde)} já há outra mudança, que continua valendo.`
-          : recorrente.encerradoEm
-            ? `até ${nomeDoMes(somarMeses(recorrente.encerradoEm, -1))}, quando ele termina.`
+          ? `até ${monthName(addMonths(proxima.since, -1))}: em ${monthName(proxima.since)} já há outra mudança, que continua valendo.`
+          : recorrente.endedIn
+            ? `até ${monthName(addMonths(recorrente.endedIn, -1))}, quando ele termina.`
             : "sem fim."}{" "}
         Os meses antes não mudam
-        {mes !== inicio && `; para corrigir desde o começo, abra ${nomeDoMes(inicio)}`}.
+        {mes !== inicio && `; para corrigir desde o começo, abra ${monthName(inicio)}`}.
       </p>
       <div>
         <span className="dica">Vigências</span>
         <ol className="vigencias">
           {vigencias.map((v) => (
-            <li key={v.desde} className={v.desde <= mes && (v.ate === null || mes <= v.ate) ? "agora" : undefined}>
+            <li key={v.since} className={v.since <= mes && (v.until === null || mes <= v.until) ? "agora" : undefined}>
               <span className="num">
-                {nomeDoMes(v.desde)} → {v.ate ? nomeDoMes(v.ate) : "sem fim"}
+                {monthName(v.since)} → {v.until ? monthName(v.until) : "sem fim"}
               </span>
               <span>
-                {v.descricao} · {nomeDoPote(v.pote)} · {nomeDoTipo(v.tipo)}
+                {v.description} · {jarName(v.jar)} · {paymentMethodName(v.paymentMethod)}
                 {v.tag && <> · #{v.tag}</>}
               </span>
-              <span className="num direita">{formatarReais(v.valor)}</span>
+              <span className="num direita">{formatReais(v.amount)}</span>
             </li>
           ))}
-          {recorrente.encerradoEm && (
+          {recorrente.endedIn && (
             <li className="fim">
-              <span className="num">{nomeDoMes(recorrente.encerradoEm)}</span>
+              <span className="num">{monthName(recorrente.endedIn)}</span>
               <span>encerrado</span>
             </li>
           )}
@@ -427,13 +427,13 @@ function Vigencias({ recorrente, mes }: { recorrente: Recorrente; mes: Mes }) {
   );
 }
 
-function oQueEncerrarFaz(encerramento: Encerramento, mes: Mes): string {
-  if (encerramento.tipo === "lixeira") {
+function oQueEncerrarFaz(encerramento: Ending, mes: Month): string {
+  if (encerramento.type === "trash") {
     return "Este é o mês de início: encerrar apaga o recorrente inteiro, que vai para a lixeira, de onde volta intacto.";
   }
-  const { descartadas } = encerramento;
+  const { discarded: descartadas } = encerramento;
   return (
-    `Encerrar a partir de ${nomeDoMes(mes)}: a última ocorrência passa a ser ${nomeDoMes(somarMeses(mes, -1))}.` +
+    `Encerrar a partir de ${monthName(mes)}: a última ocorrência passa a ser ${monthName(addMonths(mes, -1))}.` +
     (descartadas === 1 ? " A mudança daqui em diante some de vez." : "") +
     (descartadas > 1 ? ` As ${descartadas} mudanças daqui em diante somem de vez.` : "")
   );
@@ -446,7 +446,7 @@ function PreviaDoRecorrente({ data }: { data: string }) {
   return (
     <p className="dica previa-parcelas">
       Todo dia {dia}
-      {dia > 28 && " (no último dia dos meses mais curtos)"}, a partir de {nomeDoMes(mesDaData(data as Data))}, sem fim.
+      {dia > 28 && " (no último dia dos meses mais curtos)"}, a partir de {monthName(monthOf(data as IsoDate))}, sem fim.
     </p>
   );
 }
