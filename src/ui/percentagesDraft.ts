@@ -1,11 +1,11 @@
-import { JARS, sumPercentages, validatePercentages, type Percentages, type Jar, type JarInView } from "@/domain";
+import { JARS, sumPercentages, validatePercentages, type Percentages, type Jar, type JarGroup } from "@/domain";
 
 /** What is written in each field, as the person typed it. */
 export type Draft = Record<Jar, string>;
 
 /** The draft starts with the percentages the month shows, its own or inherited. */
-export function draftFrom(jars: JarInView[]): Draft {
-  return Object.fromEntries(jars.map((j) => [j.id, String(j.percentage)])) as Draft;
+export function draftFrom(jars: JarGroup[]): Draft {
+  return Object.fromEntries(jars.map((j) => [j.key, String(j.percentage)])) as Draft;
 }
 
 /** For the live projection: what does not read as a number counts as zero, and nothing leaves 0 to 100. */

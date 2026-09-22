@@ -15,12 +15,19 @@ export type BudgetInView = {
 
 export type Verdict = "overrun" | "leftover" | "no-income";
 
-export type JarInView = {
-  id: Jar;
+/**
+ * A jar as the month shows it, which is also its group on the jar axis: the value
+ * of the axis is the jar, so the group brings what the jar has. Split here and
+ * nowhere else, so the jar's total and the group's cannot be two numbers.
+ */
+export type JarGroup = {
+  key: Jar;
   name: string;
-  percentage: number;
   /** Net sum of the jar's occurrences in the month. */
   total: Cents;
+  /** The month's occurrences that fall in this jar, in date order. */
+  occurrences: Occurrence[];
+  percentage: number;
   /** `percentage × income`, exact (may have a fraction of a cent); null when the month has no income. */
   limit: number | null;
   verdict: Verdict;
@@ -47,7 +54,7 @@ export type MonthView = {
   budget: BudgetInView;
   /** Sum of the month's incomes. */
   monthIncome: Cents;
-  jars: JarInView[];
+  jars: JarGroup[];
   unallocated: Unallocated;
   aggregates: MonthAggregates;
   /** The incomes dated in the month, in date order. */
@@ -85,15 +92,17 @@ export function projectMonth(state: State, month: Month, editingPercentages?: Pe
     budget,
     monthIncome,
     jars: JARS.map((j) => {
-      const total = sum(occurrences.filter((o) => o.jar === j.id));
+      const inJar = occurrences.filter((o) => o.jar === j.id);
+      const total = sum(inJar);
       const limit = limitOf(percentages[j.id]);
       // The overrun compares against the exact limit; only the display rounds.
       const overrun = limit === null ? null : Math.max(0, total - limit);
       return {
-        id: j.id,
+        key: j.id,
         name: j.name,
-        percentage: percentages[j.id],
         total,
+        occurrences: inJar,
+        percentage: percentages[j.id],
         limit,
         verdict: overrun === null ? "no-income" : overrun > 0 ? "overrun" : "leftover",
         overrun,

@@ -220,13 +220,13 @@ describe("editing the percentages", () => {
 
     flow.changeDraft({ ...draft, "fixed-costs": "70" });
 
-    expect(flow.snapshot().view.jars.find((j) => j.id === "fixed-costs")!.percentage).toBe(70);
+    expect(flow.snapshot().view.jars.find((j) => j.key === "fixed-costs")!.percentage).toBe(70);
 
     const error = await flow.savePercentages({ ...DEFAULT_PERCENTAGES, "fixed-costs": 35, comfort: 10 });
 
     expect(error).toBeNull();
     expect(flow.snapshot().draft).toBeNull();
-    expect(flow.snapshot().view.jars.find((j) => j.id === "fixed-costs")!.percentage).toBe(35);
+    expect(flow.snapshot().view.jars.find((j) => j.key === "fixed-costs")!.percentage).toBe(35);
   });
 });
 

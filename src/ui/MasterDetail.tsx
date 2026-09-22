@@ -7,10 +7,11 @@ import {
   jarName,
   paymentMethodName,
   allExpenses,
+  isJarGroup,
   type Axis,
   type Group,
   type Occurrence,
-  type JarInView,
+  type JarGroup,
   type MonthView,
 } from "@/domain";
 import { tagColor, jarColor, installmentRange, TagPill, plural, Amount } from "./parts";
@@ -48,8 +49,8 @@ export function MasterDetail({ view, axis, opened, open, openOccurrence, renameT
     const click = () => open(selected ? null : { kind: "group", key: g.key });
     // A tag is never empty once normalized: "" collides with none.
     const key = g.key ?? "";
-    return axis === "jar" ? (
-      <JarCard key={key} jar={view.jars.find((j) => j.id === g.key)!} selected={selected} click={click} />
+    return isJarGroup(g) ? (
+      <JarCard key={key} jar={g} selected={selected} click={click} />
     ) : (
       <GroupCard key={key} group={g} axis={axis} selected={selected} click={click} />
     );
@@ -85,14 +86,14 @@ export function MasterDetail({ view, axis, opened, open, openOccurrence, renameT
 
 type CardProps = { selected: boolean; click: () => void };
 
-function JarCard({ jar, selected, click }: { jar: JarInView } & CardProps) {
+function JarCard({ jar, selected, click }: { jar: JarGroup } & CardProps) {
   const noLimit = jar.limit === null;
   const className = noLimit ? "no-limit" : jar.verdict === "overrun" ? "overrun" : "";
   return (
     <button
       type="button"
       className={`card jar ${className} ${selected ? "open" : ""}`}
-      style={jarColor(jar.id)}
+      style={jarColor(jar.key)}
       aria-pressed={selected}
       onClick={click}
     >
@@ -115,8 +116,8 @@ function JarCard({ jar, selected, click }: { jar: JarInView } & CardProps) {
   );
 }
 
-/** Payment method and tag have no limit or verdict: only total and count. */
-function GroupCard({ group, axis, selected, click }: { group: Group; axis: Exclude<Axis, "jar"> } & CardProps) {
+/** Payment method and tag have no limit or verdict: only total and count. Which is why a jar never gets here. */
+function GroupCard({ group, axis, selected, click }: { group: Group; axis: Axis } & CardProps) {
   const tinted = axis === "tag" && group.key !== null;
   return (
     <button
@@ -147,7 +148,7 @@ function GroupCard({ group, axis, selected, click }: { group: Group; axis: Exclu
  * limit, the scale becomes the total and the vertical mark shows where the
  * limit was.
  */
-function Bar({ jar }: { jar: JarInView }) {
+function Bar({ jar }: { jar: JarGroup }) {
   if (jar.limit === null) return <span className="bar" />;
   const spent = Math.max(jar.total, 0);
   const scale = Math.max(jar.limit, spent);
@@ -160,7 +161,7 @@ function Bar({ jar }: { jar: JarInView }) {
   );
 }
 
-function Verdict({ jar }: { jar: JarInView }) {
+function Verdict({ jar }: { jar: JarGroup }) {
   switch (jar.verdict) {
     case "no-income":
       return <span className="badge no-income">— Sem receita</span>;
@@ -187,7 +188,7 @@ type DetailProps = {
  * lists, and "sem tag" is not a tag.
  */
 function Detail({ view, group, axis, close, openOccurrence, renameTag }: DetailProps) {
-  const jar = axis === "jar" ? view.jars.find((j) => j.id === group.key) : undefined;
+  const jar = isJarGroup(group) ? group : null;
   const tag = axis === "tag" ? group.key : null;
   return (
     <section className="detail" aria-label={group.name}>
@@ -197,7 +198,7 @@ function Detail({ view, group, axis, close, openOccurrence, renameTag }: DetailP
           ×
         </button>
         <div className="kicker">{axis ? AXIS_NAME[axis] : "Despesas"}</div>
-        <h2 style={jar ? jarColor(jar.id) : tag ? tagColor(tag) : undefined}>
+        <h2 style={jar ? jarColor(jar.key) : tag ? tagColor(tag) : undefined}>
           {(jar || tag) && <span className="swatch" />}
           {group.name}
         </h2>

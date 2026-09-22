@@ -31,7 +31,7 @@ describe("upfront expense", () => {
     const view = projectMonth(state, "2026-09");
 
     expect(jarOf(view, "comfort").total).toBe(42_000);
-    expect(view.jars.filter((j) => j.id !== "comfort").every((j) => j.total === 0)).toBe(true);
+    expect(view.jars.filter((j) => j.key !== "comfort").every((j) => j.total === 0)).toBe(true);
   });
 
   it("the expense weighs only on the month of its date", () => {
@@ -254,7 +254,7 @@ function save(state: State, expense: ExpenseToSave): State {
 }
 
 function jarOf(view: MonthView, id: string) {
-  return view.jars.find((j) => j.id === id)!;
+  return view.jars.find((j) => j.key === id)!;
 }
 
 function pcts(...values: [number, number, number, number, number, number]): Percentages {

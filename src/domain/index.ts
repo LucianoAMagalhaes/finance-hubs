@@ -25,7 +25,7 @@ export {
   type IncomeSource,
   type NewIncome,
 } from "./incomes";
-export { allExpenses, groups, type Axis, type Group } from "./axes";
+export { allExpenses, groups, isJarGroup, type Axis, type Group } from "./axes";
 export { findPrepayment, purchases, emptyState, type State } from "./state";
 export {
   prepaymentsOf,
@@ -85,7 +85,7 @@ export {
   type MonthAggregates,
   type Unallocated,
   type BudgetInView,
-  type JarInView,
+  type JarGroup,
   type Verdict,
   type MonthView,
 } from "./projection";

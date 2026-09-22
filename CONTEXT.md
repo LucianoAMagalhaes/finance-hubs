@@ -158,8 +158,10 @@ _Avoid_: Classificador, dimensão, filtro
 **Grupo**:
 Um valor de um eixo e as ocorrências do mês que caem nele: o grupo Conforto, o grupo Cartão de
 Crédito, o grupo `#transporte`, o grupo "sem tag". O total de um grupo é a soma líquida das suas
-ocorrências e pode ser negativo.
-_Code_: `Group`
+ocorrências e pode ser negativo. No eixo pote, o valor do eixo é o próprio pote, então o grupo é o
+pote na visão do mês: vem com percentual, limite e veredito. Nos outros dois eixos não vem, porque
+tipo de pagamento e tag não têm.
+_Code_: `Group`; o do eixo pote, `JarGroup`
 _Avoid_: Caixinha, bucket, categoria
 
 **Estouro**:

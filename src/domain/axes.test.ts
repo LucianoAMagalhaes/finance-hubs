@@ -113,6 +113,23 @@ describe("groups of an axis", () => {
     expect(jars.find((g) => g.key === "comfort")).toMatchObject({ name: "Conforto", total: 42_000 });
   });
 
+  it("a jar's group is the jar itself, so its percentage, limit and verdict come along", () => {
+    const state = save(withIncome(emptyState(), 500_000), expense({ jar: "comfort", amount: 90_000 }));
+    const view = projectMonth(state, "2026-09");
+
+    const comfort = groups(view, "jar").find((g) => g.key === "comfort")!;
+
+    expect(comfort).toMatchObject({ percentage: 15, limit: 75_000, verdict: "overrun", overrun: 15_000 });
+  });
+
+  it("the jar's total and its group's are one number, not two that agree", () => {
+    const state = save(withIncome(emptyState(), 500_000), expense({ jar: "goals", amount: 12_345 }));
+    const view = projectMonth(state, "2026-09");
+
+    // Same object, not an equal one: there is nothing to keep in step.
+    expect(groups(view, "jar")).toBe(view.jars);
+  });
+
   it("the \"sem tag\" group exists when there is an occurrence without a tag, and comes last", () => {
     let state = save(emptyState(), expense({ tag: "uber", amount: 3_000 }));
     state = save(state, expense({ amount: 7_000 }));
@@ -271,6 +288,14 @@ function saveExpense(expense: ExpenseToSave): Command {
 
 function save(state: State, expense: ExpenseToSave): State {
   const result = apply(state, saveExpense(expense), TODAY);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
+}
+
+/** Without income there is no limit, and so no verdict to check. */
+function withIncome(state: State, amount: number): State {
+  const income = { date: "2026-09-01" as IsoDate, description: "Salário", source: "salary" as const, paymentMethod: "transfer" as const, amount };
+  const result = apply(state, { type: "save-income", income }, TODAY);
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }

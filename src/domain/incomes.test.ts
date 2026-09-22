@@ -215,7 +215,7 @@ function save(state: State, income: IncomeToSave): State {
 }
 
 function jarOf(view: MonthView, id: string) {
-  return view.jars.find((j) => j.id === id)!;
+  return view.jars.find((j) => j.key === id)!;
 }
 
 function pcts(...values: [number, number, number, number, number, number]): Percentages {

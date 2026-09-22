@@ -26,7 +26,7 @@ describe("trash", () => {
 
     expect(projectMonth(deleted, "2026-09").monthIncome).toBe(90_000);
     expect(projectMonth(deleted, "2026-09").incomes.map((i) => i.id)).toEqual([2]);
-    expect(projectMonth(deleted, "2026-09").jars.find((j) => j.id === "comfort")!.verdict).toBe("overrun");
+    expect(projectMonth(deleted, "2026-09").jars.find((j) => j.key === "comfort")!.verdict).toBe("overrun");
 
     const restored = applyOk(deleted, { type: "restore", record: "income", id: 1 });
 

@@ -1,7 +1,7 @@
 import type { Cents } from "./money";
 import type { Occurrence } from "./expenses";
 import { paymentMethodName, PAYMENT_METHODS } from "./payment-methods";
-import type { MonthView } from "./projection";
+import type { JarGroup, MonthView } from "./projection";
 import { distinctTags } from "./tags";
 
 /** A dimension along which the month's occurrences are grouped. */
@@ -17,6 +17,11 @@ export type Group = {
   occurrences: Occurrence[];
 };
 
+/** Whether this is the jar axis's group, which carries what the jar has: percentage, limit and verdict. */
+export const isJarGroup = (group: Group): group is JarGroup => "verdict" in group;
+
+export function groups(view: MonthView, axis: "jar"): JarGroup[];
+export function groups(view: MonthView, axis: Axis): Group[];
 /**
  * The groups of an axis in the month. Every occurrence falls into exactly one group, so
  * the totals of any axis add up to the month's expenses. Jar shows all six,
@@ -25,7 +30,8 @@ export type Group = {
 export function groups(view: MonthView, axis: Axis): Group[] {
   switch (axis) {
     case "jar":
-      return view.jars.map((j) => group(j.id, j.name, view.occurrences.filter((o) => o.jar === j.id)));
+      // The jar axis's groups are the jars: the projection already split the occurrences into them.
+      return view.jars;
     case "payment-method":
       return PAYMENT_METHODS.map((m) =>
         group(m.id, paymentMethodName(m.id), view.occurrences.filter((o) => o.paymentMethod === m.id)),

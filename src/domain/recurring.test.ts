@@ -59,7 +59,7 @@ describe("recurring without an end", () => {
     const state = create(emptyState(), recurring({ date: "2026-09-10", amount: -2_000 }));
 
     expect(amountsByMonth(state, ["2026-09", "2026-12"])).toEqual([[-2_000], [-2_000]]);
-    expect(projectMonth(state, "2026-12").jars.find((j) => j.id === "pleasures")!.total).toBe(-2_000);
+    expect(projectMonth(state, "2026-12").jars.find((j) => j.key === "pleasures")!.total).toBe(-2_000);
   });
 });
 
