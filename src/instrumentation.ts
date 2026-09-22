@@ -1,7 +1,7 @@
-// Roda uma vez quando o servidor sobe: cria o banco se preciso, aplica as
-// migrations e deixa a cópia de segurança, antes da primeira requisição.
+// Runs once when the server starts: creates the database if needed, applies the
+// migrations and leaves the backup copy, before the first request.
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  const { bancoDoApp } = await import("./servidor/app");
-  bancoDoApp();
+  const { appDatabase } = await import("./server/app");
+  appDatabase();
 }

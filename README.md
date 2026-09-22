@@ -18,8 +18,8 @@ banco com data e hora no nome.
 
 | Variável | Padrão | O que é |
 |---|---|---|
-| `FH_ARQUIVO_DB` | `dados/finance-hubs.db` | O arquivo SQLite |
-| `FH_PASTA_BACKUP` | `backups/` ao lado do banco | Onde cada inicialização deixa a sua cópia |
+| `FH_DB_FILE` | `data/finance-hubs.db` | O arquivo SQLite |
+| `FH_BACKUP_DIR` | `backups/` ao lado do banco (`data/backups/`) | Onde cada inicialização deixa a sua cópia |
 
 ## Desenvolver
 
@@ -32,5 +32,5 @@ npm run db:generate  # gera a migration depois de mudar src/persistence/schema.t
 
 - `src/domain/`: o domínio, puro (sem I/O, sem DOM). Projeção do mês e comandos.
 - `src/persistence/`: esquema do Drizzle, carregar e gravar o estado.
-- `src/servidor/`: inicialização (backup, migrations) e as ações do servidor.
+- `src/server/`: inicialização (backup, migrations) e as ações do servidor.
 - `src/tela/`: a tela do mês.

@@ -3,9 +3,9 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 
-# dados locais: o banco e as cópias de segurança nunca vão para o git
-dados/
+# local data: the database and its backup copies never go into git
+data/
 .env*.local
 
-# a importação do app antigo roda uma vez e some: o script não é código do app
+# the import from the old app runs once and goes away: the script is not app code
 importacao/

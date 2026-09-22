@@ -20,7 +20,7 @@ import {
   type State,
   type MonthView,
 } from "@/domain";
-import { executar } from "@/servidor/acoes";
+import { execute } from "@/server/actions";
 import { AlternadorDeTema } from "./AlternadorDeTema";
 import { BotaoFlutuante } from "./BotaoFlutuante";
 import { EditorDePercentuais } from "./EditorDePercentuais";
@@ -40,7 +40,7 @@ type Props = { estadoInicial: State; hoje: IsoDate };
  * mês e manda os comandos ao servidor.
  */
 export function TelaDoMes({ estadoInicial, hoje }: Props) {
-  const [fluxo] = useState(() => criarFluxoDoMes(estadoInicial, { hoje, executar }));
+  const [fluxo] = useState(() => criarFluxoDoMes(estadoInicial, { hoje, executar: execute }));
   const { estado, mes, vista, lixeira, formulario, aviso, rascunho, eixo, aberto, lixeiraAberta, tagARenomear } = useSyncExternalStore(
     fluxo.assinar,
     fluxo.agora,
