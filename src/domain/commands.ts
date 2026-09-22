@@ -468,6 +468,15 @@ export function whyNoInstallments(paymentMethod: PaymentMethod): string | null {
   return paymentMethod === "credit-card" ? null : "Só Cartão de Crédito parcela.";
 }
 
+/**
+ * Why the number doesn't make an installment purchase; null from 2 on. One installment is
+ * upfront, which is another shape: the command only carries the number, so whoever knows
+ * the shape the person picked is the one who asks.
+ */
+export function whyTooFewInstallments(installments: number): string | null {
+  return Number.isInteger(installments) && installments >= 2 ? null : "Parcelado tem 2 parcelas ou mais.";
+}
+
 /** What purchase and period have in common. */
 function validateFields(f: PeriodToSave): string | null {
   if (typeof f.description !== "string" || !f.description.trim()) return "Informe uma descrição.";

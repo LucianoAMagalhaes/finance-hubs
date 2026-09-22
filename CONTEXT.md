@@ -86,6 +86,8 @@ _Avoid_: Linha, item
 A ocorrência de um lançamento parcelado, valendo o total dividido pelo número de parcelas; o
 centavo que sobra da divisão cai na primeira. A primeira parcela cai no mês da data da compra. O
 parcelado é uma compra só: corrigi-lo ou apagá-lo em qualquer mês vale para todas as parcelas.
+Parcelado é de duas parcelas em diante: em uma só, a compra é à vista — outra forma, não um
+parcelado curto.
 _Code_: `Installment`
 
 **Antecipação**:
@@ -198,3 +200,13 @@ sobrou do mês anterior), a compra no cartão pesa no mês da compra e não no d
 conta como qualquer outro tipo de pagamento. É referência aproximada, não conciliação.
 _Code_: `accountBalance`
 _Avoid_: Saldo bancário, saldo disponível, extrato
+
+### A tela
+
+**Rascunho**:
+O que está escrito nos campos de um formulário, como a pessoa digitou, antes de virar comando. Só
+existe na tela e nada dele é gravado: abrir um rascunho é ler o registro como texto, e fechá-lo é
+montar o comando — ou recusar, quando o texto não dá para ler. As recusas que dependem do que foi
+digitado são dele; as que dependem do estado são do domínio.
+_Code_: `Draft`
+_Avoid_: Formulário, estado do form, input

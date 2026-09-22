@@ -4,6 +4,7 @@ export {
   apply,
   whatItCanBecome,
   whyNoInstallments,
+  whyTooFewInstallments,
   prepaymentPreview,
   type Command,
   type PreviewCut,

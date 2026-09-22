@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   prepaymentsOf,
-  centsToField,
   splitIntoInstallments,
   formatReais,
   monthOf,
@@ -18,7 +17,6 @@ import {
   startOf,
   addMonths,
   PAYMENT_METHODS,
-  periodIn,
   periodsWithEnd,
   type Command,
   type Purchase,
@@ -31,6 +29,7 @@ import {
   type Recurring,
   type PaymentMethod,
 } from "@/domain";
+import { commandFrom, draftFrom, type Draft } from "./expenseDraft";
 import { installmentRange, TagPill } from "./parts";
 
 type Props = {
@@ -69,20 +68,13 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
   const dialog = useRef<HTMLDialogElement>(null);
   const purchase = expense?.kind === "purchase" ? expense : null;
   const recurring = expense?.kind === "recurring" ? expense : null;
-  // The recurring expense opens with the period in force in the open month.
-  const fields = purchase ?? (recurring && (periodIn(recurring, month) ?? recurring.periods.at(-1)!));
-  const [date, setDate] = useState<string>(purchase?.date ?? proposedDate);
-  const [description, setDescription] = useState(fields?.description ?? "");
-  const [amount, setAmount] = useState(fields ? centsToField(Math.abs(fields.amount)) : "");
-  const [refund, setRefund] = useState(fields ? fields.amount < 0 : false);
-  const [jar, setJar] = useState<Jar>(fields?.jar ?? "fixed-costs");
-  const [method, setMethod] = useState<PaymentMethod>(fields?.paymentMethod ?? "pix");
-  const [tag, setTag] = useState(fields?.tag ?? "");
+  // What is written in the fields; the draft module knows how to open it and how to close it into a command.
+  const [draft, setDraft] = useState<Draft>(() => draftFrom(expense, month, proposedDate));
+  const change = (fields: Partial<Draft>) => setDraft((d) => ({ ...d, ...fields }));
+  const { shape, date, description, amount, installments, refund, jar, tag } = draft;
   const wasInstallments = purchase !== null && purchase.installments > 1;
-  const [shape, setShape] = useState<ExpenseShape>(recurring ? "recurring" : wasInstallments ? "installments" : "upfront");
-  const [installments, setInstallments] = useState(String(wasInstallments ? purchase.installments : 2));
   const inInstallments = shape === "installments";
-  const noInstallments = whyNoInstallments(method);
+  const noInstallments = whyNoInstallments(draft.paymentMethod);
   const normalizedTag = normalizeTag(tag);
   // The domain says what this expense can still become, with the same refusal it would give on save.
   const canBecome = whatItCanBecome(expense, month);
@@ -95,9 +87,9 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
   useEffect(() => dialog.current?.showModal(), []);
 
   // Only "Cartão de Crédito" pays in installments: leaving it turns the purchase back to upfront.
-  function changeMethod(next: PaymentMethod) {
-    setMethod(next);
-    if (whyNoInstallments(next) && inInstallments) setShape("upfront");
+  function changeMethod(paymentMethod: PaymentMethod) {
+    const backToUpfront = whyNoInstallments(paymentMethod) !== null && inInstallments;
+    change(backToUpfront ? { paymentMethod, shape: "upfront" } : { paymentMethod });
   }
 
   /** Why the shape cannot be picked; null when it can. The method being edited only weighs on installments. */
@@ -107,29 +99,12 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const cents = reaisToCents(amount);
-    if (cents === null || cents === 0) {
-      setError("Informe o valor em reais, como 297,90.");
+    const built = commandFrom(draft);
+    if (!built.ok) {
+      setError(built.error);
       return;
     }
-    const n = Number(installments);
-    if (inInstallments && (!Number.isInteger(n) || n < 2)) {
-      setError("Parcelado tem 2 parcelas ou mais.");
-      return;
-    }
-    const common = { description, jar, paymentMethod: method, amount: refund ? -cents : cents, tag };
-    const [command, commandMonth]: [Command, Month] = recurring
-      ? [{ type: "change-recurring", id: recurring.id, month, period: common }, month]
-      : shape === "recurring"
-        ? [{ type: "create-recurring", recurring: { ...common, date: date as IsoDate } }, monthOf(date as IsoDate)]
-        : [
-            {
-              type: "save-expense",
-              expense: { ...(purchase && { id: purchase.id }), ...common, date: date as IsoDate, installments: inInstallments ? n : 1 },
-            },
-            monthOf(date as IsoDate),
-          ];
-    await whileSaving(() => save(command, commandMonth));
+    await whileSaving(() => save(built.value.command, built.value.month));
   }
 
   async function whileSaving(action: () => Promise<string | null>) {
@@ -167,7 +142,7 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
                 aria-pressed={s.id === shape}
                 disabled={blocker(s.id) !== null}
                 title={blocker(s.id) ?? undefined}
-                onClick={() => setShape(s.id)}
+                onClick={() => change({ shape: s.id })}
               >
                 {s.name}
               </button>
@@ -195,12 +170,17 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
                     ? "Data da compra (a 1ª parcela cai neste mês)"
                     : "Data"}
               </span>
-              <input type="date" required disabled={locked} value={date} onChange={(e) => setDate(e.target.value)} />
+              <input type="date" required disabled={locked} value={date} onChange={(e) => change({ date: e.target.value })} />
             </label>
           )}
           <label className="field">
             <span>Descrição</span>
-            <input required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Supermercado" />
+            <input
+              required
+              value={description}
+              onChange={(e) => change({ description: e.target.value })}
+              placeholder="Ex.: Supermercado"
+            />
           </label>
           <div className={inInstallments ? "cols-2" : undefined}>
             <label className="field">
@@ -211,7 +191,7 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
                 disabled={locked}
                 className="num"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => change({ amount: e.target.value })}
                 placeholder="0,00"
               />
             </label>
@@ -226,15 +206,15 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
                   disabled={locked}
                   className="num"
                   value={installments}
-                  onChange={(e) => setInstallments(e.target.value)}
+                  onChange={(e) => change({ installments: e.target.value })}
                 />
               </label>
             )}
           </div>
-          {inInstallments && <InstallmentsPreview amount={amount} installments={installments} date={date} refund={refund} />}
+          {inInstallments && <InstallmentsPreview draft={draft} />}
           {shape === "recurring" && !recurring && <RecurringPreview date={date} />}
           <label className="check">
-            <input type="checkbox" disabled={locked} checked={refund} onChange={(e) => setRefund(e.target.checked)} />
+            <input type="checkbox" disabled={locked} checked={refund} onChange={(e) => change({ refund: e.target.checked })} />
             <span>
               É reembolso <span className="hint">— dinheiro voltando de um gasto; grava valor negativo neste pote</span>
             </span>
@@ -242,7 +222,7 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
           <div className="cols-2">
             <label className="field">
               <span>Pote</span>
-              <select value={jar} onChange={(e) => setJar(e.target.value as Jar)}>
+              <select value={jar} onChange={(e) => change({ jar: e.target.value as Jar })}>
                 {JARS.map((j) => (
                   <option key={j.id} value={j.id}>
                     {j.name}
@@ -254,7 +234,7 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
               <span>
                 Tipo de pagamento {noInstallments && <span className="hint">— só cartão parcela</span>}
               </span>
-              <select value={method} onChange={(e) => changeMethod(e.target.value as PaymentMethod)}>
+              <select value={draft.paymentMethod} onChange={(e) => changeMethod(e.target.value as PaymentMethod)}>
                 {PAYMENT_METHODS.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
@@ -267,7 +247,7 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
             <span>
               Tag <span className="hint">— opcional, no máximo uma</span>
             </span>
-            <input list="tags-in-use" value={tag} onChange={(e) => setTag(e.target.value)} placeholder="sem tag" />
+            <input list="tags-in-use" value={tag} onChange={(e) => change({ tag: e.target.value })} placeholder="sem tag" />
             <datalist id="tags-in-use">
               {tags.map((t) => (
                 <option key={t} value={t} />
@@ -334,7 +314,7 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
  * (a 1ª de R$ 333,34)", and which months they fall in. With interest, the
  * total is already the amount paid.
  */
-function InstallmentsPreview({ amount, installments, date, refund }: { amount: string; installments: string; date: string; refund: boolean }) {
+function InstallmentsPreview({ draft: { amount, installments, date, refund } }: { draft: Draft }) {
   const cents = reaisToCents(amount);
   const n = Number(installments);
   if (!cents || !Number.isInteger(n) || n < 2 || !date) return null;
