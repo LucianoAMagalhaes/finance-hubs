@@ -6,6 +6,3 @@ next-env.d.ts
 # local data: the database and its backup copies never go into git
 data/
 .env*.local
-
-# the import from the old app runs once and goes away: the script is not app code
-importacao/
