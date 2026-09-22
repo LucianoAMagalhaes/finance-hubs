@@ -948,6 +948,12 @@ dialog.sheet.trash {
 .trash-description {
   overflow-wrap: anywhere;
 }
+/* What the item is and where it lands, segment by segment: the dot is the
+   separator, so a narrow window can break the line between two of them
+   instead of inside one. */
+.trash-text .segment + .segment::before {
+  content: " · ";
+}
 
 /* ============ parts that only exist in a narrow window ============
    The floating button, the backdrop that closes the detail sheet and its

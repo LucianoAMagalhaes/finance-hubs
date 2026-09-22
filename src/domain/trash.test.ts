@@ -150,6 +150,96 @@ describe("trash", () => {
   });
 });
 
+describe("what an item in the trash says about itself", () => {
+  /** The only item in the trash, after deleting the record with `id`. */
+  function deleted(state: State, record: "income" | "expense" | "prepayment", id: number) {
+    return trashItems(applyOk(state, { type: "delete", record, id }))[0]!;
+  }
+
+  it("an income says its source and the month it comes back to", () => {
+    const state = applyOk(emptyState(), saveIncome({ date: "2026-09-05", description: "Salário de setembro" }));
+
+    expect(deleted(state, "income", 1)).toMatchObject({
+      description: "Salário de setembro",
+      amount: 720_000,
+      where: ["Entrada", "Salário", "setembro de 2026"],
+    });
+  });
+
+  it("an upfront expense says its jar and its own month", () => {
+    const state = applyOk(emptyState(), saveExpense({ date: "2026-09-12", amount: 42_050 }));
+
+    expect(deleted(state, "expense", 1)).toMatchObject({
+      description: "Restaurante",
+      amount: 42_050,
+      where: ["Gasto", "Conforto", "setembro de 2026"],
+    });
+  });
+
+  it("an installment purchase says how many installments come back, and from which month", () => {
+    const state = applyOk(emptyState(), saveExpense({ date: "2026-03-20", amount: 600_000, installments: 12 }));
+
+    // The total, not the installment: deleting takes the whole purchase.
+    expect(deleted(state, "expense", 1)).toMatchObject({
+      amount: 600_000,
+      where: ["Gasto", "Conforto", "12× a partir de março de 2026"],
+    });
+  });
+
+  it("a recurring expense says since when it falls, and until when if it was ended", () => {
+    const created = applyOk(emptyState(), {
+      type: "create-recurring",
+      recurring: { date: "2026-07-05", description: "Aluguel", jar: "fixed-costs", paymentMethod: "transfer", amount: 150_000 },
+    });
+
+    expect(deleted(created, "expense", 1)).toMatchObject({
+      description: "Aluguel",
+      where: ["Gasto", "Custos Fixos", "recorrente desde julho de 2026"],
+    });
+
+    const ended = applyOk(created, { type: "end-recurring", id: 1, month: "2026-09" });
+
+    expect(deleted(ended, "expense", 1).where).toEqual(["Gasto", "Custos Fixos", "recorrente desde julho de 2026, encerrado em setembro de 2026"]);
+  });
+
+  it("a recurring expense shows its last period, which is what comes back on top", () => {
+    let state = applyOk(emptyState(), {
+      type: "create-recurring",
+      recurring: { date: "2026-07-05", description: "Aluguel", jar: "fixed-costs", paymentMethod: "transfer", amount: 150_000 },
+    });
+    state = applyOk(state, {
+      type: "change-recurring",
+      id: 1,
+      month: "2026-09",
+      period: { description: "Aluguel reajustado", jar: "comfort", paymentMethod: "transfer", amount: 165_000 },
+    });
+
+    expect(deleted(state, "expense", 1)).toMatchObject({
+      description: "Aluguel reajustado",
+      amount: 165_000,
+      where: ["Gasto", "Conforto", "recorrente desde julho de 2026"],
+    });
+  });
+
+  it("a prepayment borrows the purchase's description, because on its own it explains nothing", () => {
+    let state = applyOk(emptyState(), saveExpense({ date: "2026-03-20", amount: 600_000, installments: 12, description: "Notebook" }));
+    state = applyOk(state, { type: "save-prepayment", prepayment: { expense: 1, date: "2026-09-02", installments: 3, amount: 140_000 } });
+
+    expect(deleted(state, "prepayment", 1)).toMatchObject({
+      description: "Notebook",
+      amount: 140_000,
+      where: ["Antecipação de 3 parcelas", "setembro de 2026", "volta a cortar as últimas que sobrarem"],
+    });
+  });
+
+  it("a prepayment of one installment counts in the singular", () => {
+    let state = applyOk(emptyState(), saveExpense({ date: "2026-03-20", amount: 600_000, installments: 12 }));
+    state = applyOk(state, { type: "save-prepayment", prepayment: { expense: 1, date: "2026-09-02", installments: 1, amount: 45_000 } });
+
+    expect(deleted(state, "prepayment", 1).where[0]).toBe("Antecipação de 1 parcela");
+  });
+});
+
 function saveIncome(fields: Partial<IncomeToSave> & { date: IsoDate }): Command {
   return {
     type: "save-income",

@@ -19,7 +19,6 @@ import {
   type Month,
   type Occurrence,
   type Percentages,
-  type RecordType,
   type Result,
   type MonthView,
 } from "@/domain";
@@ -169,7 +168,7 @@ export function createMonthFlow(initialState: State, { today, execute }: { today
 
     openTrash: () => update({ trashOpen: true }),
     closeTrash: () => update({ trashOpen: false }),
-    restore: (record: RecordType, id: number) => send({ type: "restore", record, id }),
+    restore: ({ record, id }: TrashItem) => send({ type: "restore", record, id }),
 
     openRename: (tag: string) => update({ tagToRename: tag }),
     closeRename: () => update({ tagToRename: null }),

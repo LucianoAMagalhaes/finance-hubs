@@ -206,7 +206,7 @@ describe("deleting, ending and restoring", () => {
     flow.openTrash();
     expect(flow.snapshot().trash).toHaveLength(1);
 
-    expect(await flow.restore("expense", 1)).toBeNull();
+    expect(await flow.restore(flow.snapshot().trash[0]!)).toBeNull();
 
     expect(flow.snapshot()).toMatchObject({ trashOpen: true, trash: [] });
   });
