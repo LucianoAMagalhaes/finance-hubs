@@ -14,7 +14,13 @@ npm start        # compila e sobe em http://localhost:3000
 ```
 
 Na inicialização, o app cria o banco se ele não existir, aplica as migrations e deixa uma cópia do
-banco com data e hora no nome.
+banco com data e hora no nome. A cópia é feita antes das migrations, guardando o banco como ele
+estava.
+
+Para a pasta não crescer sem fim, o app guarda só as **cinco cópias mais recentes** e, quando o
+banco não mudou desde a cópia anterior, não deixa uma cópia nova. A limpeza só mexe nos arquivos com
+o nome automático (`finance-hubs-AAAA-MM-DD_HH-MM-SS.db`): **renomeie uma cópia para guardá-la para
+sempre**, como em `finance-hubs-antes-da-migration.db`.
 
 | Variável | Padrão | O que é |
 |---|---|---|

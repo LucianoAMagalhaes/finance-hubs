@@ -1,10 +1,10 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import SQLite from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emptyState, JARS, type Percentages } from "@/domain";
-import { openDatabase, loadState, executeOnDatabase } from "@/persistence";
+import { openDatabase, loadState, executeOnDatabase, type Database } from "@/persistence";
 import { configFromEnv, startUp } from "./startup";
 
 let dir: string;
@@ -18,6 +18,13 @@ afterEach(() => {
 });
 
 const september = Object.fromEntries(JARS.map((j) => [j.id, 10])) as Percentages;
+
+/** A different budget on each day, so that each startup has something new to copy. */
+function changePercentages(db: Database, day: number): void {
+  const percentages = Object.fromEntries(JARS.map((j) => [j.id, day])) as Percentages;
+  const done = executeOnDatabase(db, [{ type: "save-percentages", month: "2026-09", percentages }], "2026-09-18");
+  expect(done.ok).toBe(true);
+}
 
 describe("startup", () => {
   it("creates the database if it does not exist and applies the migrations", () => {
@@ -68,6 +75,56 @@ describe("startup", () => {
     startUp({ dbFile: path.join(dir, "finance-hubs.db"), backupDir }).close();
 
     expect(existsSync(backupDir) ? readdirSync(backupDir) : []).toEqual([]);
+  });
+
+  it("keeps the five most recent copies and deletes the older ones", () => {
+    const dbFile = path.join(dir, "finance-hubs.db");
+    const backupDir = path.join(dir, "backups");
+
+    for (let day = 1; day <= 8; day++) {
+      const db = startUp({ dbFile, backupDir }, new Date(2026, 8, day, 7, 0, 0));
+      changePercentages(db, day);
+      db.close();
+    }
+
+    expect(readdirSync(backupDir)).toEqual([
+      "finance-hubs-2026-09-04_07-00-00.db",
+      "finance-hubs-2026-09-05_07-00-00.db",
+      "finance-hubs-2026-09-06_07-00-00.db",
+      "finance-hubs-2026-09-07_07-00-00.db",
+      "finance-hubs-2026-09-08_07-00-00.db",
+    ]);
+  });
+
+  it("without any change to the database, the startup doesn't leave one more copy", () => {
+    const dbFile = path.join(dir, "finance-hubs.db");
+    const backupDir = path.join(dir, "backups");
+    const created = startUp({ dbFile, backupDir }, new Date(2026, 8, 18, 7, 0, 0));
+    executeOnDatabase(created, [{ type: "save-percentages", month: "2026-09", percentages: september }], "2026-09-18");
+    created.close();
+
+    startUp({ dbFile, backupDir }, new Date(2026, 8, 18, 8, 0, 0)).close();
+    startUp({ dbFile, backupDir }, new Date(2026, 8, 18, 9, 0, 0)).close();
+
+    expect(readdirSync(backupDir)).toEqual(["finance-hubs-2026-09-18_08-00-00.db"]);
+  });
+
+  it("a copy renamed by hand is neither counted nor deleted", () => {
+    const dbFile = path.join(dir, "finance-hubs.db");
+    const backupDir = path.join(dir, "backups");
+    openDatabase(dbFile).close();
+    mkdirSync(backupDir, { recursive: true });
+    const kept = path.join(backupDir, "finance-hubs-before-the-migration.db");
+    writeFileSync(kept, "");
+
+    for (let day = 1; day <= 8; day++) {
+      const db = startUp({ dbFile, backupDir }, new Date(2026, 8, day, 7, 0, 0));
+      changePercentages(db, day);
+      db.close();
+    }
+
+    expect(existsSync(kept)).toBe(true);
+    expect(readdirSync(backupDir).filter((name) => name !== path.basename(kept))).toHaveLength(5);
   });
 
   it("reads FH_DB_FILE and FH_BACKUP_DIR; without the latter, the copies go next to the database", () => {
