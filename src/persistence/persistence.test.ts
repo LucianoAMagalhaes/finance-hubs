@@ -391,12 +391,11 @@ describe("persistence", () => {
 });
 
 describe("execute on the database", () => {
-  it("an accepted sequence is saved whole, and returns the state the database reloads", () => {
-    const result = executeOnDatabase(
-      open(),
-      [saveIncome({ date: "2026-09-05" }), saveExpense({ date: "2026-09-10", jar: "comfort", amount: 30_000 })],
-      TODAY,
-    );
+  it("an accepted command is saved, and returns the state the database reloads", () => {
+    const database = open();
+    executeOk(database, saveIncome({ date: "2026-09-05" }));
+
+    const result = executeOnDatabase(database, saveExpense({ date: "2026-09-10", jar: "comfort", amount: 30_000 }), TODAY);
 
     if (!result.ok) throw new Error(result.error);
     expect(result.value.incomes).toHaveLength(1);
@@ -404,22 +403,13 @@ describe("execute on the database", () => {
     expect(loadState(open())).toEqual(result.value);
   });
 
-  it("a refused command returns the domain's text and its index, and leaves the database as it was", () => {
+  it("a refused command returns the domain's text and leaves the database as it was", () => {
     const database = open();
     const before = executeOk(database, saveIncome({ date: "2026-09-05" }));
 
-    const result = executeOnDatabase(
-      database,
-      [
-        saveExpense({ date: "2026-09-10", jar: "comfort", amount: 30_000 }),
-        saveIncome({ date: "2026-09-20" }),
-        { type: "delete", record: "expense", id: 99 },
-      ],
-      TODAY,
-    );
+    const result = executeOnDatabase(database, { type: "delete", record: "expense", id: 99 }, TODAY);
 
-    expect(result).toEqual({ ok: false, error: "Esse lançamento não existe mais.", index: 2 });
-    // Neither the expense nor the second income, accepted before the refusal, stayed.
+    expect(result).toEqual({ ok: false, error: "Esse lançamento não existe mais." });
     expect(loadState(open())).toEqual(before);
   });
 });
@@ -474,11 +464,15 @@ function saveState({ db }: Database, state: State): void {
   db.transaction((tx) => save(tx, state));
 }
 
-/** Executes on the database commands the domain accepts, and returns the saved state. */
+/** Executes on the database, one transaction each, commands the domain accepts; returns the saved state. */
 function executeOk(database: Database, ...commands: Command[]): State {
-  const result = executeOnDatabase(database, commands, TODAY);
-  if (!result.ok) throw new Error(result.error);
-  return result.value;
+  let state = loadState(database);
+  for (const command of commands) {
+    const result = executeOnDatabase(database, command, TODAY);
+    if (!result.ok) throw new Error(result.error);
+    state = result.value;
+  }
+  return state;
 }
 
 function applyOk(state: State, command: Command): State {

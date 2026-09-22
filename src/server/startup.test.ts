@@ -22,7 +22,7 @@ const september = Object.fromEntries(JARS.map((j) => [j.id, 10])) as Percentages
 /** A different budget on each day, so that each startup has something new to copy. */
 function changePercentages(db: Database, day: number): void {
   const percentages = Object.fromEntries(JARS.map((j) => [j.id, day])) as Percentages;
-  const done = executeOnDatabase(db, [{ type: "save-percentages", month: "2026-09", percentages }], "2026-09-18");
+  const done = executeOnDatabase(db, { type: "save-percentages", month: "2026-09", percentages }, "2026-09-18");
   expect(done.ok).toBe(true);
 }
 
@@ -41,7 +41,7 @@ describe("startup", () => {
     const dbFile = path.join(dir, "data", "finance-hubs.db");
     const backupDir = path.join(dir, "copies");
     const previous = openDatabase(dbFile);
-    const prepared = executeOnDatabase(previous, [{ type: "save-percentages", month: "2026-09", percentages: september }], "2026-09-18");
+    const prepared = executeOnDatabase(previous, { type: "save-percentages", month: "2026-09", percentages: september }, "2026-09-18");
     expect(prepared.ok).toBe(true);
     previous.close();
 
@@ -100,7 +100,7 @@ describe("startup", () => {
     const dbFile = path.join(dir, "finance-hubs.db");
     const backupDir = path.join(dir, "backups");
     const created = startUp({ dbFile, backupDir }, new Date(2026, 8, 18, 7, 0, 0));
-    executeOnDatabase(created, [{ type: "save-percentages", month: "2026-09", percentages: september }], "2026-09-18");
+    executeOnDatabase(created, { type: "save-percentages", month: "2026-09", percentages: september }, "2026-09-18");
     created.close();
 
     startUp({ dbFile, backupDir }, new Date(2026, 8, 18, 8, 0, 0)).close();

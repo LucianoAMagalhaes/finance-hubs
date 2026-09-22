@@ -289,12 +289,10 @@ describe("migration to English", () => {
 
     const result = executeOnDatabase(
       open(),
-      [
-        {
-          type: "save-expense",
-          expense: { date: "2026-01-12", description: "Livro", jar: "knowledge", paymentMethod: "pix", amount: 5_000, installments: 1 },
-        },
-      ],
+      {
+        type: "save-expense",
+        expense: { date: "2026-01-12", description: "Livro", jar: "knowledge", paymentMethod: "pix", amount: 5_000, installments: 1 },
+      },
       "2026-01-12",
     );
 

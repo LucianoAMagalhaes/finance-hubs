@@ -6,5 +6,5 @@ import { appDatabase, localToday } from "./app";
 
 /** The thin shell between the screen and the database. Returns the new state or the error. */
 export async function execute(command: Command): Promise<Result<State>> {
-  return executeOnDatabase(appDatabase(), [command], localToday());
+  return executeOnDatabase(appDatabase(), command, localToday());
 }

@@ -1,24 +1,16 @@
-import { apply, type Command, type IsoDate, type State } from "@/domain";
+import { apply, type Command, type IsoDate, type Result, type State } from "@/domain";
 import type { Database } from "./database";
 import { load, save } from "./repository";
 
-/** The refusal says which command of the sequence the domain refused, with its text intact. */
-export type DatabaseResult = { ok: true; value: State } | { ok: false; error: string; index: number };
-
 /**
- * The database's write port: loads the state, applies the commands in order and
- * saves, in a single transaction. If the domain refuses a command, nothing is
- * saved — not even the ones that came before it.
+ * The database's write port: loads the state, applies the command and saves it,
+ * in a single transaction. `save` writes every table, so a failure halfway
+ * through leaves the database exactly as it was.
  */
-export function executeOnDatabase({ db }: Database, commands: Command[], today: IsoDate): DatabaseResult {
+export function executeOnDatabase({ db }: Database, command: Command, today: IsoDate): Result<State> {
   return db.transaction((tx) => {
-    let state = load(tx);
-    for (const [index, command] of commands.entries()) {
-      const result = apply(state, command, today);
-      if (!result.ok) return { ...result, index };
-      state = result.value;
-    }
-    save(tx, state);
-    return { ok: true, value: state };
+    const result = apply(load(tx), command, today);
+    if (result.ok) save(tx, result.value);
+    return result;
   });
 }
