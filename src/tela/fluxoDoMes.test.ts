@@ -17,7 +17,7 @@ const HOJE: IsoDate = "2026-09-18";
 const MERCADO: ExpenseToSave = {
   date: "2026-09-10",
   description: "Mercado",
-  jar: "custos-fixos",
+  jar: "fixed-costs",
   paymentMethod: "pix",
   amount: 45_000,
   installments: 1,
@@ -90,18 +90,18 @@ describe("navegar pela tela", () => {
     const { fluxo } = montar();
     fluxo.abrirLancamento(null);
     await fluxo.salvar(lancar({ ...MERCADO, date: "2026-10-05" }), "2026-10");
-    fluxo.abrir({ tipo: "grupo", chave: "custos-fixos" });
+    fluxo.abrir({ tipo: "grupo", chave: "fixed-costs" });
     fluxo.editarPercentuais();
     expect(fluxo.agora().aviso).not.toBeNull();
 
     fluxo.mudarMes("2026-08");
 
-    expect(fluxo.agora()).toMatchObject({ mes: "2026-08", rascunho: null, aviso: null, aberto: { tipo: "grupo", chave: "custos-fixos" } });
+    expect(fluxo.agora()).toMatchObject({ mes: "2026-08", rascunho: null, aviso: null, aberto: { tipo: "grupo", chave: "fixed-costs" } });
   });
 
   it("trocar de eixo fecha o grupo aberto, mas não 'todos os gastos'", () => {
     const { fluxo } = montar();
-    fluxo.abrir({ tipo: "grupo", chave: "custos-fixos" });
+    fluxo.abrir({ tipo: "grupo", chave: "fixed-costs" });
     fluxo.mudarEixo("tag");
     expect(fluxo.agora()).toMatchObject({ eixo: "tag", aberto: null });
 
@@ -114,7 +114,7 @@ describe("navegar pela tela", () => {
   });
 
   it("a ocorrência de uma antecipação abre a antecipação; a de uma parcela, o parcelado", () => {
-    const parcelado: ExpenseToSave = { ...MERCADO, date: "2026-06-10", paymentMethod: "cartao-de-credito", amount: 60_000, installments: 6 };
+    const parcelado: ExpenseToSave = { ...MERCADO, date: "2026-06-10", paymentMethod: "credit-card", amount: 60_000, installments: 6 };
     const { fluxo } = montar(
       com(lancar(parcelado), { type: "save-prepayment", prepayment: { expense: 1, date: "2026-09-12", installments: 2, amount: 19_000 } }),
     );
@@ -132,7 +132,7 @@ describe("navegar pela tela", () => {
   });
 
   it("do formulário do parcelado, antecipar abre uma antecipação nova dele", () => {
-    const { fluxo } = montar(com(lancar({ ...MERCADO, paymentMethod: "cartao-de-credito", installments: 3 })));
+    const { fluxo } = montar(com(lancar({ ...MERCADO, paymentMethod: "credit-card", installments: 3 })));
     fluxo.abrirLancamento(fluxo.agora().estado.expenses[0]!);
 
     fluxo.antecipar();
@@ -159,7 +159,7 @@ describe("apagar, encerrar e restaurar", () => {
   it("apagar e encerrar fecham o formulário", async () => {
     const recorrente: Command = {
       type: "create-recurring",
-      recurring: { date: "2026-08-05", description: "Aluguel", jar: "custos-fixos", paymentMethod: "pix", amount: 200_000 },
+      recurring: { date: "2026-08-05", description: "Aluguel", jar: "fixed-costs", paymentMethod: "pix", amount: 200_000 },
     };
     const { fluxo } = montar(com(lancar(MERCADO), recorrente));
     const [mercado, aluguel] = fluxo.agora().estado.expenses;
@@ -191,15 +191,15 @@ describe("editar os percentuais", () => {
     fluxo.editarPercentuais();
     const rascunho = fluxo.agora().rascunho!;
 
-    fluxo.mudarRascunho({ ...rascunho, "custos-fixos": "70" });
+    fluxo.mudarRascunho({ ...rascunho, "fixed-costs": "70" });
 
-    expect(fluxo.agora().vista.jars.find((p) => p.id === "custos-fixos")!.percentage).toBe(70);
+    expect(fluxo.agora().vista.jars.find((p) => p.id === "fixed-costs")!.percentage).toBe(70);
 
-    const erro = await fluxo.salvarPercentuais({ ...DEFAULT_PERCENTAGES, "custos-fixos": 35, conforto: 10 });
+    const erro = await fluxo.salvarPercentuais({ ...DEFAULT_PERCENTAGES, "fixed-costs": 35, comfort: 10 });
 
     expect(erro).toBeNull();
     expect(fluxo.agora().rascunho).toBeNull();
-    expect(fluxo.agora().vista.jars.find((p) => p.id === "custos-fixos")!.percentage).toBe(35);
+    expect(fluxo.agora().vista.jars.find((p) => p.id === "fixed-costs")!.percentage).toBe(35);
   });
 });
 

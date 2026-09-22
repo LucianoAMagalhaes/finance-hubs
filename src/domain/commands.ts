@@ -465,7 +465,7 @@ function validateExpense(e: ExpenseToSave): string | null {
 
 /** Why the payment method doesn't do installments; null for the only one that does. */
 export function whyNoInstallments(paymentMethod: PaymentMethod): string | null {
-  return paymentMethod === "cartao-de-credito" ? null : "Só Cartão de Crédito parcela.";
+  return paymentMethod === "credit-card" ? null : "Só Cartão de Crédito parcela.";
 }
 
 /** What purchase and period have in common. */

@@ -24,8 +24,8 @@ const HOJE: IsoDate = "2026-09-18";
 const EM_DEZ: ExpenseToSave = {
   date: "2026-01-15",
   description: "Notebook",
-  jar: "conforto",
-  paymentMethod: "cartao-de-credito",
+  jar: "comfort",
+  paymentMethod: "credit-card",
   amount: 389_900,
   installments: 10,
 };
@@ -67,11 +67,11 @@ describe("antecipar parcelas", () => {
   });
 
   it("a antecipação herda pote, tipo de pagamento e tag do parcelado", () => {
-    const estado = comAntecipacao({ ...EM_DEZ, jar: "metas", tag: "casa" }, { date: "2026-07-20", installments: 2, amount: 70_000 });
+    const estado = comAntecipacao({ ...EM_DEZ, jar: "goals", tag: "casa" }, { date: "2026-07-20", installments: 2, amount: 70_000 });
 
     expect(projectMonth(estado, "2026-07").occurrences.at(-1)).toMatchObject({
-      jar: "metas",
-      paymentMethod: "cartao-de-credito",
+      jar: "goals",
+      paymentMethod: "credit-card",
       tag: "casa",
     });
   });
@@ -337,15 +337,15 @@ describe("a trava do parcelado com antecipação", () => {
   it("descrição, pote, tipo e tag continuam editáveis, e a ocorrência da antecipação acompanha", () => {
     const estado = comAntecipacao(EM_DEZ, ATIVA);
 
-    const movido = aplicarOk(estado, salvarLancamento({ ...EM_DEZ, id: 1, description: "Notebook novo", jar: "metas", tag: "casa" }));
+    const movido = aplicarOk(estado, salvarLancamento({ ...EM_DEZ, id: 1, description: "Notebook novo", jar: "goals", tag: "casa" }));
 
     expect(projectMonth(movido, "2026-07").occurrences.at(-1)).toMatchObject({
       description: "Notebook novo",
-      jar: "metas",
+      jar: "goals",
       tag: "casa",
       amount: 300_000,
     });
-    expect(groups(projectMonth(movido, "2026-07"), "jar").find((g) => g.key === "metas")!.total).toBe(38_990 + 300_000);
+    expect(groups(projectMonth(movido, "2026-07"), "jar").find((g) => g.key === "goals")!.total).toBe(38_990 + 300_000);
   });
 
   it("desfeita a antecipação, a trava sai", () => {
@@ -430,7 +430,7 @@ describe("apagar o parcelado com antecipação", () => {
   it("as antecipações vão junto para a lixeira, sem virar item solto, e voltam com ele", () => {
     let estado = comAntecipacao({ ...EM_DEZ, tag: "casa" }, { date: "2026-07-20", installments: 3, amount: 300_000 });
     // Um gasto vivo ao lado, para o mês não ficar zerado quando o parcelado sair.
-    estado = salvar(estado, { ...EM_DEZ, date: "2026-07-03", jar: "metas", amount: 12_000, installments: 1, tag: null });
+    estado = salvar(estado, { ...EM_DEZ, date: "2026-07-03", jar: "goals", amount: 12_000, installments: 1, tag: null });
     const antes = projectMonth(estado, "2026-07");
 
     const apagado = aplicarOk(estado, { type: "delete", record: "expense", id: 1 });
@@ -468,7 +468,7 @@ describe("a invariante dos três eixos com antecipação", () => {
   it("toda ocorrência, inclusive a da antecipação, cai em um grupo de cada eixo", () => {
     let estado = comAntecipacao({ ...EM_DEZ, tag: "casa" }, { date: "2026-07-20", installments: 2, amount: 70_000 });
     // Um segundo parcelado, em outro pote e sem tag, para os eixos terem mais de um grupo.
-    estado = salvar(estado, { ...EM_DEZ, date: "2026-07-03", jar: "metas", amount: 60_000, installments: 4, tag: null });
+    estado = salvar(estado, { ...EM_DEZ, date: "2026-07-03", jar: "goals", amount: 60_000, installments: 4, tag: null });
     estado = aplicarOk(estado, antecipar({ expense: 2, date: "2026-08-04", installments: 2, amount: 28_000 }));
 
     for (const mes of MESES) {

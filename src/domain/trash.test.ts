@@ -26,7 +26,7 @@ describe("lixeira", () => {
 
     expect(projectMonth(apagado, "2026-09").monthIncome).toBe(90_000);
     expect(projectMonth(apagado, "2026-09").incomes.map((e) => e.id)).toEqual([2]);
-    expect(projectMonth(apagado, "2026-09").jars.find((p) => p.id === "conforto")!.verdict).toBe("overrun");
+    expect(projectMonth(apagado, "2026-09").jars.find((p) => p.id === "comfort")!.verdict).toBe("overrun");
 
     const restaurado = aplicarOk(apagado, { type: "restore", record: "income", id: 1 });
 
@@ -55,7 +55,7 @@ describe("lixeira", () => {
   it("apagar tudo de um mês mantém o orçamento do mês com os seus percentuais", () => {
     let estado = aplicarOk(emptyState(), salvarEntrada({ date: "2026-09-05" }));
     estado = aplicarOk(estado, salvarLancamento({ date: "2026-09-12", amount: 42_050 }));
-    const percentuais = { "custos-fixos": 40, "liberdade-financeira": 20, conforto: 15, metas: 10, conhecimento: 10, prazeres: 5 };
+    const percentuais = { "fixed-costs": 40, "financial-freedom": 20, comfort: 15, goals: 10, knowledge: 10, pleasures: 5 };
     estado = aplicarOk(estado, { type: "save-percentages", month: "2026-09", percentages: percentuais });
 
     estado = aplicarOk(estado, { type: "delete", record: "income", id: 1 });
@@ -138,7 +138,7 @@ describe("lixeira", () => {
     const estado: State = {
       ...emptyState(),
       expenses: [
-        { id: 1, kind: "purchase", date: "2026-09-12", description: "Café", jar: "conforto", paymentMethod: "pix", amount: 1_000, installments: 1, tag: null, prepayments: [], deletedAt: null },
+        { id: 1, kind: "purchase", date: "2026-09-12", description: "Café", jar: "comfort", paymentMethod: "pix", amount: 1_000, installments: 1, tag: null, prepayments: [], deletedAt: null },
       ],
     };
 
@@ -153,14 +153,14 @@ describe("lixeira", () => {
 function salvarEntrada(campos: Partial<IncomeToSave> & { date: IsoDate }): Command {
   return {
     type: "save-income",
-    income: { description: "Salário", source: "salario", paymentMethod: "transferencia", amount: 720_000, ...campos },
+    income: { description: "Salário", source: "salary", paymentMethod: "transfer", amount: 720_000, ...campos },
   };
 }
 
 function salvarLancamento(campos: Partial<ExpenseToSave> & { date: IsoDate; amount: number }): Command {
   return {
     type: "save-expense",
-    expense: { description: "Restaurante", jar: "conforto", paymentMethod: "cartao-de-credito", installments: 1, ...campos },
+    expense: { description: "Restaurante", jar: "comfort", paymentMethod: "credit-card", installments: 1, ...campos },
   };
 }
 

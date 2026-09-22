@@ -30,8 +30,8 @@ export function FormularioDeEntrada({ entrada, dataProposta, salvar, apagar, fec
   const [data, setData] = useState<string>(entrada?.date ?? dataProposta);
   const [descricao, setDescricao] = useState(entrada?.description ?? "");
   const [valor, setValor] = useState(entrada ? centsToField(entrada.amount) : "");
-  const [fonte, setFonte] = useState<IncomeSource>(entrada?.source ?? "salario");
-  const [tipo, setTipo] = useState<IncomeMethod>(entrada?.paymentMethod ?? "transferencia");
+  const [fonte, setFonte] = useState<IncomeSource>(entrada?.source ?? "salary");
+  const [tipo, setTipo] = useState<IncomeMethod>(entrada?.paymentMethod ?? "transfer");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 

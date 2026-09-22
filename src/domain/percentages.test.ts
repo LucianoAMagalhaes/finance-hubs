@@ -84,7 +84,7 @@ describe("validação dos percentuais", () => {
     ["percentual acima de 100", pcts(101, 0, 0, 0, 0, 0)],
     ["percentual fracionário", pcts(29.5, 25, 15, 15, 10, 5)],
     ["percentual que não é número", pcts("30" as never, 25, 15, 15, 10, 5)],
-    ["pote faltando, num comando malformado", { ...pcts(30, 25, 15, 15, 10, 5), prazeres: undefined as never }],
+    ["pote faltando, num comando malformado", { ...pcts(30, 25, 15, 15, 10, 5), pleasures: undefined as never }],
   ])("%s é recusado", (_, percentuais) => {
     expect(apply(emptyState(), salvarPercentuais("2026-10", percentuais), HOJE).ok).toBe(false);
   });
@@ -112,7 +112,7 @@ describe("projeção com os percentuais que se digitam", () => {
   const comReceita = (): State => ({
     ...emptyState(),
     budgets: { "2026-10": pcts(30, 25, 15, 15, 10, 5) },
-    incomes: [{ id: 1, date: "2026-10-05", description: "Salário", source: "salario", paymentMethod: "transferencia", amount: 1_000_000, deletedAt: null }],
+    incomes: [{ id: 1, date: "2026-10-05", description: "Salário", source: "salary", paymentMethod: "transfer", amount: 1_000_000, deletedAt: null }],
   });
 
   it("recalcula limites e não alocado com o rascunho, sem gravar nada", () => {

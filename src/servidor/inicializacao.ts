@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
-import { abrirBanco, type Banco } from "@/persistencia";
+import SQLite from "better-sqlite3";
+import { openDatabase, type Database } from "@/persistence";
 
 export type Configuracao = {
   arquivoDb: string;
@@ -24,15 +24,15 @@ export function configuracaoDoAmbiente(env: Record<string, string | undefined> =
  * backup, depois abre (criando se preciso) e aplica as migrations. A cópia vem
  * antes das migrations para guardar o banco como ele estava.
  */
-export function inicializar(config: Configuracao, agora: Date = new Date()): Banco {
+export function inicializar(config: Configuracao, agora: Date = new Date()): Database {
   if (existsSync(config.arquivoDb)) copiarBanco(config, agora);
-  return abrirBanco(config.arquivoDb);
+  return openDatabase(config.arquivoDb);
 }
 
 function copiarBanco({ arquivoDb, pastaBackup }: Configuracao, agora: Date): void {
   mkdirSync(pastaBackup, { recursive: true });
   const nome = `${path.basename(arquivoDb, path.extname(arquivoDb))}-${carimbo(agora)}.db`;
-  const origem = new Database(arquivoDb, { readonly: true });
+  const origem = new SQLite(arquivoDb, { readonly: true });
   try {
     // VACUUM INTO dá uma cópia consistente, inclusive do que ainda estiver no WAL.
     origem.prepare("VACUUM INTO ?").run(path.join(pastaBackup, nome));

@@ -1,4 +1,4 @@
-import { carregarEstado } from "@/persistencia";
+import { loadState } from "@/persistence";
 import { bancoDoApp, hojeLocal } from "@/servidor/app";
 import { TelaDoMes } from "@/tela/TelaDoMes";
 
@@ -6,5 +6,5 @@ import { TelaDoMes } from "@/tela/TelaDoMes";
 export const dynamic = "force-dynamic";
 
 export default function Pagina() {
-  return <TelaDoMes estadoInicial={carregarEstado(bancoDoApp())} hoje={hojeLocal()} />;
+  return <TelaDoMes estadoInicial={loadState(bancoDoApp())} hoje={hojeLocal()} />;
 }

@@ -50,6 +50,13 @@
       "when": 1789858091564,
       "tag": "0006_antecipacao",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1790079917335,
+      "tag": "0007_english",
+      "breakpoints": true
     }
   ]
 }

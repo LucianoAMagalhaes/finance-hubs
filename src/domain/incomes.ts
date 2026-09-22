@@ -4,10 +4,10 @@ import type { IncomeMethod } from "./payment-methods";
 
 // The fixed list of four sources (CONTEXT.md). The order is the screen's.
 export const INCOME_SOURCES = [
-  { id: "salario", name: "Salário" },
-  { id: "freela", name: "Freela" },
-  { id: "rendimentos", name: "Rendimentos" },
-  { id: "outras-receitas", name: "Outras Receitas" },
+  { id: "salary", name: "Salário" },
+  { id: "freelance", name: "Freela" },
+  { id: "investment-returns", name: "Rendimentos" },
+  { id: "other-income", name: "Outras Receitas" },
 ] as const;
 
 export type IncomeSource = (typeof INCOME_SOURCES)[number]["id"];

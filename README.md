@@ -27,10 +27,10 @@ banco com data e hora no nome.
 npm run dev          # servidor de desenvolvimento
 npm test             # testes de domínio e de persistência
 npm run typecheck
-npm run db:generate  # gera a migration depois de mudar src/persistencia/esquema.ts
+npm run db:generate  # gera a migration depois de mudar src/persistence/schema.ts
 ```
 
 - `src/domain/`: o domínio, puro (sem I/O, sem DOM). Projeção do mês e comandos.
-- `src/persistencia/`: esquema do Drizzle, carregar e gravar o estado.
+- `src/persistence/`: esquema do Drizzle, carregar e gravar o estado.
 - `src/servidor/`: inicialização (backup, migrations) e as ações do servidor.
 - `src/tela/`: a tela do mês.

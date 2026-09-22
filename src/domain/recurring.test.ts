@@ -29,7 +29,7 @@ describe("recorrente sem fim", () => {
     const estado = criar(emptyState(), recorrente({ date: "2026-09-05", amount: 5_590 }));
 
     expect(valoresPorMes(estado, ["2026-08", "2026-09", "2026-10", "2027-09", "2040-01"])).toEqual([[], [5_590], [5_590], [5_590], [5_590]]);
-    expect(projectMonth(estado, "2031-03").occurrences[0]).toMatchObject({ date: "2031-03-05", description: "Netflix", jar: "prazeres" });
+    expect(projectMonth(estado, "2031-03").occurrences[0]).toMatchObject({ date: "2031-03-05", description: "Netflix", jar: "pleasures" });
   });
 
   it("aparece num mês muito distante sem custo proporcional ao horizonte", () => {
@@ -59,7 +59,7 @@ describe("recorrente sem fim", () => {
     const estado = criar(emptyState(), recorrente({ date: "2026-09-10", amount: -2_000 }));
 
     expect(valoresPorMes(estado, ["2026-09", "2026-12"])).toEqual([[-2_000], [-2_000]]);
-    expect(projectMonth(estado, "2026-12").jars.find((p) => p.id === "prazeres")!.total).toBe(-2_000);
+    expect(projectMonth(estado, "2026-12").jars.find((p) => p.id === "pleasures")!.total).toBe(-2_000);
   });
 });
 
@@ -87,8 +87,8 @@ describe("dia do recorrente", () => {
 describe("vigências", () => {
   /** Aluguel de R$ 1.500 desde janeiro, que muda para R$ 1.650 em julho. */
   function aluguel(): State {
-    const estado = criar(emptyState(), recorrente({ date: "2026-01-05", description: "Aluguel", jar: "custos-fixos", amount: 150_000 }));
-    return mudar(estado, 1, "2026-07", vigencia({ description: "Aluguel", jar: "custos-fixos", amount: 165_000 }));
+    const estado = criar(emptyState(), recorrente({ date: "2026-01-05", description: "Aluguel", jar: "fixed-costs", amount: 150_000 }));
+    return mudar(estado, 1, "2026-07", vigencia({ description: "Aluguel", jar: "fixed-costs", amount: 165_000 }));
   }
 
   it("mudar num mês vale dali para frente, e os meses anteriores não mudam", () => {
@@ -96,7 +96,7 @@ describe("vigências", () => {
   });
 
   it("corrigir março para R$ 1.550 vale até a próxima mudança: julho continua em R$ 1.650", () => {
-    const estado = mudar(aluguel(), 1, "2026-03", vigencia({ description: "Aluguel", jar: "custos-fixos", amount: 155_000 }));
+    const estado = mudar(aluguel(), 1, "2026-03", vigencia({ description: "Aluguel", jar: "fixed-costs", amount: 155_000 }));
 
     expect(valoresPorMes(estado, ["2026-02", "2026-03", "2026-06", "2026-07", "2026-12"])).toEqual([
       [150_000],
@@ -113,14 +113,14 @@ describe("vigências", () => {
   });
 
   it("mudar de novo num mês que já começa uma vigência a substitui, sem criar outra", () => {
-    const estado = mudar(aluguel(), 1, "2026-07", vigencia({ description: "Aluguel", jar: "custos-fixos", amount: 170_000 }));
+    const estado = mudar(aluguel(), 1, "2026-07", vigencia({ description: "Aluguel", jar: "fixed-costs", amount: 170_000 }));
 
     expect(valoresPorMes(estado, ["2026-06", "2026-07"])).toEqual([[150_000], [170_000]]);
     expect(periodsWithEnd(recorrenteDe(estado))).toHaveLength(2);
   });
 
   it("para corrigir desde o começo, abre-se o mês de início", () => {
-    const estado = mudar(aluguel(), 1, "2026-01", vigencia({ description: "Aluguel do apê", jar: "custos-fixos", amount: 150_000 }));
+    const estado = mudar(aluguel(), 1, "2026-01", vigencia({ description: "Aluguel do apê", jar: "fixed-costs", amount: 150_000 }));
 
     expect(projectMonth(estado, "2026-01").occurrences[0]!.description).toBe("Aluguel do apê");
     expect(projectMonth(estado, "2026-06").occurrences[0]!.description).toBe("Aluguel do apê");
@@ -128,20 +128,20 @@ describe("vigências", () => {
   });
 
   it("corrigir março para o valor de julho, e depois de novo, não engole julho", () => {
-    let estado = mudar(aluguel(), 1, "2026-03", vigencia({ description: "Aluguel", jar: "custos-fixos", amount: 165_000 }));
-    estado = mudar(estado, 1, "2026-03", vigencia({ description: "Aluguel", jar: "custos-fixos", amount: 155_000 }));
+    let estado = mudar(aluguel(), 1, "2026-03", vigencia({ description: "Aluguel", jar: "fixed-costs", amount: 165_000 }));
+    estado = mudar(estado, 1, "2026-03", vigencia({ description: "Aluguel", jar: "fixed-costs", amount: 155_000 }));
 
     expect(valoresPorMes(estado, ["2026-02", "2026-03", "2026-07"])).toEqual([[150_000], [155_000], [165_000]]);
   });
 
   it("valor, pote, tipo de pagamento, tag e descrição mudam numa vigência", () => {
-    let estado = criar(emptyState(), recorrente({ date: "2026-01-10", jar: "prazeres", paymentMethod: "pix", tag: "streaming" }));
-    estado = mudar(estado, 1, "2026-05", { description: "Curso", jar: "conhecimento", paymentMethod: "boleto", amount: 20_000, tag: "#Estudo" });
+    let estado = criar(emptyState(), recorrente({ date: "2026-01-10", jar: "pleasures", paymentMethod: "pix", tag: "streaming" }));
+    estado = mudar(estado, 1, "2026-05", { description: "Curso", jar: "knowledge", paymentMethod: "boleto", amount: 20_000, tag: "#Estudo" });
 
-    expect(projectMonth(estado, "2026-04").occurrences[0]).toMatchObject({ jar: "prazeres", paymentMethod: "pix", tag: "streaming" });
+    expect(projectMonth(estado, "2026-04").occurrences[0]).toMatchObject({ jar: "pleasures", paymentMethod: "pix", tag: "streaming" });
     expect(projectMonth(estado, "2026-05").occurrences[0]).toMatchObject({
       description: "Curso",
-      jar: "conhecimento",
+      jar: "knowledge",
       paymentMethod: "boleto",
       tag: "estudo",
       amount: 20_000,
@@ -252,7 +252,7 @@ describe("nascimento do mês com recorrente", () => {
 
   it("o mês que nasce herda do anterior no tempo mais recente", () => {
     let estado = criar(emptyState(), recorrente({ date: "2026-09-05" }));
-    estado = aplicarOk(estado, { type: "save-percentages", month: "2026-10", percentages: { ...estado.budgets["2026-09"]!, prazeres: 0 } });
+    estado = aplicarOk(estado, { type: "save-percentages", month: "2026-10", percentages: { ...estado.budgets["2026-09"]!, pleasures: 0 } });
 
     estado = mudar(estado, 1, "2026-12", vigencia({ amount: 6_000 }));
 
@@ -291,7 +291,7 @@ describe("validação do recorrente", () => {
     const estado = criar(emptyState(), recorrente({ date: "2026-09-05" }));
     const comoCompra: Command = {
       type: "save-expense",
-      expense: { id: 1, date: "2026-09-05", description: "Netflix", jar: "prazeres", paymentMethod: "cartao-de-credito", amount: 5_590, installments: 1 },
+      expense: { id: 1, date: "2026-09-05", description: "Netflix", jar: "pleasures", paymentMethod: "credit-card", amount: 5_590, installments: 1 },
     };
 
     expect(apply(estado, comoCompra, HOJE)).toEqual({ ok: false, error: expect.stringMatching(/apague e lance de novo/) });
@@ -300,7 +300,7 @@ describe("validação do recorrente", () => {
   it("uma compra não vira recorrente: mudá-la ou encerrá-la como recorrente é recusado", () => {
     const estado = aplicarOk(emptyState(), {
       type: "save-expense",
-      expense: { date: "2026-09-05", description: "Mercado", jar: "custos-fixos", paymentMethod: "pix", amount: 30_000, installments: 1 },
+      expense: { date: "2026-09-05", description: "Mercado", jar: "fixed-costs", paymentMethod: "pix", amount: 30_000, installments: 1 },
     });
 
     expect(apply(estado, mudarRecorrente(1, "2026-09", vigencia({})), HOJE)).toEqual({ ok: false, error: expect.stringMatching(/apague e lance de novo/) });
@@ -315,7 +315,7 @@ describe("validação do recorrente", () => {
   it("o recorrente divide a numeração com as compras", () => {
     let estado = aplicarOk(emptyState(), {
       type: "save-expense",
-      expense: { date: "2026-09-05", description: "Mercado", jar: "custos-fixos", paymentMethod: "pix", amount: 30_000, installments: 1 },
+      expense: { date: "2026-09-05", description: "Mercado", jar: "fixed-costs", paymentMethod: "pix", amount: 30_000, installments: 1 },
     });
     estado = criar(estado, recorrente({ date: "2026-09-05" }));
 
@@ -365,7 +365,7 @@ describe("invariante dos eixos com recorrentes (propriedade)", () => {
             ? mudarRecorrente(um(recorrentes).id, um(MESES), campos())
             : sorteio < 0.7 && recorrentes.length > 0
               ? encerrarRecorrente(um(recorrentes).id, um(MESES))
-              : { type: "save-expense", expense: { ...campos(), date: data(), paymentMethod: "cartao-de-credito", installments: 1 + Math.floor(aleatorio() * 4) } };
+              : { type: "save-expense", expense: { ...campos(), date: data(), paymentMethod: "credit-card", installments: 1 + Math.floor(aleatorio() * 4) } };
       // Mudar ou encerrar fora dos meses em que o recorrente cai é recusado: o estado segue.
       const resultado = apply(estado, comando, HOJE);
       if (resultado.ok) estado = resultado.value;
@@ -403,11 +403,11 @@ function recorrenteDe(estado: State, id = 1): Recurring {
 }
 
 function recorrente(campos: Partial<RecurringToCreate>): RecurringToCreate {
-  return { date: "2026-09-05", description: "Netflix", jar: "prazeres", paymentMethod: "cartao-de-credito", amount: 5_590, ...campos };
+  return { date: "2026-09-05", description: "Netflix", jar: "pleasures", paymentMethod: "credit-card", amount: 5_590, ...campos };
 }
 
 function vigencia(campos: Partial<PeriodToSave>): PeriodToSave {
-  return { description: "Netflix", jar: "prazeres", paymentMethod: "cartao-de-credito", amount: 5_590, ...campos };
+  return { description: "Netflix", jar: "pleasures", paymentMethod: "credit-card", amount: 5_590, ...campos };
 }
 
 const criarRecorrente = (recorrente: RecurringToCreate): Command => ({ type: "create-recurring", recurring: recorrente });

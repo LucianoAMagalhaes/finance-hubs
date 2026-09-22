@@ -77,7 +77,7 @@ export function projectMonth(state: State, month: Month, editingPercentages?: Pe
   // Without income, there is no limit: a month whose income isn't known yet doesn't overrun.
   const limitOf = (percentage: number) => (monthIncome > 0 ? (percentage * monthIncome) / 100 : null);
   const monthExpenses = sum(occurrences);
-  const offCard = sum(occurrences.filter((o) => o.paymentMethod !== "cartao-de-credito"));
+  const offCard = sum(occurrences.filter((o) => o.paymentMethod !== "credit-card"));
   // Percentages being edited may go over 100; the unallocated is never negative.
   const unallocated = Math.max(0, 100 - sumPercentages(percentages));
   return {

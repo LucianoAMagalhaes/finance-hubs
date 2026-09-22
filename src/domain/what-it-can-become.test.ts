@@ -80,7 +80,7 @@ describe("o que um lançamento pode virar", () => {
     });
 
     it("continua livre para descrição, pote e tag", () => {
-      expect(aceita(estado, salvarLancamento({ ...corrigido, description: "Notebook novo", jar: "metas", tag: "trabalho" }))).toBe(true);
+      expect(aceita(estado, salvarLancamento({ ...corrigido, description: "Notebook novo", jar: "goals", tag: "trabalho" }))).toBe(true);
     });
 
     it("não volta a ser à vista, pela mesma trava", () => {
@@ -121,7 +121,7 @@ describe("só Cartão de Crédito parcela", () => {
   });
 
   it("no cartão, parcela", () => {
-    expect(whyNoInstallments("cartao-de-credito")).toBeNull();
+    expect(whyNoInstallments("credit-card")).toBeNull();
   });
 });
 
@@ -157,8 +157,8 @@ describe("encerrar um recorrente", () => {
 const COMPRA: ExpenseToSave = {
   date: "2026-07-10",
   description: "Supermercado",
-  jar: "custos-fixos",
-  paymentMethod: "cartao-de-credito",
+  jar: "fixed-costs",
+  paymentMethod: "credit-card",
   amount: 30_000,
   installments: 1,
 };
@@ -167,8 +167,8 @@ const COMPRA: ExpenseToSave = {
 const EM_DEZ: ExpenseToSave = {
   date: "2026-01-15",
   description: "Notebook",
-  jar: "conforto",
-  paymentMethod: "cartao-de-credito",
+  jar: "comfort",
+  paymentMethod: "credit-card",
   amount: 389_900,
   installments: 10,
 };
@@ -180,7 +180,7 @@ const ANTECIPAR_3_EM_JULHO: Command = {
 };
 
 /** Um aluguel recorrente desde junho, com uma vigência só. */
-const ALUGUEL: RecurringToCreate = { date: "2026-06-05", description: "Aluguel", jar: "custos-fixos", paymentMethod: "pix", amount: 150_000 };
+const ALUGUEL: RecurringToCreate = { date: "2026-06-05", description: "Aluguel", jar: "fixed-costs", paymentMethod: "pix", amount: 150_000 };
 
 const salvarLancamento = (lancamento: ExpenseToSave): Command => ({ type: "save-expense", expense: lancamento });
 

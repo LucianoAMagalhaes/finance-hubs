@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emptyState, JARS, type Percentages } from "@/domain";
-import { abrirBanco, carregarEstado, executarNoBanco } from "@/persistencia";
+import { openDatabase, loadState, executeOnDatabase } from "@/persistence";
 import { configuracaoDoAmbiente, inicializar } from "./inicializacao";
 
 let pasta: string;
@@ -25,31 +25,31 @@ describe("inicialização", () => {
     const banco = inicializar({ arquivoDb, pastaBackup: path.join(pasta, "backups") });
 
     expect(existsSync(arquivoDb)).toBe(true);
-    expect(carregarEstado(banco)).toEqual(emptyState());
-    banco.fechar();
+    expect(loadState(banco)).toEqual(emptyState());
+    banco.close();
   });
 
   it("copia o banco existente para a pasta configurada, com data e hora no nome", () => {
     const arquivoDb = path.join(pasta, "dados", "finance-hubs.db");
     const pastaBackup = path.join(pasta, "copias");
-    const anterior = abrirBanco(arquivoDb);
-    const preparado = executarNoBanco(anterior, [{ type: "save-percentages", month: "2026-09", percentages: setembro }], "2026-09-18");
+    const anterior = openDatabase(arquivoDb);
+    const preparado = executeOnDatabase(anterior, [{ type: "save-percentages", month: "2026-09", percentages: setembro }], "2026-09-18");
     expect(preparado.ok).toBe(true);
-    anterior.fechar();
+    anterior.close();
 
     const banco = inicializar({ arquivoDb, pastaBackup }, new Date(2026, 8, 18, 7, 5, 9));
-    banco.fechar();
+    banco.close();
 
     expect(readdirSync(pastaBackup)).toEqual(["finance-hubs-2026-09-18_07-05-09.db"]);
-    const copia = abrirBanco(path.join(pastaBackup, "finance-hubs-2026-09-18_07-05-09.db"));
-    expect(carregarEstado(copia).budgets["2026-09"]).toEqual(setembro);
-    copia.fechar();
+    const copia = openDatabase(path.join(pastaBackup, "finance-hubs-2026-09-18_07-05-09.db"));
+    expect(loadState(copia).budgets["2026-09"]).toEqual(setembro);
+    copia.close();
   });
 
   it("na primeira inicialização, sem banco ainda, não há o que copiar", () => {
     const pastaBackup = path.join(pasta, "backups");
 
-    inicializar({ arquivoDb: path.join(pasta, "finance-hubs.db"), pastaBackup }).fechar();
+    inicializar({ arquivoDb: path.join(pasta, "finance-hubs.db"), pastaBackup }).close();
 
     expect(existsSync(pastaBackup) ? readdirSync(pastaBackup) : []).toEqual([]);
   });

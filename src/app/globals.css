@@ -33,12 +33,12 @@
   --band-neg: #c4b5fd;
   --sombra: 0 1px 2px rgba(14, 23, 38, 0.05);
   /* sem vermelho (estouro), verde (entrada) nem violeta (reembolso) */
-  --p-custos-fixos: #2f6fd6;
-  --p-liberdade-financeira: #0b8f9c;
-  --p-conforto: #b98900;
-  --p-metas: #5f8a1c;
-  --p-conhecimento: #b0409c;
-  --p-prazeres: #8b6b4a;
+  --p-fixed-costs: #2f6fd6;
+  --p-financial-freedom: #0b8f9c;
+  --p-comfort: #b98900;
+  --p-goals: #5f8a1c;
+  --p-knowledge: #b0409c;
+  --p-pleasures: #8b6b4a;
   /* tag: saturação e luminosidade; o matiz vem do nome (--matiz) */
   --tag-cor: 60% 45%;
   --tag-fundo: 75% 93%;
@@ -70,12 +70,12 @@
     --band-ink: #eef2fa;
     --band-line: rgba(255, 255, 255, 0.08);
     --sombra: none;
-    --p-custos-fixos: #6f9cf0;
-    --p-liberdade-financeira: #3cc4cf;
-    --p-conforto: #e0b33a;
-    --p-metas: #9cc653;
-    --p-conhecimento: #e27ccf;
-    --p-prazeres: #c7a07a;
+    --p-fixed-costs: #6f9cf0;
+    --p-financial-freedom: #3cc4cf;
+    --p-comfort: #e0b33a;
+    --p-goals: #9cc653;
+    --p-knowledge: #e27ccf;
+    --p-pleasures: #c7a07a;
     --tag-cor: 70% 65%;
     --tag-fundo: 60% 60% / 0.16;
     --tag-tinta: 75% 76%;
@@ -104,12 +104,12 @@
   --band-ink: #eef2fa;
   --band-line: rgba(255, 255, 255, 0.08);
   --sombra: none;
-  --p-custos-fixos: #6f9cf0;
-  --p-liberdade-financeira: #3cc4cf;
-  --p-conforto: #e0b33a;
-  --p-metas: #9cc653;
-  --p-conhecimento: #e27ccf;
-  --p-prazeres: #c7a07a;
+  --p-fixed-costs: #6f9cf0;
+  --p-financial-freedom: #3cc4cf;
+  --p-comfort: #e0b33a;
+  --p-goals: #9cc653;
+  --p-knowledge: #e27ccf;
+  --p-pleasures: #c7a07a;
   --tag-cor: 70% 65%;
   --tag-fundo: 60% 60% / 0.16;
   --tag-tinta: 75% 76%;

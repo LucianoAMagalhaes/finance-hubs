@@ -1,11 +1,11 @@
 // The six jars belong to the app, not the user (CONTEXT.md). The order is the screen's.
 export const JARS = [
-  { id: "custos-fixos", name: "Custos Fixos" },
-  { id: "liberdade-financeira", name: "Liberdade Financeira" },
-  { id: "conforto", name: "Conforto" },
-  { id: "metas", name: "Metas" },
-  { id: "conhecimento", name: "Conhecimento" },
-  { id: "prazeres", name: "Prazeres" },
+  { id: "fixed-costs", name: "Custos Fixos" },
+  { id: "financial-freedom", name: "Liberdade Financeira" },
+  { id: "comfort", name: "Conforto" },
+  { id: "goals", name: "Metas" },
+  { id: "knowledge", name: "Conhecimento" },
+  { id: "pleasures", name: "Prazeres" },
 ] as const;
 
 export type Jar = (typeof JARS)[number]["id"];
@@ -46,10 +46,10 @@ export function validatePercentages(p: Percentages): string | null {
 
 /** The percentages of the very first month (ADR-0001). */
 export const DEFAULT_PERCENTAGES: Percentages = {
-  "custos-fixos": 30,
-  "liberdade-financeira": 25,
-  conforto: 15,
-  metas: 15,
-  conhecimento: 10,
-  prazeres: 5,
+  "fixed-costs": 30,
+  "financial-freedom": 25,
+  comfort: 15,
+  goals: 15,
+  knowledge: 10,
+  pleasures: 5,
 };

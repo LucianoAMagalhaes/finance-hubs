@@ -75,7 +75,7 @@ export function FormularioDeLancamento({ lancamento, mes, tags, dataProposta, sa
   const [descricao, setDescricao] = useState(campos?.description ?? "");
   const [valor, setValor] = useState(campos ? centsToField(Math.abs(campos.amount)) : "");
   const [reembolso, setReembolso] = useState(campos ? campos.amount < 0 : false);
-  const [pote, setPote] = useState<Jar>(campos?.jar ?? "custos-fixos");
+  const [pote, setPote] = useState<Jar>(campos?.jar ?? "fixed-costs");
   const [tipo, setTipo] = useState<PaymentMethod>(campos?.paymentMethod ?? "pix");
   const [tag, setTag] = useState(campos?.tag ?? "");
   const eraParcelado = compra !== null && compra.installments > 1;

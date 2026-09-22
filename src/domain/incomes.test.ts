@@ -29,7 +29,7 @@ describe("entradas e receita do mês", () => {
 
   it("a receita é a soma das entradas do mês, e só delas", () => {
     let estado = salvar(emptyState(), entrada({ date: "2026-09-05", amount: 720_000 }));
-    estado = salvar(estado, entrada({ date: "2026-09-20", amount: 90_000, source: "freela", paymentMethod: "pix" }));
+    estado = salvar(estado, entrada({ date: "2026-09-20", amount: 90_000, source: "freelance", paymentMethod: "pix" }));
     estado = salvar(estado, entrada({ date: "2026-10-05", amount: 500_000 }));
 
     expect(projectMonth(estado, "2026-09").monthIncome).toBe(810_000);
@@ -41,7 +41,7 @@ describe("entradas e receita do mês", () => {
     const estado = salvar(emptyState(), entrada({ date: "2026-09-05", amount: 333 }));
 
     // 5% de R$ 3,33 = 16,65 centavos
-    expect(poteDe(projectMonth(estado, "2026-09"), "prazeres").limit).toBeCloseTo(16.65, 10);
+    expect(poteDe(projectMonth(estado, "2026-09"), "pleasures").limit).toBeCloseTo(16.65, 10);
   });
 
   it("o não alocado aparece em reais quando há receita", () => {
@@ -53,13 +53,13 @@ describe("entradas e receita do mês", () => {
   });
 
   it("a vista traz as entradas do mês em ordem de data", () => {
-    let estado = salvar(emptyState(), entrada({ date: "2026-09-20", description: "Freela", source: "freela" }));
+    let estado = salvar(emptyState(), entrada({ date: "2026-09-20", description: "Freela", source: "freelance" }));
     estado = salvar(estado, entrada({ date: "2026-09-05", description: "Salário" }));
     estado = salvar(estado, entrada({ date: "2026-10-05", description: "Salário outubro" }));
 
     expect(projectMonth(estado, "2026-09").incomes.map((e) => [e.date, e.description, e.source])).toEqual([
-      ["2026-09-05", "Salário", "salario"],
-      ["2026-09-20", "Freela", "freela"],
+      ["2026-09-05", "Salário", "salary"],
+      ["2026-09-20", "Freela", "freelance"],
     ]);
   });
 
@@ -96,7 +96,7 @@ describe("entradas e receita do mês", () => {
 });
 
 describe("validação da entrada", () => {
-  it.each(["cartao-de-credito", "cartao-de-debito", "boleto", "debito-automatico"] as const)(
+  it.each(["credit-card", "debit-card", "boleto", "direct-debit"] as const)(
     "tipo de pagamento %s é recusado: entrada só em Dinheiro, PIX ou Transferência",
     (tipo) => {
       // O tipo não deixa, mas o comando chega do navegador: o domínio confere de novo.
@@ -106,7 +106,7 @@ describe("validação da entrada", () => {
     },
   );
 
-  it.each(["dinheiro", "pix", "transferencia"] as const)("tipo de pagamento %s é aceito", (tipo) => {
+  it.each(["cash", "pix", "transfer"] as const)("tipo de pagamento %s é aceito", (tipo) => {
     expect(apply(emptyState(), salvarEntrada(entrada({ paymentMethod: tipo })), HOJE).ok).toBe(true);
   });
 
@@ -197,8 +197,8 @@ function entrada(campos: Partial<NewIncome>): NewIncome {
   return {
     date: "2026-09-05",
     description: "Salário",
-    source: "salario",
-    paymentMethod: "transferencia",
+    source: "salary",
+    paymentMethod: "transfer",
     amount: 720_000,
     ...campos,
   };

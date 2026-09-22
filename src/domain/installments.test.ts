@@ -75,7 +75,7 @@ describe("parcelas de um parcelado", () => {
 });
 
 describe("validação do parcelado", () => {
-  it.each(PAYMENT_METHODS.filter((t) => t.id !== "cartao-de-credito").map((t) => t.id))(
+  it.each(PAYMENT_METHODS.filter((t) => t.id !== "credit-card").map((t) => t.id))(
     "mais de uma parcela em %s é recusado",
     (tipo) => {
       expect(apply(emptyState(), salvarLancamento(parcelado({ paymentMethod: tipo, installments: 3 })), HOJE)).toEqual({
@@ -182,7 +182,7 @@ describe("invariante dos eixos com parcelados (propriedade)", () => {
         ...(corrigir && { id: um(estado.expenses).id }),
         date: data(),
         jar: um(JARS).id,
-        paymentMethod: parcelas > 1 ? "cartao-de-credito" : um(PAYMENT_METHODS).id,
+        paymentMethod: parcelas > 1 ? "credit-card" : um(PAYMENT_METHODS).id,
         amount: aleatorio() < 0.25 ? -valor : valor,
         installments: parcelas,
         tag: aleatorio() < 0.4 ? null : um(["transporte", "casa", "#Saúde"]),
@@ -213,8 +213,8 @@ function parcelado(campos: Partial<NewExpense> & { id?: number }): ExpenseToSave
   return {
     date: "2026-09-12",
     description: "Notebook",
-    jar: "conforto",
-    paymentMethod: "cartao-de-credito",
+    jar: "comfort",
+    paymentMethod: "credit-card",
     amount: 100_000,
     installments: 3,
     ...campos,

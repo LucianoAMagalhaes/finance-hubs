@@ -20,34 +20,34 @@ function comReceita(valor = 1_000_000): State {
   return {
     ...emptyState(),
     budgets: { "2026-09": pcts(30, 25, 15, 15, 10, 5) },
-    incomes: [{ id: 1, date: "2026-09-05", description: "Salário", source: "salario", paymentMethod: "transferencia", amount: valor, deletedAt: null }],
+    incomes: [{ id: 1, date: "2026-09-05", description: "Salário", source: "salary", paymentMethod: "transfer", amount: valor, deletedAt: null }],
   };
 }
 
 describe("lançamento à vista", () => {
   it("o gasto entra no total do pote, e só do seu pote", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "conforto", amount: 42_000 }));
+    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 42_000 }));
 
     const vista = projectMonth(estado, "2026-09");
 
-    expect(poteDe(vista, "conforto").total).toBe(42_000);
-    expect(vista.jars.filter((p) => p.id !== "conforto").every((p) => p.total === 0)).toBe(true);
+    expect(poteDe(vista, "comfort").total).toBe(42_000);
+    expect(vista.jars.filter((p) => p.id !== "comfort").every((p) => p.total === 0)).toBe(true);
   });
 
   it("o gasto pesa só no mês da sua data", () => {
-    const estado = salvar(comReceita(), aVista({ date: "2026-10-02", jar: "conforto", amount: 42_000 }));
+    const estado = salvar(comReceita(), aVista({ date: "2026-10-02", jar: "comfort", amount: 42_000 }));
 
-    expect(poteDe(projectMonth(estado, "2026-09"), "conforto").total).toBe(0);
-    expect(poteDe(projectMonth(estado, "2026-10"), "conforto").total).toBe(42_000);
+    expect(poteDe(projectMonth(estado, "2026-09"), "comfort").total).toBe(0);
+    expect(poteDe(projectMonth(estado, "2026-10"), "comfort").total).toBe(42_000);
   });
 
   it("o à vista é uma compra de uma parcela: uma ocorrência no mês, com o total", () => {
-    const estado = salvar(comReceita(), aVista({ description: "Jantar", jar: "prazeres", paymentMethod: "pix", amount: 18_990 }));
+    const estado = salvar(comReceita(), aVista({ description: "Jantar", jar: "pleasures", paymentMethod: "pix", amount: 18_990 }));
 
     const vista = projectMonth(estado, "2026-09");
 
     expect(vista.occurrences).toEqual([
-      { expense: 1, date: "2026-09-12", description: "Jantar", jar: "prazeres", paymentMethod: "pix", tag: null, amount: 18_990, installment: null, recurring: null, prepayment: null },
+      { expense: 1, date: "2026-09-12", description: "Jantar", jar: "pleasures", paymentMethod: "pix", tag: null, amount: 18_990, installment: null, recurring: null, prepayment: null },
     ]);
     expect(estado.expenses[0]).toMatchObject({ amount: 18_990, installments: 1 });
   });
@@ -61,14 +61,14 @@ describe("lançamento à vista", () => {
   });
 
   it("editar o gasto troca o total do pote, e mudá-lo de pote leva o total junto", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "conforto", amount: 42_000 }));
+    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 42_000 }));
     const id = estado.expenses[0]!.id;
 
-    const editado = salvar(estado, { ...aVista({ jar: "metas", amount: 50_000 }), id });
+    const editado = salvar(estado, { ...aVista({ jar: "goals", amount: 50_000 }), id });
 
     const vista = projectMonth(editado, "2026-09");
-    expect(poteDe(vista, "conforto").total).toBe(0);
-    expect(poteDe(vista, "metas").total).toBe(50_000);
+    expect(poteDe(vista, "comfort").total).toBe(0);
+    expect(poteDe(vista, "goals").total).toBe(50_000);
     expect(vista.occurrences).toHaveLength(1);
   });
 
@@ -82,36 +82,36 @@ describe("lançamento à vista", () => {
 describe("veredito", () => {
   // 15% de R$ 3,33 = 49,95 centavos: o limite exato tem fração de centavo.
   it("um centavo acima do limite exato é Estourou, com o estouro exato", () => {
-    const estado = salvar(comReceita(333), aVista({ jar: "conforto", amount: 50 }));
+    const estado = salvar(comReceita(333), aVista({ jar: "comfort", amount: 50 }));
 
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "conforto");
+    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
 
     expect(conforto.verdict).toBe("overrun");
     expect(conforto.overrun).toBeCloseTo(0.05, 10);
   });
 
   it("exatamente no limite é Sobra", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "conforto", amount: 150_000 }));
+    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 150_000 }));
 
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "conforto");
+    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
 
     expect(conforto.verdict).toBe("leftover");
     expect(conforto.overrun).toBe(0);
   });
 
   it("um centavo acima do limite é Estourou por um centavo", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "conforto", amount: 150_001 }));
+    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 150_001 }));
 
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "conforto");
+    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
 
     expect(conforto.verdict).toBe("overrun");
     expect(conforto.overrun).toBe(1);
   });
 
   it("mês sem entrada é Sem receita, mesmo com gasto", () => {
-    const estado = salvar(emptyState(), aVista({ jar: "conforto", amount: 42_000 }));
+    const estado = salvar(emptyState(), aVista({ jar: "comfort", amount: 42_000 }));
 
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "conforto");
+    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
 
     expect(conforto).toMatchObject({ total: 42_000, limit: null, verdict: "no-income", overrun: null });
   });
@@ -119,41 +119,41 @@ describe("veredito", () => {
 
 describe("reembolso", () => {
   it("reduz o total do pote e as Despesas, sem mexer na receita nem nos limites", () => {
-    const comGasto = salvar(comReceita(), aVista({ jar: "conforto", amount: 80_000 }));
+    const comGasto = salvar(comReceita(), aVista({ jar: "comfort", amount: 80_000 }));
     const antes = projectMonth(comGasto, "2026-09");
 
-    const depois = projectMonth(salvar(comGasto, aVista({ jar: "conforto", amount: -29_790 })), "2026-09");
+    const depois = projectMonth(salvar(comGasto, aVista({ jar: "comfort", amount: -29_790 })), "2026-09");
 
-    expect(poteDe(depois, "conforto").total).toBe(50_210);
+    expect(poteDe(depois, "comfort").total).toBe(50_210);
     expect(depois.aggregates.monthExpenses).toBe(50_210);
     expect(depois.monthIncome).toBe(antes.monthIncome);
     expect(depois.jars.map((p) => p.limit)).toEqual(antes.jars.map((p) => p.limit));
   });
 
   it("pode deixar o total do pote negativo", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "conforto", amount: -29_790 }));
+    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: -29_790 }));
 
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "conforto");
+    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
 
     expect(conforto.total).toBe(-29_790);
     expect(conforto.verdict).toBe("leftover");
   });
 
   it("tira um pote do estouro", () => {
-    let estado = salvar(comReceita(), aVista({ jar: "conforto", amount: 160_000 }));
-    estado = salvar(estado, aVista({ jar: "conforto", amount: -10_000 }));
+    let estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 160_000 }));
+    estado = salvar(estado, aVista({ jar: "comfort", amount: -10_000 }));
 
-    expect(poteDe(projectMonth(estado, "2026-09"), "conforto").verdict).toBe("leftover");
+    expect(poteDe(projectMonth(estado, "2026-09"), "comfort").verdict).toBe("leftover");
   });
 });
 
 describe("agregados do mês", () => {
   it("Despesas é a soma dos seis potes, e Saldo do mês é Receitas − Despesas", () => {
-    let estado = salvar(comReceita(), aVista({ jar: "custos-fixos", amount: 150_000 }));
-    estado = salvar(estado, aVista({ jar: "conforto", amount: 42_000 }));
-    estado = salvar(estado, aVista({ jar: "prazeres", amount: 18_990 }));
-    estado = salvar(estado, aVista({ jar: "conforto", amount: -5_000 }));
-    estado = salvar(estado, aVista({ date: "2026-10-01", jar: "metas", amount: 99_999 }));
+    let estado = salvar(comReceita(), aVista({ jar: "fixed-costs", amount: 150_000 }));
+    estado = salvar(estado, aVista({ jar: "comfort", amount: 42_000 }));
+    estado = salvar(estado, aVista({ jar: "pleasures", amount: 18_990 }));
+    estado = salvar(estado, aVista({ jar: "comfort", amount: -5_000 }));
+    estado = salvar(estado, aVista({ date: "2026-10-01", jar: "goals", amount: 99_999 }));
 
     const vista = projectMonth(estado, "2026-09");
 
@@ -164,10 +164,10 @@ describe("agregados do mês", () => {
   });
 
   it("Saldo em conta ignora as ocorrências no Cartão de Crédito", () => {
-    let estado = salvar(comReceita(), aVista({ paymentMethod: "cartao-de-credito", amount: 300_000 }));
+    let estado = salvar(comReceita(), aVista({ paymentMethod: "credit-card", amount: 300_000 }));
     estado = salvar(estado, aVista({ paymentMethod: "pix", amount: 50_000 }));
-    estado = salvar(estado, aVista({ paymentMethod: "cartao-de-debito", amount: 20_000 }));
-    estado = salvar(estado, aVista({ paymentMethod: "cartao-de-credito", amount: -10_000 }));
+    estado = salvar(estado, aVista({ paymentMethod: "debit-card", amount: 20_000 }));
+    estado = salvar(estado, aVista({ paymentMethod: "credit-card", amount: -10_000 }));
 
     const { aggregates: agregados } = projectMonth(estado, "2026-09");
 
@@ -183,7 +183,7 @@ describe("agregados do mês", () => {
 });
 
 describe("validação do lançamento", () => {
-  it.each(["dinheiro", "cartao-de-credito", "cartao-de-debito", "pix", "transferencia", "boleto", "debito-automatico"] as const)(
+  it.each(["cash", "credit-card", "debit-card", "pix", "transfer", "boleto", "direct-debit"] as const)(
     "tipo de pagamento %s é aceito",
     (tipo) => {
       expect(apply(emptyState(), salvarLancamento(aVista({ paymentMethod: tipo })), HOJE).ok).toBe(true);
@@ -235,8 +235,8 @@ function aVista(campos: Partial<NewExpense>): ExpenseToSave {
   return {
     date: "2026-09-12",
     description: "Mercado",
-    jar: "custos-fixos",
-    paymentMethod: "cartao-de-debito",
+    jar: "fixed-costs",
+    paymentMethod: "debit-card",
     amount: 10_000,
     installments: 1,
     ...campos,

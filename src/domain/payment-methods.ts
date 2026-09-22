@@ -1,12 +1,12 @@
 // The fixed list of seven payment methods (CONTEXT.md). The order is the screen's.
 export const PAYMENT_METHODS = [
-  { id: "dinheiro", name: "Dinheiro" },
-  { id: "cartao-de-credito", name: "Cartão de Crédito" },
-  { id: "cartao-de-debito", name: "Cartão de Débito" },
+  { id: "cash", name: "Dinheiro" },
+  { id: "credit-card", name: "Cartão de Crédito" },
+  { id: "debit-card", name: "Cartão de Débito" },
   { id: "pix", name: "PIX" },
-  { id: "transferencia", name: "Transferência" },
+  { id: "transfer", name: "Transferência" },
   { id: "boleto", name: "Boleto" },
-  { id: "debito-automatico", name: "Débito Automático" },
+  { id: "direct-debit", name: "Débito Automático" },
 ] as const;
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]["id"];
@@ -16,7 +16,7 @@ export function isPaymentMethod(id: unknown): id is PaymentMethod {
 }
 
 /** The three methods that credit: the only ones an income accepts. */
-const INCOME_METHOD_IDS = ["dinheiro", "pix", "transferencia"] as const satisfies readonly PaymentMethod[];
+const INCOME_METHOD_IDS = ["cash", "pix", "transfer"] as const satisfies readonly PaymentMethod[];
 
 export type IncomeMethod = (typeof INCOME_METHOD_IDS)[number];
 

@@ -1,13 +1,13 @@
 import type { IsoDate } from "@/domain";
-import type { Banco } from "@/persistencia";
+import type { Database } from "@/persistence";
 import { configuracaoDoAmbiente, inicializar } from "./inicializacao";
 
 // Um processo, um banco. Guardado no globalThis porque o Next carrega este
 // módulo em mais de um bundle (instrumentação, páginas, ações) e, em dev, a
 // cada recarga: a inicialização, e portanto o backup, acontece uma vez só.
-const processo = globalThis as typeof globalThis & { __financeHubsBanco?: Banco };
+const processo = globalThis as typeof globalThis & { __financeHubsBanco?: Database };
 
-export function bancoDoApp(): Banco {
+export function bancoDoApp(): Database {
   processo.__financeHubsBanco ??= inicializar(configuracaoDoAmbiente());
   return processo.__financeHubsBanco;
 }

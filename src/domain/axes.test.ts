@@ -105,12 +105,12 @@ describe("tag do lançamento", () => {
 
 describe("grupos de um eixo", () => {
   it("no eixo pote, os seis potes em ordem, com o total de cada um", () => {
-    const estado = salvar(emptyState(), gasto({ jar: "conforto", amount: 42_000 }));
+    const estado = salvar(emptyState(), gasto({ jar: "comfort", amount: 42_000 }));
 
     const potes = groups(projectMonth(estado, "2026-09"), "jar");
 
     expect(potes.map((g) => g.key)).toEqual(JARS.map((p) => p.id));
-    expect(potes.find((g) => g.key === "conforto")).toMatchObject({ name: "Conforto", total: 42_000 });
+    expect(potes.find((g) => g.key === "comfort")).toMatchObject({ name: "Conforto", total: 42_000 });
   });
 
   it("o grupo \"sem tag\" existe quando há ocorrência sem tag, e vem por último", () => {
@@ -135,14 +135,14 @@ describe("grupos de um eixo", () => {
 
   it("no eixo tipo, só os tipos usados no mês, na ordem da lista", () => {
     let estado = salvar(emptyState(), gasto({ paymentMethod: "pix" }));
-    estado = salvar(estado, gasto({ paymentMethod: "dinheiro" }));
+    estado = salvar(estado, gasto({ paymentMethod: "cash" }));
     estado = salvar(estado, gasto({ paymentMethod: "boleto", date: "2026-10-05" }));
 
     expect(groups(projectMonth(estado, "2026-09"), "payment-method").map((g) => g.name)).toEqual(["Dinheiro", "PIX"]);
   });
 
   it("um grupo de tipo de pagamento pode ficar negativo: só reembolso", () => {
-    let estado = salvar(emptyState(), gasto({ paymentMethod: "cartao-de-credito", amount: 50_000 }));
+    let estado = salvar(emptyState(), gasto({ paymentMethod: "credit-card", amount: 50_000 }));
     estado = salvar(estado, gasto({ paymentMethod: "pix", amount: -29_790 }));
 
     const pix = groups(projectMonth(estado, "2026-09"), "payment-method").find((g) => g.key === "pix")!;
@@ -209,7 +209,7 @@ describe("invariante dos eixos (propriedade)", () => {
     for (let i = Math.floor(aleatorio() * 4); i > 0; i--) {
       comandos.push({
         type: "save-income",
-        income: { date: data(), description: "Salário", source: "salario", paymentMethod: "pix", amount: 1 + Math.floor(aleatorio() * 1_000_000) },
+        income: { date: data(), description: "Salário", source: "salary", paymentMethod: "pix", amount: 1 + Math.floor(aleatorio() * 1_000_000) },
       });
     }
     for (let i = Math.floor(aleatorio() * 25); i > 0; i--) {
@@ -257,8 +257,8 @@ function gasto(campos: {
   return {
     date: "2026-09-12",
     description: "Mercado",
-    jar: "custos-fixos",
-    paymentMethod: "cartao-de-debito",
+    jar: "fixed-costs",
+    paymentMethod: "debit-card",
     amount: 10_000,
     installments: 1,
     ...campos,

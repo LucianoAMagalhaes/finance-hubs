@@ -31,8 +31,8 @@ function historico(): State {
   let estado = salvar(emptyState(), gasto({ date: "2026-01-10", description: "Combustível", tag: "transporte", amount: 30_000 }));
   estado = salvar(estado, gasto({ date: "2026-02-05", description: "Pneus", tag: "#Transporte", amount: 120_000, installments: 12 }));
   estado = salvar(estado, gasto({ date: "2026-03-01", description: "Faxina", tag: "casa", amount: 20_000 }));
-  estado = criar(estado, { date: "2026-01-15", description: "Estacionamento", jar: "custos-fixos", paymentMethod: "boleto", amount: 25_000, tag: "transporte" });
-  return mudar(estado, 4, "2026-06", { description: "Estacionamento", jar: "custos-fixos", paymentMethod: "boleto", amount: 28_000, tag: "transporte" });
+  estado = criar(estado, { date: "2026-01-15", description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 25_000, tag: "transporte" });
+  return mudar(estado, 4, "2026-06", { description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 28_000, tag: "transporte" });
 }
 
 describe("renomear uma tag", () => {
@@ -71,7 +71,7 @@ describe("renomear uma tag", () => {
   });
 
   it("renomear não faz mês nenhum nascer: a tag não tem mês", () => {
-    const antes = criar(emptyState(), { date: "2026-01-15", description: "Estacionamento", jar: "custos-fixos", paymentMethod: "pix", amount: 25_000, tag: "transporte" });
+    const antes = criar(emptyState(), { date: "2026-01-15", description: "Estacionamento", jar: "fixed-costs", paymentMethod: "pix", amount: 25_000, tag: "transporte" });
 
     const depois = renomear(antes, "transporte", "mobilidade");
 
@@ -143,8 +143,8 @@ describe("fundir duas tags", () => {
   });
 
   it("a fusão também junta as vigências de um recorrente", () => {
-    let estado = criar(emptyState(), { date: "2026-01-15", description: "Estacionamento", jar: "custos-fixos", paymentMethod: "boleto", amount: 25_000, tag: "transporte" });
-    estado = mudar(estado, 1, "2026-06", { description: "Estacionamento", jar: "custos-fixos", paymentMethod: "boleto", amount: 28_000, tag: "uber" });
+    let estado = criar(emptyState(), { date: "2026-01-15", description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 25_000, tag: "transporte" });
+    estado = mudar(estado, 1, "2026-06", { description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 28_000, tag: "uber" });
 
     estado = aplicarOk(estado, renomearTag("transporte", "uber", true));
 
@@ -228,7 +228,7 @@ function gasto(campos: {
   installments?: number;
   tag?: string | null;
 }): ExpenseToSave {
-  return { date: "2026-09-12", description: "Mercado", jar: "custos-fixos", paymentMethod: "cartao-de-credito", amount: 10_000, installments: 1, ...campos };
+  return { date: "2026-09-12", description: "Mercado", jar: "fixed-costs", paymentMethod: "credit-card", amount: 10_000, installments: 1, ...campos };
 }
 
 const renomearTag = (de: string, para: string, fundir: boolean): Command => ({ type: "rename-tag", from: de, to: para, merge: fundir });
