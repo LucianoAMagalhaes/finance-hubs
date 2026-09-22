@@ -76,7 +76,7 @@ describe("recurring day", () => {
     ]);
   });
 
-  it("the day belongs to the recurrence: changing in a month does not change the day", () => {
+  it("the day belongs to the recurring expense: changing in a month does not change the day", () => {
     let state = create(emptyState(), recurring({ date: "2026-01-31" }));
     state = change(state, 1, "2026-02", period({ amount: 7_000 }));
 

@@ -4,7 +4,7 @@ import type { PaymentMethod } from "./payment-methods";
 import type { Jar } from "./jars";
 
 /**
- * A spending (ADR-0003). It is the only thing stored: the occurrence is derived
+ * An expense (ADR-0003). It is the only thing stored: the occurrence is derived
  * (ADR-0002). The kind doesn't change after it is saved: a purchase doesn't become
  * recurring, nor the other way around.
  */
