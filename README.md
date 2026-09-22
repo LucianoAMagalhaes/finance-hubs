@@ -33,4 +33,4 @@ npm run db:generate  # gera a migration depois de mudar src/persistence/schema.t
 - `src/domain/`: o domínio, puro (sem I/O, sem DOM). Projeção do mês e comandos.
 - `src/persistence/`: esquema do Drizzle, carregar e gravar o estado.
 - `src/server/`: inicialização (backup, migrations) e as ações do servidor.
-- `src/tela/`: a tela do mês.
+- `src/ui/`: a tela do mês.

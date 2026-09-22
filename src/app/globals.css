@@ -1,7 +1,7 @@
-/* Direção visual "Sinal" (#14): a cor é o estado. Vermelho = estouro, verde =
-   entrada, violeta = reembolso; a cor de cada pote é identidade, nunca veredito. */
+/* "Sinal" visual direction (#14): color is state. Red = overrun, green =
+   income, violet = refund; each jar's color is identity, never verdict. */
 
-/* ============ tokens: claro ============ */
+/* ============ tokens: light ============ */
 :root {
   color-scheme: light;
   --bg: #eef1f6;
@@ -31,23 +31,23 @@
   --band-in: #6ee7a0;
   --band-bad: #ff8a80;
   --band-neg: #c4b5fd;
-  --sombra: 0 1px 2px rgba(14, 23, 38, 0.05);
-  /* sem vermelho (estouro), verde (entrada) nem violeta (reembolso) */
-  --p-fixed-costs: #2f6fd6;
-  --p-financial-freedom: #0b8f9c;
-  --p-comfort: #b98900;
-  --p-goals: #5f8a1c;
-  --p-knowledge: #b0409c;
-  --p-pleasures: #8b6b4a;
-  /* tag: saturação e luminosidade; o matiz vem do nome (--matiz) */
-  --tag-cor: 60% 45%;
-  --tag-fundo: 75% 93%;
-  --tag-tinta: 65% 28%;
+  --shadow: 0 1px 2px rgba(14, 23, 38, 0.05);
+  /* no red (overrun), green (income) or violet (refund) */
+  --jar-fixed-costs: #2f6fd6;
+  --jar-financial-freedom: #0b8f9c;
+  --jar-comfort: #b98900;
+  --jar-goals: #5f8a1c;
+  --jar-knowledge: #b0409c;
+  --jar-pleasures: #8b6b4a;
+  /* tag: saturation and lightness; the hue comes from the name (--hue) */
+  --tag-color: 60% 45%;
+  --tag-bg: 75% 93%;
+  --tag-ink: 65% 28%;
 }
 
-/* ============ tokens: escuro (pelo sistema, ou forçado no alternador) ============ */
+/* ============ tokens: dark (by the system, or forced by the toggle) ============ */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-tema="claro"]) {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #0b1220;
     --surface: #131c2e;
@@ -69,19 +69,19 @@
     --band: #1a2640;
     --band-ink: #eef2fa;
     --band-line: rgba(255, 255, 255, 0.08);
-    --sombra: none;
-    --p-fixed-costs: #6f9cf0;
-    --p-financial-freedom: #3cc4cf;
-    --p-comfort: #e0b33a;
-    --p-goals: #9cc653;
-    --p-knowledge: #e27ccf;
-    --p-pleasures: #c7a07a;
-    --tag-cor: 70% 65%;
-    --tag-fundo: 60% 60% / 0.16;
-    --tag-tinta: 75% 76%;
+    --shadow: none;
+    --jar-fixed-costs: #6f9cf0;
+    --jar-financial-freedom: #3cc4cf;
+    --jar-comfort: #e0b33a;
+    --jar-goals: #9cc653;
+    --jar-knowledge: #e27ccf;
+    --jar-pleasures: #c7a07a;
+    --tag-color: 70% 65%;
+    --tag-bg: 60% 60% / 0.16;
+    --tag-ink: 75% 76%;
   }
 }
-:root[data-tema="escuro"] {
+:root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0b1220;
   --surface: #131c2e;
@@ -103,16 +103,16 @@
   --band: #1a2640;
   --band-ink: #eef2fa;
   --band-line: rgba(255, 255, 255, 0.08);
-  --sombra: none;
-  --p-fixed-costs: #6f9cf0;
-  --p-financial-freedom: #3cc4cf;
-  --p-comfort: #e0b33a;
-  --p-goals: #9cc653;
-  --p-knowledge: #e27ccf;
-  --p-pleasures: #c7a07a;
-  --tag-cor: 70% 65%;
-  --tag-fundo: 60% 60% / 0.16;
-  --tag-tinta: 75% 76%;
+  --shadow: none;
+  --jar-fixed-costs: #6f9cf0;
+  --jar-financial-freedom: #3cc4cf;
+  --jar-comfort: #e0b33a;
+  --jar-goals: #9cc653;
+  --jar-knowledge: #e27ccf;
+  --jar-pleasures: #c7a07a;
+  --tag-color: 70% 65%;
+  --tag-bg: 60% 60% / 0.16;
+  --tag-ink: 75% 76%;
 }
 
 /* ============ base ============ */
@@ -121,11 +121,11 @@
 }
 body {
   margin: 0;
-  font: 15px/1.5 var(--fonte), system-ui, sans-serif;
+  font: 15px/1.5 var(--font), system-ui, sans-serif;
   background: var(--bg);
   color: var(--ink);
 }
-/* Inter leve: títulos em 600 no máximo, nunca 700 */
+/* Light Inter: headings at 600 at most, never 700 */
 h1,
 h2 {
   margin: 0;
@@ -146,20 +146,20 @@ button {
   padding: 22px 20px 80px;
 }
 
-/* ============ topo ============ */
-.topo {
+/* ============ top bar ============ */
+.topbar {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 22px;
 }
-.navegacao-mes {
+.month-nav {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.navegacao-mes h1 {
+.month-nav h1 {
   font-size: 24px;
   min-width: 210px;
   text-align: center;
@@ -170,7 +170,7 @@ button {
   gap: 6px;
   flex-wrap: wrap;
 }
-.acoes {
+.actions {
   display: flex;
   gap: 8px;
   margin-left: auto;
@@ -188,7 +188,7 @@ button {
 .btn:hover {
   border-color: var(--ink-3);
 }
-.btn.seta {
+.btn.arrow {
   width: 32px;
   height: 32px;
   padding: 0;
@@ -203,45 +203,45 @@ button {
   color: var(--ink-2);
   white-space: nowrap;
 }
-.chip.nascimento {
+.chip.unborn {
   color: var(--warn);
   background: var(--warn-bg);
   border-color: transparent;
 }
 
-/* ============ rótulos de seção ============ */
-.secao {
+/* ============ section labels ============ */
+.section {
   display: flex;
   align-items: center;
   gap: 10px;
   margin: 30px 0 12px;
   flex-wrap: wrap;
 }
-.secao.primeira {
+.section.first {
   margin-top: 0;
 }
-.secao h2 {
+.section h2 {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ink-3);
   font-weight: 500;
 }
-.secao .fio {
+.section .rule {
   flex: 1;
   height: 1px;
   background: var(--line);
   min-width: 20px;
 }
-.secao .extra {
+.section .extra {
   font-size: 12.5px;
   color: var(--ink-3);
 }
-.nao-alocado {
+.unallocated {
   color: var(--warn);
   font-weight: 500;
 }
-.aviso {
+.notice {
   font-size: 13px;
   color: var(--warn);
   background: var(--warn-bg);
@@ -250,19 +250,19 @@ button {
   margin: 0 0 12px;
 }
 
-/* ============ valores: reembolso ≠ déficit ============ */
-.val.entrada {
+/* ============ amounts: refund ≠ deficit ============ */
+.val.income {
   color: var(--in);
 }
-.val.reembolso {
+.val.refund {
   color: var(--neg);
 }
 .deficit {
   color: var(--bad);
 }
 
-/* ============ faixa dos agregados: outra espécie, acima dos potes ============ */
-.faixa {
+/* ============ aggregates band: another kind, above the jars ============ */
+.band {
   background: var(--band);
   color: var(--band-ink);
   border-radius: var(--radius-lg);
@@ -270,44 +270,44 @@ button {
   grid-template-columns: repeat(4, 1fr);
   overflow: hidden;
 }
-.agregado {
+.aggregate {
   padding: 16px 20px;
   border-left: 1px solid var(--band-line);
 }
-.agregado:first-child {
+.aggregate:first-child {
   border-left: 0;
 }
-.agregado .k {
+.aggregate .k {
   font-size: 12px;
   color: var(--band-k);
   font-weight: 500;
 }
-.agregado .v {
+.aggregate .v {
   font-size: 23px;
   margin-top: 2px;
   letter-spacing: -0.01em;
 }
-.agregado .h {
+.aggregate .h {
   font-size: 11.5px;
   color: var(--band-h);
 }
-.faixa .val.entrada {
+.band .val.income {
   color: var(--band-in);
 }
-.faixa .deficit {
+.band .deficit {
   color: var(--band-bad);
 }
-.faixa .val.reembolso {
+.band .val.refund {
   color: var(--band-neg);
 }
 
-/* ============ potes ============ */
-.grade {
+/* ============ jars ============ */
+.grid {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
-.cartao {
+.card {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -315,60 +315,60 @@ button {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  box-shadow: var(--sombra);
+  box-shadow: var(--shadow);
 }
-/* o filete no topo, na cor do pote */
-.cartao.pote {
-  box-shadow: inset 0 3px 0 var(--pote), var(--sombra);
+/* the stripe on top, in the jar's color */
+.card.jar {
+  box-shadow: inset 0 3px 0 var(--jar), var(--shadow);
 }
-/* estourou: fundo rosado, e o vermelho assume o filete e a barra */
-.cartao.pote.estourou {
+/* overrun: pinkish background, and red takes over the stripe and the bar */
+.card.jar.overrun {
   background: var(--bad-bg);
   border-color: var(--bad-line);
-  box-shadow: inset 0 3px 0 var(--bad), var(--sombra);
+  box-shadow: inset 0 3px 0 var(--bad), var(--shadow);
 }
-.cartao.sem-limite {
+.card.no-limit {
   border-style: dashed;
   background: transparent;
 }
-.cartao-topo {
+.card-top {
   display: flex;
   justify-content: space-between;
   font-size: 13.5px;
   color: var(--ink-2);
   font-weight: 500;
 }
-.quadrado {
+.swatch {
   display: inline-block;
   width: 9px;
   height: 9px;
   border-radius: 3px;
-  background: var(--pote);
+  background: var(--jar);
   margin-right: 7px;
   vertical-align: 1px;
 }
-.cartao-total {
+.card-total {
   font-size: 27px;
   letter-spacing: -0.01em;
   line-height: 1.15;
 }
-.barra {
+.bar {
   position: relative;
   height: 6px;
   background: var(--sunken);
   border-radius: 999px;
 }
-.barra i {
+.bar i {
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: 999px;
-  background: var(--pote);
+  background: var(--jar);
 }
-.cartao.estourou .barra i {
+.card.overrun .bar i {
   background: var(--bad);
 }
-/* a marca do limite ultrapassa a barra */
-.barra b {
+/* the limit mark sticks out of the bar */
+.bar b {
   position: absolute;
   top: -3px;
   bottom: -3px;
@@ -376,7 +376,7 @@ button {
   border-radius: 1px;
   background: var(--ink);
 }
-.cartao-pe {
+.card-foot {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -386,8 +386,8 @@ button {
   color: var(--ink-3);
 }
 
-/* ============ veredito como selo ============ */
-.selo {
+/* ============ verdict as a badge ============ */
+.badge {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
@@ -396,29 +396,29 @@ button {
   font-weight: 500;
   white-space: nowrap;
 }
-.selo.nenhum {
+.badge.no-income {
   background: var(--sunken);
   color: var(--ink-3);
 }
-.selo.sobra {
+.badge.leftover {
   background: var(--sunken);
   color: var(--ink-2);
 }
-/* o único texto em 600 */
-.selo.estourou {
+/* the only text at 600 */
+.badge.overrun {
   background: var(--bad);
   color: #fff;
   font-weight: 600;
 }
 
-/* ============ botão de entrada: verde é entrada ============ */
-.btn.entrada {
+/* ============ income button: green is income ============ */
+.btn.income {
   background: var(--in);
   border-color: var(--in);
   color: var(--on-accent);
   font-weight: 500;
 }
-.btn.entrada:hover {
+.btn.income:hover {
   filter: brightness(1.08);
 }
 .btn:disabled {
@@ -426,8 +426,8 @@ button {
   cursor: not-allowed;
 }
 
-/* ============ aviso depois de salvar em outro mês ============ */
-.aviso-salvo {
+/* ============ notice after saving in another month ============ */
+.saved-notice {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -439,13 +439,13 @@ button {
   border-radius: var(--radius);
   padding: 8px 10px 8px 14px;
   margin: 0 0 18px;
-  box-shadow: var(--sombra);
+  box-shadow: var(--shadow);
 }
-.aviso-salvo > span {
+.saved-notice > span {
   flex: 1;
   min-width: 200px;
 }
-.fechar {
+.close {
   border: 0;
   background: var(--sunken);
   color: var(--ink-2);
@@ -456,21 +456,21 @@ button {
   font-size: 16px;
   line-height: 1;
 }
-.aviso.ruim {
+.notice.bad {
   color: var(--bad);
   background: var(--bad-bg);
   margin: 0;
 }
 
-/* ============ gastos e entradas do mês ============ */
-.tabela {
+/* ============ the month's expenses and incomes ============ */
+.table {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--sombra);
+  box-shadow: var(--shadow);
 }
-.tabela .linha {
+.table .row {
   display: grid;
   grid-template-columns: 52px 1fr 150px 130px auto;
   gap: 12px;
@@ -483,7 +483,7 @@ button {
   text-align: left;
   font-size: 14px;
 }
-.tabela .linha.cabecalho {
+.table .row.head {
   border-top: 0;
   background: var(--sunken);
   font-size: 11.5px;
@@ -492,28 +492,28 @@ button {
   color: var(--ink-3);
   font-weight: 500;
 }
-.tabela .linha.clicavel {
+.table .row.clickable {
   cursor: pointer;
 }
-.tabela .linha.clicavel:hover {
+.table .row.clickable:hover {
   background: var(--sunken);
 }
-.tabela .linha.vazia {
+.table .row.empty {
   color: var(--ink-3);
 }
-.tabela .linha.rodape {
+.table .row.foot {
   background: var(--sunken);
   color: var(--ink-2);
 }
-.tabela .data,
-.tabela .tipo {
+.table .date,
+.table .method {
   font-size: 12.5px;
   color: var(--ink-3);
 }
-.direita {
+.right {
   text-align: right;
 }
-.pilula-fonte {
+.source-pill {
   font-size: 12px;
   padding: 2px 9px;
   border-radius: 999px;
@@ -522,8 +522,8 @@ button {
   white-space: nowrap;
 }
 
-/* ============ formulário como folha ============ */
-dialog.folha {
+/* ============ form as a sheet ============ */
+dialog.sheet {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -532,42 +532,42 @@ dialog.folha {
   width: min(460px, calc(100vw - 32px));
   box-shadow: 0 20px 60px rgba(14, 23, 38, 0.25);
 }
-dialog.folha::backdrop {
+dialog.sheet::backdrop {
   background: rgba(14, 23, 38, 0.45);
 }
-.folha header {
+.sheet header {
   padding: 20px 22px 4px;
 }
-.folha h2 {
+.sheet h2 {
   font-size: 19px;
 }
-.dica {
+.hint {
   font-size: 12.5px;
   color: var(--ink-3);
   margin: 3px 0 0;
   font-weight: 400;
 }
-.folha .corpo {
+.sheet .content {
   padding: 14px 22px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.folha footer {
+.sheet footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   padding: 14px 22px 20px;
 }
-.campo {
+.field {
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 13px;
   color: var(--ink-2);
 }
-.campo input,
-.campo select {
+.field input,
+.field select {
   font: inherit;
   font-size: 15px;
   color: var(--ink);
@@ -576,27 +576,27 @@ dialog.folha::backdrop {
   border-radius: var(--radius);
   padding: 7px 10px;
 }
-.campo input:focus,
-.campo select:focus {
+.field input:focus,
+.field select:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
-.seletor-forma {
+.shape-picker {
   align-self: flex-start;
 }
-.seletor-forma button:disabled {
+.shape-picker button:disabled {
   color: var(--ink-3);
   opacity: 0.6;
   cursor: not-allowed;
 }
-.folha .aviso {
+.sheet .notice {
   margin: 0;
 }
-.previa-parcelas {
+.preview {
   margin-top: -4px;
 }
-/* As vigências do recorrente: a do mês aberto em destaque. */
-.vigencias {
+/* The recurring expense's periods: the open month's highlighted. */
+.periods {
   list-style: none;
   margin: 5px 0 0;
   padding: 0;
@@ -605,24 +605,24 @@ dialog.folha::backdrop {
   font-size: 12.5px;
   color: var(--ink-2);
 }
-.vigencias li {
+.periods li {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) auto;
   gap: 8px;
   padding: 6px 10px;
 }
-.vigencias li + li {
+.periods li + li {
   border-top: 1px solid var(--line);
 }
-.vigencias li.agora {
+.periods li.current {
   background: var(--sunken);
   color: var(--ink);
   font-weight: 500;
 }
-.vigencias li.fim {
+.periods li.end {
   color: var(--bad);
 }
-.vigencias .direita {
+.periods .right {
   text-align: right;
 }
 .check {
@@ -632,66 +632,66 @@ dialog.folha::backdrop {
   font-size: 13.5px;
   color: var(--ink-2);
 }
-.linha-2 {
+.cols-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-/* ============ percentuais do mês: editados ao lado dos potes ============ */
-.btn.primario {
+/* ============ the month's percentages: edited next to the jars ============ */
+.btn.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
   font-weight: 500;
 }
-.editor-percentuais {
+.percentages-editor {
   margin-bottom: 12px;
 }
-.campos-percentuais {
+.percentage-fields {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 }
-.com-sufixo {
+.with-suffix {
   display: flex;
   align-items: center;
   gap: 6px;
   color: var(--ink-3);
 }
-.com-sufixo input {
+.with-suffix input {
   width: 100%;
   min-width: 0;
   text-align: right;
 }
-.editor-pe {
+.editor-foot {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
-.editor-pe .soma {
+.editor-foot .sum {
   flex: 1;
   min-width: 180px;
   font-size: 13.5px;
   color: var(--ink-2);
 }
-.editor-pe .soma.passou {
+.editor-foot .sum.over {
   color: var(--bad);
   font-weight: 600;
 }
 
-/* ============ seletor de eixo: um por vez ============ */
-.seletor-eixo,
-.seletor-forma {
+/* ============ axis picker: one at a time ============ */
+.axis-picker,
+.shape-picker {
   display: inline-flex;
   background: var(--sunken);
   border-radius: var(--radius);
   padding: 3px;
   gap: 2px;
 }
-.seletor-eixo button,
-.seletor-forma button {
+.axis-picker button,
+.shape-picker button {
   border: 0;
   background: none;
   border-radius: calc(var(--radius) - 3px);
@@ -700,37 +700,37 @@ dialog.folha::backdrop {
   color: var(--ink-2);
   cursor: pointer;
 }
-.seletor-eixo button[aria-pressed="true"],
-.seletor-forma button[aria-pressed="true"] {
+.axis-picker button[aria-pressed="true"],
+.shape-picker button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--ink);
   font-weight: 500;
-  box-shadow: var(--sombra);
+  box-shadow: var(--shadow);
 }
 
-/* ============ cards clicáveis: abrir só ganha contorno ============ */
-button.cartao {
+/* ============ clickable cards: opening only gains an outline ============ */
+button.card {
   width: 100%;
   text-align: left;
   cursor: pointer;
 }
-button.cartao:hover {
+button.card:hover {
   border-color: var(--line-2);
 }
-.cartao.aberto,
-.agregado.aberto {
+.card.open,
+.aggregate.open {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.cartao.grupo.tag {
-  box-shadow: inset 0 3px 0 var(--pote), var(--sombra);
+.card.group.tag {
+  box-shadow: inset 0 3px 0 var(--jar), var(--shadow);
 }
-.grade-vazia {
+.empty-grid {
   color: var(--ink-3);
   font-size: 14px;
   margin: 0;
 }
-button.agregado {
+button.aggregate {
   border: 0;
   border-left: 1px solid var(--band-line);
   background: none;
@@ -738,32 +738,32 @@ button.agregado {
   text-align: left;
   cursor: pointer;
 }
-button.agregado:hover {
+button.aggregate:hover {
   background: var(--band-line);
 }
-.agregado.aberto {
+.aggregate.open {
   outline-color: var(--band-ink);
   outline-offset: -4px;
   border-radius: var(--radius-lg);
 }
-.agregado > span {
+.aggregate > span {
   display: block;
 }
 
-/* ============ mestre-detalhe: a grade vira coluna, o detalhe fica ao lado ============ */
-.mestre-detalhe {
+/* ============ master-detail: the grid becomes a column, the detail sits beside it ============ */
+.master-detail {
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 16px;
   align-items: start;
 }
-.coluna {
+.column {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 4px;
 }
-.soma-despesas {
+.expenses-sum {
   display: flex;
   justify-content: space-between;
   padding: 10px 16px;
@@ -773,20 +773,20 @@ button.agregado:hover {
   font-size: 13px;
   color: var(--ink-2);
 }
-.detalhe {
+.detail {
   position: relative;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--sombra);
+  box-shadow: var(--shadow);
   overflow: hidden;
   margin-top: 4px;
 }
-.detalhe header {
+.detail header {
   padding: 18px 22px 16px;
   border-bottom: 1px solid var(--line);
 }
-.detalhe header .fechar {
+.detail header .close {
   position: absolute;
   top: 14px;
   right: 16px;
@@ -797,31 +797,31 @@ button.agregado:hover {
   letter-spacing: 0.06em;
   color: var(--ink-3);
 }
-.detalhe h2 {
+.detail h2 {
   font-size: 20px;
   margin-top: 2px;
   padding-right: 36px;
 }
-.detalhe-resumo {
+.detail-summary {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 8px;
 }
-.detalhe-resumo .dica {
+.detail-summary .hint {
   margin: 0;
 }
-/* Renomear a tag: à direita do resumo, longe do que se lê primeiro. */
-.detalhe-resumo .renomear {
+/* Renaming the tag: to the right of the summary, away from what is read first. */
+.detail-summary .rename {
   margin-left: auto;
   padding: 4px 10px;
   font-size: 12.5px;
 }
-.detalhe-total {
+.detail-total {
   font-size: 22px;
 }
-.nota-reembolso {
+.refund-note {
   font-size: 13px;
   color: var(--neg);
   background: color-mix(in srgb, var(--neg) 11%, transparent);
@@ -829,7 +829,7 @@ button.agregado:hover {
   padding: 8px 12px;
   margin: 12px 0 0;
 }
-.ocorrencia {
+.occurrence {
   display: grid;
   grid-template-columns: 48px 1fr auto;
   gap: 12px;
@@ -843,28 +843,28 @@ button.agregado:hover {
   font-size: 14px;
   cursor: pointer;
 }
-.ocorrencia:last-of-type {
+.occurrence:last-of-type {
   border-bottom: 0;
 }
-.ocorrencia:hover {
+.occurrence:hover {
   background: var(--sunken);
 }
-.ocorrencia .data {
+.occurrence .date {
   font-size: 12.5px;
   color: var(--ink-3);
   padding-top: 1px;
 }
-.ocorrencia-corpo {
+.occurrence-body {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
-.anotacao {
+.annotation {
   font-size: 12px;
   color: var(--ink-3);
 }
-.eixos-da-ocorrencia {
+.occurrence-axes {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -872,63 +872,63 @@ button.agregado:hover {
   font-size: 12px;
   color: var(--ink-3);
 }
-.detalhe-vazio {
+.empty-detail {
   padding: 30px 22px;
   text-align: center;
   color: var(--ink-3);
   margin: 0;
 }
 @media (max-width: 860px) {
-  .mestre-detalhe {
+  .master-detail {
     grid-template-columns: 1fr;
   }
 }
 
-/* ============ tag: pílula tingida, para não parecer pote ============ */
-.pilula-tag {
+/* ============ tag: tinted pill, so it does not look like a jar ============ */
+.tag-pill {
   display: inline-block;
   font-size: 11.5px;
   padding: 1px 8px;
   border-radius: 999px;
   white-space: nowrap;
-  background: hsl(var(--matiz) var(--tag-fundo));
-  color: hsl(var(--matiz) var(--tag-tinta));
+  background: hsl(var(--hue) var(--tag-bg));
+  color: hsl(var(--hue) var(--tag-ink));
 }
-.pilula-tag.sem {
+.tag-pill.untagged {
   background: none;
   border: 1px solid var(--line-2);
   color: var(--ink-3);
 }
 
-/* ============ lixeira: apagar é reversível, então só o texto é vermelho ============ */
-.btn.apagar {
+/* ============ trash: deleting is reversible, so only the text is red ============ */
+.btn.delete {
   color: var(--bad);
   margin-right: auto;
 }
-.btn .contagem {
+.btn .count {
   margin-left: 6px;
   padding: 0 6px;
   border-radius: 999px;
   background: var(--sunken);
   font-size: 12px;
 }
-dialog.folha.lixeira {
+dialog.sheet.trash {
   width: min(560px, calc(100vw - 32px));
 }
-.lixeira-vazia {
+.empty-trash {
   margin: 0;
   padding: 18px 0;
   text-align: center;
   color: var(--ink-3);
 }
-.lixeira-itens {
+.trash-items {
   list-style: none;
   margin: 0;
   padding: 0;
   max-height: 60vh;
   overflow-y: auto;
 }
-.lixeira-itens li {
+.trash-items li {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -936,38 +936,38 @@ dialog.folha.lixeira {
   border-top: 1px solid var(--line);
   font-size: 14px;
 }
-.lixeira-itens li:first-child {
+.trash-items li:first-child {
   border-top: 0;
 }
-.lixeira-texto {
+.trash-text {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
-.lixeira-descricao {
+.trash-description {
   overflow-wrap: anywhere;
 }
 
-/* ============ peças que só existem em janela estreita ============
-   O botão flutuante, o fundo que fecha a folha do detalhe e o puxador dela
-   nascem escondidos: quem os acende é a media query lá embaixo. */
-.flutuante,
-.fundo-do-flutuante,
-.fundo-da-folha,
-.puxador {
+/* ============ parts that only exist in a narrow window ============
+   The floating button, the backdrop that closes the detail sheet and its
+   handle start hidden: the media query further down turns them on. */
+.fab,
+.fab-backdrop,
+.sheet-backdrop,
+.handle {
   display: none;
 }
-/* Os dois fundos que fecham ao toque: o da folha escurece a grade, o do menu não. */
-.fundo-do-flutuante,
-.fundo-da-folha {
+/* The two backdrops that close on a tap: the sheet's darkens the grid, the menu's does not. */
+.fab-backdrop,
+.sheet-backdrop {
   position: fixed;
   inset: 0;
 }
-.fundo-do-flutuante {
+.fab-backdrop {
   z-index: 190;
 }
-.flutuante {
+.fab {
   position: fixed;
   right: 16px;
   bottom: 20px;
@@ -976,7 +976,7 @@ dialog.folha.lixeira {
   align-items: flex-end;
   gap: 8px;
 }
-.flutuante .mais {
+.fab .plus {
   width: 56px;
   height: 56px;
   border: 0;
@@ -988,15 +988,15 @@ dialog.folha.lixeira {
   cursor: pointer;
   box-shadow: 0 8px 24px rgba(14, 23, 38, 0.3);
 }
-.flutuante .op {
+.fab .option {
   display: none;
   padding: 9px 16px;
   box-shadow: 0 4px 14px rgba(14, 23, 38, 0.15);
 }
-.flutuante.aberto .op {
+.fab.open .option {
   display: block;
 }
-.puxador {
+.handle {
   width: 40px;
   height: 5px;
   border-radius: 9px;
@@ -1004,24 +1004,24 @@ dialog.folha.lixeira {
   margin: -4px auto 10px;
 }
 
-/* ============ janela estreita: o layout pronto para o celular ============
-   Nada aqui vale acima de 640px, então o layout largo fica intacto. Os
-   agregados vão a 2×2, a grade a duas colunas, o detalhe sobe como folha
-   inferior, lançar vira o botão + flutuante e os formulários viram folha. */
+/* ============ narrow window: the layout ready for the phone ============
+   Nothing here applies above 640px, so the wide layout stays intact. The
+   aggregates go 2×2, the grid to two columns, the detail rises as a bottom
+   sheet, recording becomes the floating + button and the forms become sheets. */
 @media (max-width: 640px) {
   .wrap {
     padding: 14px 14px 110px;
   }
 
-  /* topo: no estreito ele guarda só a lixeira e o tema */
-  .topo {
+  /* top bar: when narrow it keeps only the trash and the theme */
+  .topbar {
     gap: 8px;
     margin-bottom: 16px;
   }
-  .navegacao-mes {
+  .month-nav {
     width: 100%;
   }
-  .navegacao-mes h1 {
+  .month-nav h1 {
     flex: 1;
     min-width: 0;
     font-size: 21px;
@@ -1029,81 +1029,81 @@ dialog.folha.lixeira {
   .status .chip {
     white-space: normal;
   }
-  .acoes {
+  .actions {
     margin-left: 0;
   }
-  .acoes .btn.entrada,
-  .acoes .btn.primario {
+  .actions .btn.income,
+  .actions .btn.primary {
     display: none;
   }
 
-  /* agregados em 2×2: a borda da esquerda vira borda de cima na segunda linha */
-  .faixa {
+  /* aggregates 2×2: the left border becomes a top border on the second row */
+  .band {
     grid-template-columns: 1fr 1fr;
   }
-  .agregado {
+  .aggregate {
     padding: 12px 14px;
   }
-  .agregado:nth-child(3) {
+  .aggregate:nth-child(3) {
     border-left: 0;
   }
-  .agregado:nth-child(n + 3) {
+  .aggregate:nth-child(n + 3) {
     border-top: 1px solid var(--band-line);
   }
-  .agregado .v {
+  .aggregate .v {
     font-size: 18px;
   }
 
-  /* potes e grupos: duas colunas compactas, com o detalhe aberto ou não */
-  .secao {
+  /* jars and groups: two compact columns, with the detail open or not */
+  .section {
     margin: 22px 0 10px;
   }
-  .seletor-eixo {
+  .axis-picker {
     width: 100%;
   }
-  .seletor-eixo button {
+  .axis-picker button {
     flex: 1;
     padding: 6px 4px;
   }
-  .grade,
-  .coluna {
+  .grid,
+  .column {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
-  .cartao {
+  .card {
     min-width: 0;
     padding: 12px;
     gap: 6px;
     border-radius: 14px;
   }
-  /* nome de tag é texto livre: sem quebrar, um nome comprido empurra a página */
-  .cartao-topo {
+  /* a tag name is free text: without breaking, a long name pushes the page */
+  .card-top {
     font-size: 12.5px;
     overflow-wrap: anywhere;
   }
-  .cartao-total {
+  .card-total {
     font-size: 19px;
   }
-  /* o selo já diz sobra e estouro em reais; o limite sai para o card caber */
-  .cartao-pe .lim {
+  /* the badge already says leftover and overrun in reais; the limit goes so the card fits */
+  .card-foot .limit {
     display: none;
   }
-  .selo {
+  .badge {
     font-size: 11.5px;
     padding: 2px 8px;
   }
-  .soma-despesas {
+  .expenses-sum {
     grid-column: 1 / -1;
   }
 
-  /* o mestre-detalhe vira folha inferior: sobe sobre a grade e fecha tocando fora */
-  .fundo-da-folha {
+  /* the master-detail becomes a bottom sheet: it rises over the grid and closes on a tap outside */
+  .sheet-backdrop {
     display: block;
     z-index: 250;
     background: rgba(14, 23, 38, 0.45);
   }
-  .detalhe {
+  .detail {
     position: fixed;
     left: 0;
     right: 0;
@@ -1116,49 +1116,49 @@ dialog.folha.lixeira {
     border-radius: 22px 22px 0 0;
     box-shadow: 0 -10px 40px rgba(14, 23, 38, 0.25);
   }
-  .puxador {
+  .handle {
     display: block;
   }
-  /* o cabeçalho gruda no topo da folha para o × e o puxador não rolarem embora */
-  .detalhe header {
+  /* the header sticks to the top of the sheet so the × and the handle do not scroll away */
+  .detail header {
     position: sticky;
     top: 0;
     padding: 16px;
     background: var(--surface);
   }
-  /* sticky é posicionado, então o × passa a se medir pelo cabeçalho, não pela folha */
-  .detalhe header .fechar {
+  /* sticky is positioned, so the × now measures itself by the header, not by the sheet */
+  .detail header .close {
     top: 12px;
     right: 12px;
   }
-  .detalhe h2 {
+  .detail h2 {
     overflow-wrap: anywhere;
   }
-  /* a pílula da tag abre mão do nowrap: a folha rola na vertical, nunca na horizontal */
-  .eixos-da-ocorrencia .pilula-tag {
+  /* the tag pill gives up nowrap: the sheet scrolls vertically, never horizontally */
+  .occurrence-axes .tag-pill {
     white-space: normal;
     overflow-wrap: anywhere;
   }
-  .ocorrencia {
+  .occurrence {
     grid-template-columns: 40px minmax(0, 1fr) auto;
     gap: 10px;
     padding: 11px 16px;
   }
-  .ocorrencia-corpo {
+  .occurrence-body {
     overflow-wrap: anywhere;
   }
 
-  /* lançar é pelo botão + flutuante */
-  .flutuante {
+  /* recording goes through the floating + button */
+  .fab {
     display: flex;
   }
-  .fundo-do-flutuante {
+  .fab-backdrop {
     display: block;
   }
 
-  /* formulários como folha: largura da tela, campos em uma coluna */
-  dialog.folha,
-  dialog.folha.lixeira {
+  /* forms as sheets: screen width, fields in one column */
+  dialog.sheet,
+  dialog.sheet.trash {
     width: 100%;
     max-width: none;
     max-height: 94dvh;
@@ -1167,30 +1167,30 @@ dialog.folha.lixeira {
     border: 0;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
-  .folha header {
+  .sheet header {
     padding: 18px 16px 4px;
   }
-  .folha .corpo {
+  .sheet .content {
     padding: 12px 16px;
   }
-  .folha footer {
+  .sheet footer {
     flex-wrap: wrap;
     padding: 14px 16px 18px;
   }
-  .linha-2 {
+  .cols-2 {
     grid-template-columns: 1fr;
   }
 
-  /* tabelas: data, descrição e valor; fonte e tipo saem */
-  .tabela .linha {
+  /* tables: date, description and amount; source and method go */
+  .table .row {
     grid-template-columns: 44px minmax(0, 1fr) auto;
     padding: 10px 12px;
   }
-  .tabela .linha > :nth-child(3),
-  .tabela .linha > :nth-child(4) {
+  .table .row > :nth-child(3),
+  .table .row > :nth-child(4) {
     display: none;
   }
-  .tabela .linha > :nth-child(2) {
+  .table .row > :nth-child(2) {
     overflow-wrap: anywhere;
   }
 }

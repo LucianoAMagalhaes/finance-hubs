@@ -1,10 +1,10 @@
 import { loadState } from "@/persistence";
 import { appDatabase, localToday } from "@/server/app";
-import { TelaDoMes } from "@/tela/TelaDoMes";
+import { MonthScreen } from "@/ui/MonthScreen";
 
-// O estado vem do banco a cada requisição; nada aqui é estático.
+// The state comes from the database on every request; nothing here is static.
 export const dynamic = "force-dynamic";
 
-export default function Pagina() {
-  return <TelaDoMes estadoInicial={loadState(appDatabase())} hoje={localToday()} />;
+export default function Page() {
+  return <MonthScreen initialState={loadState(appDatabase())} today={localToday()} />;
 }
