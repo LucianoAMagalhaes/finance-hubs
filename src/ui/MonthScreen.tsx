@@ -9,6 +9,8 @@ import {
   monthName,
   paymentMethodName,
   addMonths,
+  axisName,
+  AXES,
   type MonthAggregates,
   type Cents,
   type IsoDate,
@@ -27,7 +29,7 @@ import { IncomeForm } from "./IncomeForm";
 import { ExpenseForm } from "./ExpenseForm";
 import { RenameTagForm } from "./RenameTagForm";
 import { Trash } from "./Trash";
-import { MasterDetail, AXIS_NAME } from "./MasterDetail";
+import { MasterDetail } from "./MasterDetail";
 import { RecordButtons, Amount } from "./parts";
 
 type Props = { initialState: State; today: IsoDate };
@@ -104,7 +106,7 @@ export function MonthScreen({ initialState, today }: Props) {
         openExpenses={flow.toggleExpenses}
       />
 
-      <Section title={axis === "jar" ? "Os potes" : `Por ${AXIS_NAME[axis].toLowerCase()}`}>
+      <Section title={axis === "jar" ? "Os potes" : `Por ${axisName(axis).toLowerCase()}`}>
         <AxisPicker axis={axis} change={flow.changeAxis} />
         {axis === "jar" && !draft && (
           <button type="button" className="btn" onClick={flow.editPercentages}>
@@ -296,9 +298,9 @@ function IncomeList({ view, open }: { view: MonthView; open: (income: Income) =>
 function AxisPicker({ axis, change }: { axis: Axis; change: (axis: Axis) => void }) {
   return (
     <div className="axis-picker" role="group" aria-label="Agrupar os gastos por">
-      {(Object.keys(AXIS_NAME) as Axis[]).map((a) => (
-        <button type="button" key={a} aria-pressed={a === axis} onClick={() => change(a)}>
-          {AXIS_NAME[a]}
+      {AXES.map((a) => (
+        <button type="button" key={a.id} aria-pressed={a.id === axis} onClick={() => change(a.id)}>
+          {a.name}
         </button>
       ))}
     </div>

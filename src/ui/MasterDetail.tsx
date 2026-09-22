@@ -7,6 +7,7 @@ import {
   jarName,
   paymentMethodName,
   allExpenses,
+  axisName,
   isJarGroup,
   type Axis,
   type Group,
@@ -14,12 +15,8 @@ import {
   type JarGroup,
   type MonthView,
 } from "@/domain";
+import type { Opened } from "./monthFlow";
 import { tagColor, jarColor, installmentRange, TagPill, plural, Amount } from "./parts";
-
-export const AXIS_NAME: Record<Axis, string> = { jar: "Pote", "payment-method": "Tipo de pagamento", tag: "Tag" };
-
-/** What is open in the detail: a group of the axis, or the whole month's feed (the "Despesas" card). */
-export type Opened = { kind: "group"; key: string | null } | { kind: "all" };
 
 type Props = {
   view: MonthView;
@@ -197,7 +194,7 @@ function Detail({ view, group, axis, close, openOccurrence, renameTag }: DetailP
         <button type="button" className="close" onClick={close} aria-label="Fechar o detalhe e voltar à grade">
           ×
         </button>
-        <div className="kicker">{axis ? AXIS_NAME[axis] : "Despesas"}</div>
+        <div className="kicker">{axis ? axisName(axis) : "Despesas"}</div>
         <h2 style={jar ? jarColor(jar.key) : tag ? tagColor(tag) : undefined}>
           {(jar || tag) && <span className="swatch" />}
           {group.name}

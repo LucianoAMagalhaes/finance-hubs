@@ -26,7 +26,9 @@ import {
   type MonthView,
 } from "@/domain";
 import { previewPercentages, draftFrom, type Draft } from "./percentagesDraft";
-import type { Opened } from "./MasterDetail";
+
+/** What is open in the detail: a group of the axis, or the whole month's feed (the "Despesas" card). */
+export type Opened = { kind: "group"; key: string | null } | { kind: "all" };
 
 /** The open form, already resolved against the state: a new record (null), or the one being corrected. */
 export type OpenForm =

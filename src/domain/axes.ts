@@ -4,8 +4,19 @@ import { paymentMethodName, PAYMENT_METHODS } from "./payment-methods";
 import type { JarGroup, MonthView } from "./projection";
 import { distinctTags } from "./tags";
 
+// The three axes belong to the app, not the user (CONTEXT.md). The order is the screen's.
+export const AXES = [
+  { id: "jar", name: "Pote" },
+  { id: "payment-method", name: "Tipo de pagamento" },
+  { id: "tag", name: "Tag" },
+] as const;
+
 /** A dimension along which the month's occurrences are grouped. */
-export type Axis = "jar" | "payment-method" | "tag";
+export type Axis = (typeof AXES)[number]["id"];
+
+export function axisName(axis: Axis): string {
+  return AXES.find((a) => a.id === axis)!.name;
+}
 
 export type Group = {
   /** The jar, the payment method or the tag; null is the "sem tag" group. */

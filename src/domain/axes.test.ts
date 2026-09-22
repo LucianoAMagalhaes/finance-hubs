@@ -3,6 +3,8 @@ import {
   apply,
   emptyState,
   groups,
+  axisName,
+  AXES,
   tagHue,
   normalizeTag,
   JARS,
@@ -13,7 +15,6 @@ import {
   type Command,
   type Purchase,
   type IsoDate,
-  type Axis,
   type State,
   type ExpenseToSave,
   type Month,
@@ -100,6 +101,17 @@ describe("expense tag", () => {
     expect(tagHue("transporte")).toBe(tagHue("transporte"));
     expect(hues.size).toBeGreaterThan(1);
     expect(hues.size).toBeLessThanOrEqual(8);
+  });
+});
+
+describe("the axes themselves", () => {
+  it("the three, in the order the picker shows them, each with the name the screen reads", () => {
+    expect(AXES.map((a) => [a.id, a.name])).toEqual([
+      ["jar", "Pote"],
+      ["payment-method", "Tipo de pagamento"],
+      ["tag", "Tag"],
+    ]);
+    expect(AXES.map((a) => axisName(a.id))).toEqual(AXES.map((a) => a.name));
   });
 });
 
@@ -192,7 +204,6 @@ describe("groups of an axis", () => {
 });
 
 describe("axes invariant (property)", () => {
-  const AXES: Axis[] = ["jar", "payment-method", "tag"];
   const MONTHS: Month[] = ["2026-08", "2026-09", "2026-10"];
 
   it.each(Array.from({ length: 200 }, (_, i) => i + 1))("state generated with seed %i", (seed) => {
@@ -203,7 +214,7 @@ describe("axes invariant (property)", () => {
       const jarsSum = view.jars.reduce((s, j) => s + j.total, 0);
       expect(jarsSum).toBe(view.aggregates.monthExpenses);
 
-      for (const axis of AXES) {
+      for (const { id: axis } of AXES) {
         const gs = groups(view, axis);
         expect(gs.reduce((s, g) => s + g.total, 0), `axis ${axis} in ${month}`).toBe(view.aggregates.monthExpenses);
         // Each occurrence falls into exactly one group of the axis.

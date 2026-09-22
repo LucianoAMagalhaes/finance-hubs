@@ -25,7 +25,7 @@ export {
   type IncomeSource,
   type NewIncome,
 } from "./incomes";
-export { allExpenses, groups, isJarGroup, type Axis, type Group } from "./axes";
+export { allExpenses, groups, isJarGroup, axisName, AXES, type Axis, type Group } from "./axes";
 export { findPrepayment, purchases, emptyState, type State } from "./state";
 export {
   prepaymentsOf,
