@@ -12,19 +12,19 @@ import {
   type MonthView,
 } from "@/domain";
 
-const HOJE: IsoDate = "2026-09-18";
+const TODAY: IsoDate = "2026-09-18";
 
-describe("editar os percentuais do mês", () => {
-  it("salvar percentuais num mês não nascido o faz nascer com os valores salvos", () => {
-    const salvo = salvar(emptyState(), "2026-10", pcts(40, 20, 15, 15, 5, 5));
+describe("editing the month's percentages", () => {
+  it("saving percentages in an unborn month makes it be born with the saved values", () => {
+    const saved = save(emptyState(), "2026-10", pcts(40, 20, 15, 15, 5, 5));
 
-    const vista = projectMonth(salvo, "2026-10");
-    expect(vista.budget).toEqual({ born: true, inheritedFrom: null });
-    expect(percentuaisDe(vista)).toEqual([40, 20, 15, 15, 5, 5]);
+    const view = projectMonth(saved, "2026-10");
+    expect(view.budget).toEqual({ born: true, inheritedFrom: null });
+    expect(percentagesOf(view)).toEqual([40, 20, 15, 15, 5, 5]);
   });
 
-  it("editar outubro não altera setembro nem um novembro já nascido", () => {
-    const estado: State = {
+  it("editing October changes neither September nor an already born November", () => {
+    const state: State = {
       ...emptyState(),
       budgets: {
         "2026-09": pcts(30, 25, 15, 15, 10, 5),
@@ -33,127 +33,127 @@ describe("editar os percentuais do mês", () => {
       },
     };
 
-    const salvo = salvar(estado, "2026-10", pcts(40, 20, 15, 10, 10, 5));
+    const saved = save(state, "2026-10", pcts(40, 20, 15, 10, 10, 5));
 
-    expect(percentuaisDe(projectMonth(salvo, "2026-09"))).toEqual([30, 25, 15, 15, 10, 5]);
-    expect(percentuaisDe(projectMonth(salvo, "2026-10"))).toEqual([40, 20, 15, 10, 10, 5]);
-    expect(percentuaisDe(projectMonth(salvo, "2026-11"))).toEqual([35, 20, 15, 15, 10, 5]);
+    expect(percentagesOf(projectMonth(saved, "2026-09"))).toEqual([30, 25, 15, 15, 10, 5]);
+    expect(percentagesOf(projectMonth(saved, "2026-10"))).toEqual([40, 20, 15, 10, 10, 5]);
+    expect(percentagesOf(projectMonth(saved, "2026-11"))).toEqual([35, 20, 15, 15, 10, 5]);
   });
 
-  it("um novembro não nascido passa a exibir os percentuais de outubro", () => {
-    const estado: State = {
+  it("an unborn November starts showing October's percentages", () => {
+    const state: State = {
       ...emptyState(),
       budgets: { "2026-09": pcts(30, 25, 15, 15, 10, 5), "2026-10": pcts(30, 25, 15, 15, 10, 5) },
     };
 
-    const salvo = salvar(estado, "2026-10", pcts(40, 20, 15, 10, 10, 5));
+    const saved = save(state, "2026-10", pcts(40, 20, 15, 10, 10, 5));
 
-    const novembro = projectMonth(salvo, "2026-11");
-    expect(novembro.budget).toEqual({ born: false, inheritedFrom: "2026-10" });
-    expect(percentuaisDe(novembro)).toEqual([40, 20, 15, 10, 10, 5]);
+    const november = projectMonth(saved, "2026-11");
+    expect(november.budget).toEqual({ born: false, inheritedFrom: "2026-10" });
+    expect(percentagesOf(november)).toEqual([40, 20, 15, 10, 10, 5]);
   });
 
-  it("aplicar não muda o estado recebido", () => {
-    const estado: State = { ...emptyState(), budgets: { "2026-10": pcts(30, 25, 15, 15, 10, 5) } };
+  it("applying does not change the received state", () => {
+    const state: State = { ...emptyState(), budgets: { "2026-10": pcts(30, 25, 15, 15, 10, 5) } };
 
-    salvar(estado, "2026-10", pcts(40, 20, 15, 10, 10, 5));
+    save(state, "2026-10", pcts(40, 20, 15, 10, 10, 5));
 
-    expect(estado.budgets["2026-10"]).toEqual(pcts(30, 25, 15, 15, 10, 5));
+    expect(state.budgets["2026-10"]).toEqual(pcts(30, 25, 15, 15, 10, 5));
   });
 });
 
-describe("validação dos percentuais", () => {
-  it("soma acima de 100 é recusada, dizendo quanto passou", () => {
-    const resultado = apply(emptyState(), salvarPercentuais("2026-10", pcts(40, 25, 15, 15, 10, 5)), HOJE);
+describe("percentages validation", () => {
+  it("a sum above 100 is rejected, saying by how much it went over", () => {
+    const result = apply(emptyState(), savePercentages("2026-10", pcts(40, 25, 15, 15, 10, 5)), TODAY);
 
-    expect(resultado).toEqual({ ok: false, error: expect.stringMatching(/10 pontos/) });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/10 pontos/) });
   });
 
-  it("soma abaixo de 100 é aceita, e o resto fica não alocado", () => {
-    const salvo = salvar(emptyState(), "2026-10", pcts(30, 20, 15, 15, 5, 5));
+  it("a sum below 100 is accepted, and the rest is unallocated", () => {
+    const saved = save(emptyState(), "2026-10", pcts(30, 20, 15, 15, 5, 5));
 
-    expect(projectMonth(salvo, "2026-10").unallocated.percentage).toBe(10);
+    expect(projectMonth(saved, "2026-10").unallocated.percentage).toBe(10);
   });
 
-  it("soma exatamente 100 é aceita, inclusive com um pote em 100 e os outros em 0", () => {
-    expect(apply(emptyState(), salvarPercentuais("2026-10", pcts(100, 0, 0, 0, 0, 0)), HOJE).ok).toBe(true);
+  it("a sum of exactly 100 is accepted, including with one jar at 100 and the others at 0", () => {
+    expect(apply(emptyState(), savePercentages("2026-10", pcts(100, 0, 0, 0, 0, 0)), TODAY).ok).toBe(true);
   });
 
   it.each([
-    ["percentual negativo", pcts(-5, 25, 15, 15, 10, 5)],
-    ["percentual acima de 100", pcts(101, 0, 0, 0, 0, 0)],
-    ["percentual fracionário", pcts(29.5, 25, 15, 15, 10, 5)],
-    ["percentual que não é número", pcts("30" as never, 25, 15, 15, 10, 5)],
-    ["pote faltando, num comando malformado", { ...pcts(30, 25, 15, 15, 10, 5), pleasures: undefined as never }],
-  ])("%s é recusado", (_, percentuais) => {
-    expect(apply(emptyState(), salvarPercentuais("2026-10", percentuais), HOJE).ok).toBe(false);
+    ["negative percentage", pcts(-5, 25, 15, 15, 10, 5)],
+    ["percentage above 100", pcts(101, 0, 0, 0, 0, 0)],
+    ["fractional percentage", pcts(29.5, 25, 15, 15, 10, 5)],
+    ["percentage that is not a number", pcts("30" as never, 25, 15, 15, 10, 5)],
+    ["missing jar, in a malformed command", { ...pcts(30, 25, 15, 15, 10, 5), pleasures: undefined as never }],
+  ])("%s is rejected", (_, percentages) => {
+    expect(apply(emptyState(), savePercentages("2026-10", percentages), TODAY).ok).toBe(false);
   });
 
-  it("um pote que não é um dos seis é recusado", () => {
-    const percentuais = { ...pcts(30, 25, 15, 15, 10, 0), viagens: 5 } as Percentages;
+  it("a jar that is not one of the six is rejected", () => {
+    const percentages = { ...pcts(30, 25, 15, 15, 10, 0), viagens: 5 } as Percentages;
 
-    expect(apply(emptyState(), salvarPercentuais("2026-10", percentuais), HOJE).ok).toBe(false);
+    expect(apply(emptyState(), savePercentages("2026-10", percentages), TODAY).ok).toBe(false);
   });
 
-  it.each(["2026-13", "2026-9", "outubro", ""])("mês malformado %j é recusado", (mes) => {
-    expect(apply(emptyState(), salvarPercentuais(mes as Month, pcts(30, 25, 15, 15, 10, 5)), HOJE).ok).toBe(false);
+  it.each(["2026-13", "2026-9", "outubro", ""])("malformed month %j is rejected", (month) => {
+    expect(apply(emptyState(), savePercentages(month as Month, pcts(30, 25, 15, 15, 10, 5)), TODAY).ok).toBe(false);
   });
 
-  it("um comando recusado não faz o mês nascer", () => {
-    const estado = emptyState();
+  it("a rejected command does not make the month be born", () => {
+    const state = emptyState();
 
-    apply(estado, salvarPercentuais("2026-10", pcts(50, 25, 15, 15, 10, 5)), HOJE);
+    apply(state, savePercentages("2026-10", pcts(50, 25, 15, 15, 10, 5)), TODAY);
 
-    expect(projectMonth(estado, "2026-10").budget.born).toBe(false);
+    expect(projectMonth(state, "2026-10").budget.born).toBe(false);
   });
 });
 
-describe("projeção com os percentuais que se digitam", () => {
-  const comReceita = (): State => ({
+describe("projection with the percentages being typed", () => {
+  const withIncome = (): State => ({
     ...emptyState(),
     budgets: { "2026-10": pcts(30, 25, 15, 15, 10, 5) },
     incomes: [{ id: 1, date: "2026-10-05", description: "Salário", source: "salary", paymentMethod: "transfer", amount: 1_000_000, deletedAt: null }],
   });
 
-  it("recalcula limites e não alocado com o rascunho, sem gravar nada", () => {
-    const estado = comReceita();
+  it("recomputes limits and unallocated with the draft, without saving anything", () => {
+    const state = withIncome();
 
-    const vista = projectMonth(estado, "2026-10", pcts(40, 20, 15, 10, 5, 0));
+    const view = projectMonth(state, "2026-10", pcts(40, 20, 15, 10, 5, 0));
 
-    expect(percentuaisDe(vista)).toEqual([40, 20, 15, 10, 5, 0]);
-    expect(vista.jars.map((p) => p.limit)).toEqual([400_000, 200_000, 150_000, 100_000, 50_000, 0]);
-    expect(vista.unallocated).toEqual({ percentage: 10, amount: 100_000 });
-    expect(projectMonth(estado, "2026-10").jars.map((p) => p.percentage)).toEqual([30, 25, 15, 15, 10, 5]);
+    expect(percentagesOf(view)).toEqual([40, 20, 15, 10, 5, 0]);
+    expect(view.jars.map((j) => j.limit)).toEqual([400_000, 200_000, 150_000, 100_000, 50_000, 0]);
+    expect(view.unallocated).toEqual({ percentage: 10, amount: 100_000 });
+    expect(projectMonth(state, "2026-10").jars.map((j) => j.percentage)).toEqual([30, 25, 15, 15, 10, 5]);
   });
 
-  it("o rascunho num mês não nascido não o faz parecer nascido", () => {
-    const vista = projectMonth(emptyState(), "2026-11", pcts(40, 20, 15, 10, 5, 0));
+  it("the draft in an unborn month does not make it look born", () => {
+    const view = projectMonth(emptyState(), "2026-11", pcts(40, 20, 15, 10, 5, 0));
 
-    expect(vista.budget).toEqual({ born: false, inheritedFrom: null });
-    expect(percentuaisDe(vista)).toEqual([40, 20, 15, 10, 5, 0]);
+    expect(view.budget).toEqual({ born: false, inheritedFrom: null });
+    expect(percentagesOf(view)).toEqual([40, 20, 15, 10, 5, 0]);
   });
 
-  it("um rascunho que passa de 100 deixa o não alocado em zero, nunca negativo", () => {
-    const vista = projectMonth(comReceita(), "2026-10", pcts(50, 25, 15, 15, 10, 5));
+  it("a draft that goes over 100 leaves the unallocated at zero, never negative", () => {
+    const view = projectMonth(withIncome(), "2026-10", pcts(50, 25, 15, 15, 10, 5));
 
-    expect(vista.unallocated).toEqual({ percentage: 0, amount: 0 });
+    expect(view.unallocated).toEqual({ percentage: 0, amount: 0 });
   });
 });
 
-function salvarPercentuais(mes: Month, percentuais: Percentages): Command {
-  return { type: "save-percentages", month: mes, percentages: percentuais };
+function savePercentages(month: Month, percentages: Percentages): Command {
+  return { type: "save-percentages", month, percentages };
 }
 
-function salvar(estado: State, mes: Month, percentuais: Percentages): State {
-  const resultado = apply(estado, salvarPercentuais(mes, percentuais), HOJE);
-  if (!resultado.ok) throw new Error(resultado.error);
-  return resultado.value;
+function save(state: State, month: Month, percentages: Percentages): State {
+  const result = apply(state, savePercentages(month, percentages), TODAY);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
 }
 
-function pcts(...valores: [number, number, number, number, number, number]): Percentages {
-  return Object.fromEntries(JARS.map((p, i) => [p.id, valores[i]])) as Percentages;
+function pcts(...values: [number, number, number, number, number, number]): Percentages {
+  return Object.fromEntries(JARS.map((j, i) => [j.id, values[i]])) as Percentages;
 }
 
-function percentuaisDe(vista: MonthView): number[] {
-  return vista.jars.map((p) => p.percentage);
+function percentagesOf(view: MonthView): number[] {
+  return view.jars.map((j) => j.percentage);
 }

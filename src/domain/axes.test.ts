@@ -21,17 +21,17 @@ import {
   type PaymentMethod,
 } from "@/domain";
 
-const HOJE: IsoDate = "2026-09-18";
+const TODAY: IsoDate = "2026-09-18";
 
-describe("tag do lançamento", () => {
-  it("\"#Saúde Mental\" e \"saúde-mental\" viram a mesma tag", () => {
-    let estado = salvar(emptyState(), gasto({ tag: "#Saúde Mental", amount: 10_000 }));
-    estado = salvar(estado, gasto({ tag: "saúde-mental", amount: 5_000 }));
+describe("expense tag", () => {
+  it("\"#Saúde Mental\" and \"saúde-mental\" become the same tag", () => {
+    let state = save(emptyState(), expense({ tag: "#Saúde Mental", amount: 10_000 }));
+    state = save(state, expense({ tag: "saúde-mental", amount: 5_000 }));
 
-    const tags = groups(projectMonth(estado, "2026-09"), "tag");
+    const tags = groups(projectMonth(state, "2026-09"), "tag");
 
     expect(tags.map((g) => [g.name, g.total])).toEqual([["#saúde-mental", 15_000]]);
-    expect(estado.expenses.map((l) => (l as Purchase).tag)).toEqual(["saúde-mental", "saúde-mental"]);
+    expect(state.expenses.map((e) => (e as Purchase).tag)).toEqual(["saúde-mental", "saúde-mental"]);
   });
 
   it.each([
@@ -40,85 +40,85 @@ describe("tag do lançamento", () => {
     ["# casa  nova ", "casa-nova"],
     ["SAÚDE", "saúde"],
     ["sau\u0301de", "saúde"],
-  ])("%j é gravada como %j", (digitada, gravada) => {
-    const estado = salvar(emptyState(), gasto({ tag: digitada }));
+  ])("%j is stored as %j", (typed, stored) => {
+    const state = save(emptyState(), expense({ tag: typed }));
 
-    expect(estado.expenses[0]).toMatchObject({ tag: gravada });
+    expect(state.expenses[0]).toMatchObject({ tag: stored });
   });
 
-  it("acento é preservado: \"saude\" e \"saúde\" são tags diferentes", () => {
-    let estado = salvar(emptyState(), gasto({ tag: "saude" }));
-    estado = salvar(estado, gasto({ tag: "saúde" }));
+  it("accents are kept: \"saude\" and \"saúde\" are different tags", () => {
+    let state = save(emptyState(), expense({ tag: "saude" }));
+    state = save(state, expense({ tag: "saúde" }));
 
-    expect(groups(projectMonth(estado, "2026-09"), "tag").map((g) => g.name)).toEqual(["#saude", "#saúde"]);
+    expect(groups(projectMonth(state, "2026-09"), "tag").map((g) => g.name)).toEqual(["#saude", "#saúde"]);
   });
 
-  it.each([["sem tag", undefined], ["tag vazia", ""], ["só espaços", "   "], ["só \"#\"", " # "], ["null", null]])(
-    "%s grava o lançamento sem tag",
+  it.each([["no tag", undefined], ["empty tag", ""], ["only spaces", "   "], ["only \"#\"", " # "], ["null", null]])(
+    "%s stores the expense without a tag",
     (_, tag) => {
-      const estado = salvar(emptyState(), gasto({ tag }));
+      const state = save(emptyState(), expense({ tag }));
 
-      expect(estado.expenses[0]).toMatchObject({ tag: null });
+      expect(state.expenses[0]).toMatchObject({ tag: null });
     },
   );
 
-  it("tag que não é texto é recusada", () => {
-    expect(apply(emptyState(), salvarLancamento(gasto({ tag: 42 as never })), HOJE).ok).toBe(false);
+  it("a tag that is not text is rejected", () => {
+    expect(apply(emptyState(), saveExpense(expense({ tag: 42 as never })), TODAY).ok).toBe(false);
   });
 
-  it("corrigir o lançamento pode trocar ou tirar a tag", () => {
-    const estado = salvar(emptyState(), gasto({ tag: "uber" }));
-    const id = estado.expenses[0]!.id;
+  it("correcting the expense can change or remove the tag", () => {
+    const state = save(emptyState(), expense({ tag: "uber" }));
+    const id = state.expenses[0]!.id;
 
-    expect(salvar(estado, { ...gasto({ tag: "Transporte" }), id }).expenses[0]).toMatchObject({ tag: "transporte" });
-    expect(salvar(estado, { ...gasto({ tag: "" }), id }).expenses[0]).toMatchObject({ tag: null });
+    expect(save(state, { ...expense({ tag: "Transporte" }), id }).expenses[0]).toMatchObject({ tag: "transporte" });
+    expect(save(state, { ...expense({ tag: "" }), id }).expenses[0]).toMatchObject({ tag: null });
   });
 
-  it("a ocorrência leva a tag do lançamento", () => {
-    const estado = salvar(emptyState(), gasto({ tag: "casa" }));
+  it("the occurrence carries the expense's tag", () => {
+    const state = save(emptyState(), expense({ tag: "casa" }));
 
-    expect(projectMonth(estado, "2026-09").occurrences[0]!.tag).toBe("casa");
+    expect(projectMonth(state, "2026-09").occurrences[0]!.tag).toBe("casa");
   });
 
-  it("as tags em uso são as dos lançamentos, sem repetir, em ordem alfabética", () => {
-    let estado = salvar(emptyState(), gasto({ tag: "uber" }));
-    estado = salvar(estado, gasto({ tag: "casa", date: "2027-01-10" }));
-    estado = salvar(estado, gasto({ tag: "Uber" }));
-    estado = salvar(estado, gasto({}));
+  it("the tags in use are the expenses' tags, without repeats, in alphabetical order", () => {
+    let state = save(emptyState(), expense({ tag: "uber" }));
+    state = save(state, expense({ tag: "casa", date: "2027-01-10" }));
+    state = save(state, expense({ tag: "Uber" }));
+    state = save(state, expense({}));
 
-    expect(tagsInUse(estado)).toEqual(["casa", "uber"]);
+    expect(tagsInUse(state)).toEqual(["casa", "uber"]);
   });
 
-  it("normalizarTag é a mesma regra que o comando aplica", () => {
+  it("normalizeTag is the same rule the command applies", () => {
     expect(normalizeTag("#Saúde Mental")).toBe("saúde-mental");
     expect(normalizeTag(" # ")).toBeNull();
   });
 
-  it("a cor da tag é um de oito matizes, derivado só do nome", () => {
-    const matizes = new Set(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "transporte", "casa"].map(tagHue));
+  it("the tag's color is one of eight hues, derived from the name alone", () => {
+    const hues = new Set(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "transporte", "casa"].map(tagHue));
 
     expect(tagHue("transporte")).toBe(tagHue("transporte"));
-    expect(matizes.size).toBeGreaterThan(1);
-    expect(matizes.size).toBeLessThanOrEqual(8);
+    expect(hues.size).toBeGreaterThan(1);
+    expect(hues.size).toBeLessThanOrEqual(8);
   });
 });
 
-describe("grupos de um eixo", () => {
-  it("no eixo pote, os seis potes em ordem, com o total de cada um", () => {
-    const estado = salvar(emptyState(), gasto({ jar: "comfort", amount: 42_000 }));
+describe("groups of an axis", () => {
+  it("on the jar axis, the six jars in order, each with its total", () => {
+    const state = save(emptyState(), expense({ jar: "comfort", amount: 42_000 }));
 
-    const potes = groups(projectMonth(estado, "2026-09"), "jar");
+    const jars = groups(projectMonth(state, "2026-09"), "jar");
 
-    expect(potes.map((g) => g.key)).toEqual(JARS.map((p) => p.id));
-    expect(potes.find((g) => g.key === "comfort")).toMatchObject({ name: "Conforto", total: 42_000 });
+    expect(jars.map((g) => g.key)).toEqual(JARS.map((j) => j.id));
+    expect(jars.find((g) => g.key === "comfort")).toMatchObject({ name: "Conforto", total: 42_000 });
   });
 
-  it("o grupo \"sem tag\" existe quando há ocorrência sem tag, e vem por último", () => {
-    let estado = salvar(emptyState(), gasto({ tag: "uber", amount: 3_000 }));
-    estado = salvar(estado, gasto({ amount: 7_000 }));
-    estado = salvar(estado, gasto({ tag: "casa", amount: 1_000 }));
+  it("the \"sem tag\" group exists when there is an occurrence without a tag, and comes last", () => {
+    let state = save(emptyState(), expense({ tag: "uber", amount: 3_000 }));
+    state = save(state, expense({ amount: 7_000 }));
+    state = save(state, expense({ tag: "casa", amount: 1_000 }));
 
-    const tags = groups(projectMonth(estado, "2026-09"), "tag");
+    const tags = groups(projectMonth(state, "2026-09"), "tag");
 
     expect(tags.map((g) => [g.key, g.name, g.total])).toEqual([
       ["casa", "#casa", 1_000],
@@ -127,116 +127,116 @@ describe("grupos de um eixo", () => {
     ]);
   });
 
-  it("sem ocorrência sem tag, não há grupo \"sem tag\"", () => {
-    const estado = salvar(emptyState(), gasto({ tag: "uber" }));
+  it("with no untagged occurrence, there is no \"sem tag\" group", () => {
+    const state = save(emptyState(), expense({ tag: "uber" }));
 
-    expect(groups(projectMonth(estado, "2026-09"), "tag").map((g) => g.key)).toEqual(["uber"]);
+    expect(groups(projectMonth(state, "2026-09"), "tag").map((g) => g.key)).toEqual(["uber"]);
   });
 
-  it("no eixo tipo, só os tipos usados no mês, na ordem da lista", () => {
-    let estado = salvar(emptyState(), gasto({ paymentMethod: "pix" }));
-    estado = salvar(estado, gasto({ paymentMethod: "cash" }));
-    estado = salvar(estado, gasto({ paymentMethod: "boleto", date: "2026-10-05" }));
+  it("on the payment method axis, only the methods used in the month, in list order", () => {
+    let state = save(emptyState(), expense({ paymentMethod: "pix" }));
+    state = save(state, expense({ paymentMethod: "cash" }));
+    state = save(state, expense({ paymentMethod: "boleto", date: "2026-10-05" }));
 
-    expect(groups(projectMonth(estado, "2026-09"), "payment-method").map((g) => g.name)).toEqual(["Dinheiro", "PIX"]);
+    expect(groups(projectMonth(state, "2026-09"), "payment-method").map((g) => g.name)).toEqual(["Dinheiro", "PIX"]);
   });
 
-  it("um grupo de tipo de pagamento pode ficar negativo: só reembolso", () => {
-    let estado = salvar(emptyState(), gasto({ paymentMethod: "credit-card", amount: 50_000 }));
-    estado = salvar(estado, gasto({ paymentMethod: "pix", amount: -29_790 }));
+  it("a payment method group can go negative: refund only", () => {
+    let state = save(emptyState(), expense({ paymentMethod: "credit-card", amount: 50_000 }));
+    state = save(state, expense({ paymentMethod: "pix", amount: -29_790 }));
 
-    const pix = groups(projectMonth(estado, "2026-09"), "payment-method").find((g) => g.key === "pix")!;
+    const pix = groups(projectMonth(state, "2026-09"), "payment-method").find((g) => g.key === "pix")!;
 
     expect(pix.total).toBe(-29_790);
     expect(pix.occurrences).toHaveLength(1);
   });
 
-  it("as ocorrências de um grupo vêm em ordem de data", () => {
-    let estado = salvar(emptyState(), gasto({ date: "2026-09-20", description: "Farmácia", tag: "saúde" }));
-    estado = salvar(estado, gasto({ date: "2026-09-03", description: "Consulta", tag: "saúde" }));
+  it("a group's occurrences come in date order", () => {
+    let state = save(emptyState(), expense({ date: "2026-09-20", description: "Farmácia", tag: "saúde" }));
+    state = save(state, expense({ date: "2026-09-03", description: "Consulta", tag: "saúde" }));
 
-    const saude = groups(projectMonth(estado, "2026-09"), "tag")[0]!;
+    const health = groups(projectMonth(state, "2026-09"), "tag")[0]!;
 
-    expect(saude.occurrences.map((o) => o.description)).toEqual(["Consulta", "Farmácia"]);
+    expect(health.occurrences.map((o) => o.description)).toEqual(["Consulta", "Farmácia"]);
   });
 
-  it("\"Todos os gastos do mês\" tem todas as ocorrências e soma as despesas", () => {
-    let estado = salvar(emptyState(), gasto({ amount: 50_000 }));
-    estado = salvar(estado, gasto({ amount: -1_000, tag: "casa" }));
-    estado = salvar(estado, gasto({ date: "2026-10-01" }));
-    const vista = projectMonth(estado, "2026-09");
+  it("\"Todos os gastos do mês\" has every occurrence and sums the expenses", () => {
+    let state = save(emptyState(), expense({ amount: 50_000 }));
+    state = save(state, expense({ amount: -1_000, tag: "casa" }));
+    state = save(state, expense({ date: "2026-10-01" }));
+    const view = projectMonth(state, "2026-09");
 
-    const todos = allExpenses(vista);
+    const all = allExpenses(view);
 
-    expect(todos.name).toBe("Todos os gastos do mês");
-    expect(todos.total).toBe(49_000);
-    expect(todos.occurrences).toEqual(vista.occurrences);
+    expect(all.name).toBe("Todos os gastos do mês");
+    expect(all.total).toBe(49_000);
+    expect(all.occurrences).toEqual(view.occurrences);
   });
 });
 
-describe("invariante dos eixos (propriedade)", () => {
-  const EIXOS: Axis[] = ["jar", "payment-method", "tag"];
-  const MESES: Month[] = ["2026-08", "2026-09", "2026-10"];
+describe("axes invariant (property)", () => {
+  const AXES: Axis[] = ["jar", "payment-method", "tag"];
+  const MONTHS: Month[] = ["2026-08", "2026-09", "2026-10"];
 
-  it.each(Array.from({ length: 200 }, (_, i) => i + 1))("estado gerado com a semente %i", (semente) => {
-    const estado = estadoGerado(semente);
+  it.each(Array.from({ length: 200 }, (_, i) => i + 1))("state generated with seed %i", (seed) => {
+    const state = generatedState(seed);
 
-    for (const mes of MESES) {
-      const vista = projectMonth(estado, mes);
-      const somaDosPotes = vista.jars.reduce((s, p) => s + p.total, 0);
-      expect(somaDosPotes).toBe(vista.aggregates.monthExpenses);
+    for (const month of MONTHS) {
+      const view = projectMonth(state, month);
+      const jarsSum = view.jars.reduce((s, j) => s + j.total, 0);
+      expect(jarsSum).toBe(view.aggregates.monthExpenses);
 
-      for (const eixo of EIXOS) {
-        const gs = groups(vista, eixo);
-        expect(gs.reduce((s, g) => s + g.total, 0), `eixo ${eixo} em ${mes}`).toBe(vista.aggregates.monthExpenses);
-        // Cada ocorrência cai em exatamente um grupo do eixo.
-        const vistas = gs.flatMap((g) => g.occurrences);
-        expect(vistas).toHaveLength(vista.occurrences.length);
-        expect(new Set(vistas)).toEqual(new Set(vista.occurrences));
+      for (const axis of AXES) {
+        const gs = groups(view, axis);
+        expect(gs.reduce((s, g) => s + g.total, 0), `axis ${axis} in ${month}`).toBe(view.aggregates.monthExpenses);
+        // Each occurrence falls into exactly one group of the axis.
+        const seen = gs.flatMap((g) => g.occurrences);
+        expect(seen).toHaveLength(view.occurrences.length);
+        expect(new Set(seen)).toEqual(new Set(view.occurrences));
         for (const g of gs) expect(g.total).toBe(g.occurrences.reduce((s, o) => s + o.amount, 0));
       }
-      expect(allExpenses(vista).total).toBe(vista.aggregates.monthExpenses);
+      expect(allExpenses(view).total).toBe(view.aggregates.monthExpenses);
     }
   });
 
-  /** Entradas, gastos e reembolsos, com e sem tag, espalhados por três meses, todos por comando. */
-  function estadoGerado(semente: number): State {
-    const aleatorio = gerador(semente);
-    const um = <T,>(lista: readonly T[]): T => lista[Math.floor(aleatorio() * lista.length)]!;
-    const data = (): IsoDate => `${um(MESES)}-${String(1 + Math.floor(aleatorio() * 28)).padStart(2, "0")}` as IsoDate;
+  /** Incomes, expenses and refunds, with and without tags, spread over three months, all through commands. */
+  function generatedState(seed: number): State {
+    const random = generator(seed);
+    const pick = <T,>(list: readonly T[]): T => list[Math.floor(random() * list.length)]!;
+    const date = (): IsoDate => `${pick(MONTHS)}-${String(1 + Math.floor(random() * 28)).padStart(2, "0")}` as IsoDate;
     const TAGS = ["#Transporte", "transporte", "Saúde Mental", "saude", "casa", "", "  "];
-    const comandos: Command[] = [];
-    for (let i = Math.floor(aleatorio() * 4); i > 0; i--) {
-      comandos.push({
+    const commands: Command[] = [];
+    for (let i = Math.floor(random() * 4); i > 0; i--) {
+      commands.push({
         type: "save-income",
-        income: { date: data(), description: "Salário", source: "salary", paymentMethod: "pix", amount: 1 + Math.floor(aleatorio() * 1_000_000) },
+        income: { date: date(), description: "Salário", source: "salary", paymentMethod: "pix", amount: 1 + Math.floor(random() * 1_000_000) },
       });
     }
-    for (let i = Math.floor(aleatorio() * 25); i > 0; i--) {
-      const valor = 1 + Math.floor(aleatorio() * 200_000);
-      comandos.push(
-        salvarLancamento(
-          gasto({
-            date: data(),
-            jar: um(JARS).id,
-            paymentMethod: um(PAYMENT_METHODS).id,
-            amount: aleatorio() < 0.25 ? -valor : valor,
-            tag: aleatorio() < 0.3 ? undefined : um(TAGS),
+    for (let i = Math.floor(random() * 25); i > 0; i--) {
+      const amount = 1 + Math.floor(random() * 200_000);
+      commands.push(
+        saveExpense(
+          expense({
+            date: date(),
+            jar: pick(JARS).id,
+            paymentMethod: pick(PAYMENT_METHODS).id,
+            amount: random() < 0.25 ? -amount : amount,
+            tag: random() < 0.3 ? undefined : pick(TAGS),
           }),
         ),
       );
     }
-    return comandos.reduce((estado, comando) => {
-      const resultado = apply(estado, comando, HOJE);
-      if (!resultado.ok) throw new Error(resultado.error);
-      return resultado.value;
+    return commands.reduce((state, command) => {
+      const result = apply(state, command, TODAY);
+      if (!result.ok) throw new Error(result.error);
+      return result.value;
     }, emptyState());
   }
 });
 
-/** mulberry32: reproduzível, para que uma semente que falha falhe sempre. */
-function gerador(semente: number): () => number {
-  let a = semente >>> 0;
+/** mulberry32: reproducible, so a seed that fails always fails. */
+function generator(seed: number): () => number {
+  let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
     let t = a;
@@ -246,7 +246,7 @@ function gerador(semente: number): () => number {
   };
 }
 
-function gasto(campos: {
+function expense(fields: {
   date?: IsoDate;
   description?: string;
   jar?: Jar;
@@ -261,16 +261,16 @@ function gasto(campos: {
     paymentMethod: "debit-card",
     amount: 10_000,
     installments: 1,
-    ...campos,
+    ...fields,
   };
 }
 
-function salvarLancamento(lancamento: ExpenseToSave): Command {
-  return { type: "save-expense", expense: lancamento };
+function saveExpense(expense: ExpenseToSave): Command {
+  return { type: "save-expense", expense };
 }
 
-function salvar(estado: State, lancamento: ExpenseToSave): State {
-  const resultado = apply(estado, salvarLancamento(lancamento), HOJE);
-  if (!resultado.ok) throw new Error(resultado.error);
-  return resultado.value;
+function save(state: State, expense: ExpenseToSave): State {
+  const result = apply(state, saveExpense(expense), TODAY);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
 }

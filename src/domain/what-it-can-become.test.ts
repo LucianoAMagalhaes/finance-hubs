@@ -13,148 +13,148 @@ import {
   type RecurringToCreate,
 } from "@/domain";
 
-const HOJE: IsoDate = "2026-09-18";
+const TODAY: IsoDate = "2026-09-18";
 
-// Cada caso confere os dois lados: o que a consulta diz travado, `aplicar`
-// recusa com a mesma frase; o que ela diz livre, `aplicar` aceita.
+// Each case checks both sides: what the query says is locked, `apply`
+// rejects with the same sentence; what it says is free, `apply` accepts.
 
-describe("o que um lançamento pode virar", () => {
-  it("um lançamento novo pode ter qualquer forma, com tudo livre e nada a encerrar", () => {
+describe("what an expense can become", () => {
+  it("a new expense can take any form, with everything free and nothing to end", () => {
     expect(whatItCanBecome(null, "2026-09")).toEqual({
       shapes: { upfront: null, installments: null, recurring: null },
       lock: null,
       end: null,
     });
-    expect(aceita(emptyState(), salvarLancamento(COMPRA))).toBe(true);
-    expect(aceita(emptyState(), salvarLancamento({ ...COMPRA, installments: 3 }))).toBe(true);
-    expect(aceita(emptyState(), { type: "create-recurring", recurring: ALUGUEL })).toBe(true);
+    expect(accepts(emptyState(), saveExpense(PURCHASE))).toBe(true);
+    expect(accepts(emptyState(), saveExpense({ ...PURCHASE, installments: 3 }))).toBe(true);
+    expect(accepts(emptyState(), { type: "create-recurring", recurring: RENT })).toBe(true);
   });
 
-  it("um recorrente não vira compra, com a mesma recusa que salvá-lo como compra daria", () => {
-    const estado = apos({ type: "create-recurring", recurring: ALUGUEL });
+  it("a recurring does not become a purchase, with the same refusal saving it as a purchase would give", () => {
+    const state = after({ type: "create-recurring", recurring: RENT });
 
-    const { shapes: formas, lock: trava } = whatItCanBecome(lancamentoDe(estado), "2026-07");
+    const { shapes, lock } = whatItCanBecome(expenseOf(state), "2026-07");
 
-    expect(formas.upfront).toBe("Um recorrente não vira compra: apague e lance de novo.");
-    expect(recusa(estado, salvarLancamento({ ...COMPRA, id: 1 }))).toBe(formas.upfront);
-    expect(recusa(estado, salvarLancamento({ ...COMPRA, id: 1, installments: 3 }))).toBe(formas.installments);
-    expect(formas.recurring).toBeNull();
-    expect(trava).toBeNull();
-    expect(aceita(estado, { type: "change-recurring", id: 1, month: "2026-07", period: { ...ALUGUEL, amount: 160_000 } })).toBe(true);
+    expect(shapes.upfront).toBe("Um recorrente não vira compra: apague e lance de novo.");
+    expect(refusal(state, saveExpense({ ...PURCHASE, id: 1 }))).toBe(shapes.upfront);
+    expect(refusal(state, saveExpense({ ...PURCHASE, id: 1, installments: 3 }))).toBe(shapes.installments);
+    expect(shapes.recurring).toBeNull();
+    expect(lock).toBeNull();
+    expect(accepts(state, { type: "change-recurring", id: 1, month: "2026-07", period: { ...RENT, amount: 160_000 } })).toBe(true);
   });
 
-  it("uma compra à vista vira parcelado e volta, mas não vira recorrente", () => {
-    const estado = apos(salvarLancamento(COMPRA));
+  it("an upfront purchase becomes installments and back, but does not become a recurring", () => {
+    const state = after(saveExpense(PURCHASE));
 
-    const { shapes: formas, lock: trava } = whatItCanBecome(lancamentoDe(estado), "2026-07");
+    const { shapes, lock } = whatItCanBecome(expenseOf(state), "2026-07");
 
-    expect(formas.upfront).toBeNull();
-    expect(formas.installments).toBeNull();
-    expect(trava).toBeNull();
-    expect(aceita(estado, salvarLancamento({ ...COMPRA, id: 1, installments: 3 }))).toBe(true);
-    expect(formas.recurring).toBe("Uma compra não vira recorrente: apague e lance de novo.");
-    expect(recusa(estado, { type: "change-recurring", id: 1, month: "2026-07", period: COMPRA })).toBe(formas.recurring);
+    expect(shapes.upfront).toBeNull();
+    expect(shapes.installments).toBeNull();
+    expect(lock).toBeNull();
+    expect(accepts(state, saveExpense({ ...PURCHASE, id: 1, installments: 3 }))).toBe(true);
+    expect(shapes.recurring).toBe("Uma compra não vira recorrente: apague e lance de novo.");
+    expect(refusal(state, { type: "change-recurring", id: 1, month: "2026-07", period: PURCHASE })).toBe(shapes.recurring);
   });
 
-  it("um parcelado sem antecipação muda de data, total e parcelas, e volta a ser à vista", () => {
-    const estado = apos(salvarLancamento(EM_DEZ));
+  it("an installment purchase without a prepayment changes date, total and installments, and goes back to upfront", () => {
+    const state = after(saveExpense(IN_TEN));
 
-    const { shapes: formas, lock: trava } = whatItCanBecome(lancamentoDe(estado), "2026-07");
+    const { shapes, lock } = whatItCanBecome(expenseOf(state), "2026-07");
 
-    expect(trava).toBeNull();
-    expect(formas.upfront).toBeNull();
-    expect(aceita(estado, salvarLancamento({ ...EM_DEZ, id: 1, date: "2026-02-15", amount: 400_000, installments: 12 }))).toBe(true);
-    expect(aceita(estado, salvarLancamento({ ...EM_DEZ, id: 1, installments: 1 }))).toBe(true);
+    expect(lock).toBeNull();
+    expect(shapes.upfront).toBeNull();
+    expect(accepts(state, saveExpense({ ...IN_TEN, id: 1, date: "2026-02-15", amount: 400_000, installments: 12 }))).toBe(true);
+    expect(accepts(state, saveExpense({ ...IN_TEN, id: 1, installments: 1 }))).toBe(true);
   });
 
-  describe("um parcelado com antecipação", () => {
-    const estado = apos(salvarLancamento(EM_DEZ), ANTECIPAR_3_EM_JULHO);
-    const { shapes: formas, lock: trava } = whatItCanBecome(lancamentoDe(estado), "2026-07");
-    const corrigido = { ...EM_DEZ, id: 1 };
+  describe("an installment purchase with a prepayment", () => {
+    const state = after(saveExpense(IN_TEN), PREPAY_3_IN_JULY);
+    const { shapes, lock } = whatItCanBecome(expenseOf(state), "2026-07");
+    const corrected = { ...IN_TEN, id: 1 };
 
-    it("trava data, total e parcelas com a mesma recusa que mudá-los daria", () => {
-      expect(trava).toBe("Este parcelado tem antecipação: desfaça-a antes de mudar a data, o total ou o número de parcelas.");
-      expect(recusa(estado, salvarLancamento({ ...corrigido, date: "2026-02-15" }))).toBe(trava);
-      expect(recusa(estado, salvarLancamento({ ...corrigido, amount: 400_000 }))).toBe(trava);
-      expect(recusa(estado, salvarLancamento({ ...corrigido, installments: 12 }))).toBe(trava);
+    it("locks date, total and installments with the same refusal changing them would give", () => {
+      expect(lock).toBe("Este parcelado tem antecipação: desfaça-a antes de mudar a data, o total ou o número de parcelas.");
+      expect(refusal(state, saveExpense({ ...corrected, date: "2026-02-15" }))).toBe(lock);
+      expect(refusal(state, saveExpense({ ...corrected, amount: 400_000 }))).toBe(lock);
+      expect(refusal(state, saveExpense({ ...corrected, installments: 12 }))).toBe(lock);
     });
 
-    it("continua livre para descrição, pote e tag", () => {
-      expect(aceita(estado, salvarLancamento({ ...corrigido, description: "Notebook novo", jar: "goals", tag: "trabalho" }))).toBe(true);
+    it("stays free for description, jar and tag", () => {
+      expect(accepts(state, saveExpense({ ...corrected, description: "Notebook novo", jar: "goals", tag: "trabalho" }))).toBe(true);
     });
 
-    it("não volta a ser à vista, pela mesma trava", () => {
-      expect(formas.installments).toBeNull();
-      expect(formas.upfront).toBe(trava);
-      expect(recusa(estado, salvarLancamento({ ...corrigido, installments: 1 }))).toBe(trava);
+    it("does not go back to upfront, because of the same lock", () => {
+      expect(shapes.installments).toBeNull();
+      expect(shapes.upfront).toBe(lock);
+      expect(refusal(state, saveExpense({ ...corrected, installments: 1 }))).toBe(lock);
     });
 
-    it("não vira recorrente por ser compra, que é o motivo que vence a trava", () => {
-      expect(formas.recurring).toBe("Uma compra não vira recorrente: apague e lance de novo.");
-      expect(recusa(estado, { type: "change-recurring", id: 1, month: "2026-07", period: EM_DEZ })).toBe(formas.recurring);
+    it("does not become a recurring because it is a purchase, which is the reason that beats the lock", () => {
+      expect(shapes.recurring).toBe("Uma compra não vira recorrente: apague e lance de novo.");
+      expect(refusal(state, { type: "change-recurring", id: 1, month: "2026-07", period: IN_TEN })).toBe(shapes.recurring);
     });
   });
 
-  it("um parcelado cuja antecipação foi desfeita volta a ficar livre", () => {
-    const estado = apos(salvarLancamento(EM_DEZ), ANTECIPAR_3_EM_JULHO, { type: "delete", record: "prepayment", id: 1 });
+  it("an installment purchase whose prepayment was undone becomes free again", () => {
+    const state = after(saveExpense(IN_TEN), PREPAY_3_IN_JULY, { type: "delete", record: "prepayment", id: 1 });
 
-    const { shapes: formas, lock: trava } = whatItCanBecome(lancamentoDe(estado), "2026-07");
+    const { shapes, lock } = whatItCanBecome(expenseOf(state), "2026-07");
 
-    expect(trava).toBeNull();
-    expect(formas.upfront).toBeNull();
-    expect(aceita(estado, salvarLancamento({ ...EM_DEZ, id: 1, date: "2026-02-15", amount: 400_000 }))).toBe(true);
-    expect(aceita(estado, salvarLancamento({ ...EM_DEZ, id: 1, installments: 1 }))).toBe(true);
+    expect(lock).toBeNull();
+    expect(shapes.upfront).toBeNull();
+    expect(accepts(state, saveExpense({ ...IN_TEN, id: 1, date: "2026-02-15", amount: 400_000 }))).toBe(true);
+    expect(accepts(state, saveExpense({ ...IN_TEN, id: 1, installments: 1 }))).toBe(true);
   });
 
-  it("um parcelado na lixeira não se diz travado pela antecipação: a recusa é de quem grava", () => {
-    const estado = apos(salvarLancamento(EM_DEZ), ANTECIPAR_3_EM_JULHO, { type: "delete", record: "expense", id: 1 });
+  it("an installment purchase in the trash does not report itself locked by the prepayment: the refusal is the saver's", () => {
+    const state = after(saveExpense(IN_TEN), PREPAY_3_IN_JULY, { type: "delete", record: "expense", id: 1 });
 
-    expect(whatItCanBecome(lancamentoDe(estado), "2026-07").lock).toBeNull();
-    expect(recusa(estado, salvarLancamento({ ...EM_DEZ, id: 1, installments: 12 }))).toBe("Esse lançamento não existe mais.");
+    expect(whatItCanBecome(expenseOf(state), "2026-07").lock).toBeNull();
+    expect(refusal(state, saveExpense({ ...IN_TEN, id: 1, installments: 12 }))).toBe("Esse lançamento não existe mais.");
   });
 });
 
-describe("só Cartão de Crédito parcela", () => {
-  it("fora do cartão, a recusa é a mesma que salvar o parcelado daria", () => {
+describe("only Credit Card splits into installments", () => {
+  it("off the card, the refusal is the same saving the installment purchase would give", () => {
     expect(whyNoInstallments("pix")).toBe("Só Cartão de Crédito parcela.");
-    expect(recusa(emptyState(), salvarLancamento({ ...COMPRA, paymentMethod: "pix", installments: 3 }))).toBe(whyNoInstallments("pix"));
+    expect(refusal(emptyState(), saveExpense({ ...PURCHASE, paymentMethod: "pix", installments: 3 }))).toBe(whyNoInstallments("pix"));
   });
 
-  it("no cartão, parcela", () => {
+  it("on the card, it splits into installments", () => {
     expect(whyNoInstallments("credit-card")).toBeNull();
   });
 });
 
-describe("encerrar um recorrente", () => {
-  // Aluguel desde junho, reajustado em agosto: duas vigências.
-  const estado = apos(
-    { type: "create-recurring", recurring: ALUGUEL },
-    { type: "change-recurring", id: 1, month: "2026-08", period: { ...ALUGUEL, amount: 165_000 } },
+describe("ending a recurring", () => {
+  // Rent since June, adjusted in August: two periods.
+  const state = after(
+    { type: "create-recurring", recurring: RENT },
+    { type: "change-recurring", id: 1, month: "2026-08", period: { ...RENT, amount: 165_000 } },
   );
-  const aluguel = lancamentoDe(estado);
-  const encerrado = (mes: Month) => lancamentoDe(aplicarOk(estado, { type: "end-recurring", id: 1, month: mes }));
+  const rent = expenseOf(state);
+  const ended = (month: Month) => expenseOf(applyOk(state, { type: "end-recurring", id: 1, month }));
 
-  it("no mês de início manda o recorrente inteiro para a lixeira", () => {
-    expect(whatItCanBecome(aluguel, "2026-06").end).toEqual({ type: "trash" });
-    expect(encerrado("2026-06").deletedAt).toBe(HOJE);
+  it("in the start month it sends the whole recurring to the trash", () => {
+    expect(whatItCanBecome(rent, "2026-06").end).toEqual({ type: "trash" });
+    expect(ended("2026-06").deletedAt).toBe(TODAY);
   });
 
-  it("antes do reajuste descarta a vigência que vinha depois", () => {
-    expect(whatItCanBecome(aluguel, "2026-07").end).toEqual({ type: "end", discarded: 1 });
-    expect(encerrado("2026-07")).toMatchObject({ deletedAt: null, endedIn: "2026-07", periods: [{ since: "2026-06" }] });
+  it("before the adjustment it discards the period that came after", () => {
+    expect(whatItCanBecome(rent, "2026-07").end).toEqual({ type: "end", discarded: 1 });
+    expect(ended("2026-07")).toMatchObject({ deletedAt: null, endedIn: "2026-07", periods: [{ since: "2026-06" }] });
   });
 
-  it("depois do reajuste não descarta nenhuma", () => {
-    expect(whatItCanBecome(aluguel, "2026-09").end).toEqual({ type: "end", discarded: 0 });
-    expect(encerrado("2026-09")).toMatchObject({ periods: [{ since: "2026-06" }, { since: "2026-08" }] });
+  it("after the adjustment it discards none", () => {
+    expect(whatItCanBecome(rent, "2026-09").end).toEqual({ type: "end", discarded: 0 });
+    expect(ended("2026-09")).toMatchObject({ periods: [{ since: "2026-06" }, { since: "2026-08" }] });
   });
 
-  it("uma compra não tem o que encerrar", () => {
-    expect(whatItCanBecome(lancamentoDe(apos(salvarLancamento(COMPRA))), "2026-07").end).toBeNull();
+  it("a purchase has nothing to end", () => {
+    expect(whatItCanBecome(expenseOf(after(saveExpense(PURCHASE))), "2026-07").end).toBeNull();
   });
 });
 
-const COMPRA: ExpenseToSave = {
+const PURCHASE: ExpenseToSave = {
   date: "2026-07-10",
   description: "Supermercado",
   jar: "fixed-costs",
@@ -163,8 +163,8 @@ const COMPRA: ExpenseToSave = {
   installments: 1,
 };
 
-/** Um parcelado de 10× a partir de janeiro. */
-const EM_DEZ: ExpenseToSave = {
+/** A 10× installment purchase starting in January. */
+const IN_TEN: ExpenseToSave = {
   date: "2026-01-15",
   description: "Notebook",
   jar: "comfort",
@@ -173,37 +173,37 @@ const EM_DEZ: ExpenseToSave = {
   installments: 10,
 };
 
-/** As 3 últimas parcelas do parcelado 1, antecipadas em julho. */
-const ANTECIPAR_3_EM_JULHO: Command = {
+/** The last 3 installments of installment purchase 1, prepaid in July. */
+const PREPAY_3_IN_JULY: Command = {
   type: "save-prepayment",
   prepayment: { expense: 1, date: "2026-07-20", installments: 3, amount: 300_000 },
 };
 
-/** Um aluguel recorrente desde junho, com uma vigência só. */
-const ALUGUEL: RecurringToCreate = { date: "2026-06-05", description: "Aluguel", jar: "fixed-costs", paymentMethod: "pix", amount: 150_000 };
+/** A recurring rent since June, with a single period. */
+const RENT: RecurringToCreate = { date: "2026-06-05", description: "Aluguel", jar: "fixed-costs", paymentMethod: "pix", amount: 150_000 };
 
-const salvarLancamento = (lancamento: ExpenseToSave): Command => ({ type: "save-expense", expense: lancamento });
+const saveExpense = (expense: ExpenseToSave): Command => ({ type: "save-expense", expense });
 
-const aceita = (estado: State, comando: Command) => apply(estado, comando, HOJE).ok;
+const accepts = (state: State, command: Command) => apply(state, command, TODAY).ok;
 
-/** A recusa de um comando, falhando o teste se ele passar. */
-function recusa(estado: State, comando: Command): string {
-  const resultado = apply(estado, comando, HOJE);
-  if (resultado.ok) throw new Error(`o comando ${comando.type} passou`);
-  return resultado.error;
+/** A command's refusal, failing the test if it goes through. */
+function refusal(state: State, command: Command): string {
+  const result = apply(state, command, TODAY);
+  if (result.ok) throw new Error(`the command ${command.type} went through`);
+  return result.error;
 }
 
-/** O estado depois dos comandos, em ordem, a partir do vazio. */
-const apos = (...comandos: Command[]): State => comandos.reduce(aplicarOk, emptyState());
+/** The state after the commands, in order, starting from empty. */
+const after = (...commands: Command[]): State => commands.reduce(applyOk, emptyState());
 
-function aplicarOk(estado: State, comando: Command): State {
-  const resultado = apply(estado, comando, HOJE);
-  if (!resultado.ok) throw new Error(resultado.error);
-  return resultado.value;
+function applyOk(state: State, command: Command): State {
+  const result = apply(state, command, TODAY);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
 }
 
-function lancamentoDe(estado: State, id = 1): Expense {
-  const l = estado.expenses.find((x) => x.id === id);
-  if (!l) throw new Error(`${id} não existe`);
-  return l;
+function expenseOf(state: State, id = 1): Expense {
+  const e = state.expenses.find((x) => x.id === id);
+  if (!e) throw new Error(`${id} does not exist`);
+  return e;
 }

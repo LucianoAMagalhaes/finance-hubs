@@ -13,225 +13,225 @@ import {
   type MonthView,
 } from "@/domain";
 
-const HOJE: IsoDate = "2026-09-18";
+const TODAY: IsoDate = "2026-09-18";
 
-/** Setembro nascido com os padrão e R$ 10.000,00 de receita: Conforto tem limite de R$ 1.500,00. */
-function comReceita(valor = 1_000_000): State {
+/** September born with the defaults and R$ 10.000,00 of income: Comfort has a R$ 1.500,00 limit. */
+function withIncome(amount = 1_000_000): State {
   return {
     ...emptyState(),
     budgets: { "2026-09": pcts(30, 25, 15, 15, 10, 5) },
-    incomes: [{ id: 1, date: "2026-09-05", description: "Salário", source: "salary", paymentMethod: "transfer", amount: valor, deletedAt: null }],
+    incomes: [{ id: 1, date: "2026-09-05", description: "Salário", source: "salary", paymentMethod: "transfer", amount, deletedAt: null }],
   };
 }
 
-describe("lançamento à vista", () => {
-  it("o gasto entra no total do pote, e só do seu pote", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 42_000 }));
+describe("upfront expense", () => {
+  it("the expense counts toward the jar's total, and only its own jar", () => {
+    const state = save(withIncome(), upfront({ jar: "comfort", amount: 42_000 }));
 
-    const vista = projectMonth(estado, "2026-09");
+    const view = projectMonth(state, "2026-09");
 
-    expect(poteDe(vista, "comfort").total).toBe(42_000);
-    expect(vista.jars.filter((p) => p.id !== "comfort").every((p) => p.total === 0)).toBe(true);
+    expect(jarOf(view, "comfort").total).toBe(42_000);
+    expect(view.jars.filter((j) => j.id !== "comfort").every((j) => j.total === 0)).toBe(true);
   });
 
-  it("o gasto pesa só no mês da sua data", () => {
-    const estado = salvar(comReceita(), aVista({ date: "2026-10-02", jar: "comfort", amount: 42_000 }));
+  it("the expense weighs only on the month of its date", () => {
+    const state = save(withIncome(), upfront({ date: "2026-10-02", jar: "comfort", amount: 42_000 }));
 
-    expect(poteDe(projectMonth(estado, "2026-09"), "comfort").total).toBe(0);
-    expect(poteDe(projectMonth(estado, "2026-10"), "comfort").total).toBe(42_000);
+    expect(jarOf(projectMonth(state, "2026-09"), "comfort").total).toBe(0);
+    expect(jarOf(projectMonth(state, "2026-10"), "comfort").total).toBe(42_000);
   });
 
-  it("o à vista é uma compra de uma parcela: uma ocorrência no mês, com o total", () => {
-    const estado = salvar(comReceita(), aVista({ description: "Jantar", jar: "pleasures", paymentMethod: "pix", amount: 18_990 }));
+  it("an upfront purchase is a one-installment purchase: one occurrence in the month, with the total", () => {
+    const state = save(withIncome(), upfront({ description: "Jantar", jar: "pleasures", paymentMethod: "pix", amount: 18_990 }));
 
-    const vista = projectMonth(estado, "2026-09");
+    const view = projectMonth(state, "2026-09");
 
-    expect(vista.occurrences).toEqual([
+    expect(view.occurrences).toEqual([
       { expense: 1, date: "2026-09-12", description: "Jantar", jar: "pleasures", paymentMethod: "pix", tag: null, amount: 18_990, installment: null, recurring: null, prepayment: null },
     ]);
-    expect(estado.expenses[0]).toMatchObject({ amount: 18_990, installments: 1 });
+    expect(state.expenses[0]).toMatchObject({ amount: 18_990, installments: 1 });
   });
 
-  it("as ocorrências do mês vêm em ordem de data", () => {
-    let estado = salvar(comReceita(), aVista({ date: "2026-09-20", description: "Farmácia" }));
-    estado = salvar(estado, aVista({ date: "2026-09-03", description: "Mercado" }));
-    estado = salvar(estado, aVista({ date: "2026-10-01", description: "Outubro" }));
+  it("the month's occurrences come in date order", () => {
+    let state = save(withIncome(), upfront({ date: "2026-09-20", description: "Farmácia" }));
+    state = save(state, upfront({ date: "2026-09-03", description: "Mercado" }));
+    state = save(state, upfront({ date: "2026-10-01", description: "Outubro" }));
 
-    expect(projectMonth(estado, "2026-09").occurrences.map((o) => o.description)).toEqual(["Mercado", "Farmácia"]);
+    expect(projectMonth(state, "2026-09").occurrences.map((o) => o.description)).toEqual(["Mercado", "Farmácia"]);
   });
 
-  it("editar o gasto troca o total do pote, e mudá-lo de pote leva o total junto", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 42_000 }));
-    const id = estado.expenses[0]!.id;
+  it("editing the expense changes the jar's total, and moving it to another jar takes the total along", () => {
+    const state = save(withIncome(), upfront({ jar: "comfort", amount: 42_000 }));
+    const id = state.expenses[0]!.id;
 
-    const editado = salvar(estado, { ...aVista({ jar: "goals", amount: 50_000 }), id });
+    const edited = save(state, { ...upfront({ jar: "goals", amount: 50_000 }), id });
 
-    const vista = projectMonth(editado, "2026-09");
-    expect(poteDe(vista, "comfort").total).toBe(0);
-    expect(poteDe(vista, "goals").total).toBe(50_000);
-    expect(vista.occurrences).toHaveLength(1);
+    const view = projectMonth(edited, "2026-09");
+    expect(jarOf(view, "comfort").total).toBe(0);
+    expect(jarOf(view, "goals").total).toBe(50_000);
+    expect(view.occurrences).toHaveLength(1);
   });
 
-  it("editar um lançamento que não existe é recusado", () => {
-    const resultado = apply(comReceita(), salvarLancamento({ ...aVista({}), id: 42 }), HOJE);
+  it("editing an expense that does not exist is rejected", () => {
+    const result = apply(withIncome(), saveExpense({ ...upfront({}), id: 42 }), TODAY);
 
-    expect(resultado).toEqual({ ok: false, error: expect.stringMatching(/não existe/) });
-  });
-});
-
-describe("veredito", () => {
-  // 15% de R$ 3,33 = 49,95 centavos: o limite exato tem fração de centavo.
-  it("um centavo acima do limite exato é Estourou, com o estouro exato", () => {
-    const estado = salvar(comReceita(333), aVista({ jar: "comfort", amount: 50 }));
-
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
-
-    expect(conforto.verdict).toBe("overrun");
-    expect(conforto.overrun).toBeCloseTo(0.05, 10);
-  });
-
-  it("exatamente no limite é Sobra", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 150_000 }));
-
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
-
-    expect(conforto.verdict).toBe("leftover");
-    expect(conforto.overrun).toBe(0);
-  });
-
-  it("um centavo acima do limite é Estourou por um centavo", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 150_001 }));
-
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
-
-    expect(conforto.verdict).toBe("overrun");
-    expect(conforto.overrun).toBe(1);
-  });
-
-  it("mês sem entrada é Sem receita, mesmo com gasto", () => {
-    const estado = salvar(emptyState(), aVista({ jar: "comfort", amount: 42_000 }));
-
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
-
-    expect(conforto).toMatchObject({ total: 42_000, limit: null, verdict: "no-income", overrun: null });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/não existe/) });
   });
 });
 
-describe("reembolso", () => {
-  it("reduz o total do pote e as Despesas, sem mexer na receita nem nos limites", () => {
-    const comGasto = salvar(comReceita(), aVista({ jar: "comfort", amount: 80_000 }));
-    const antes = projectMonth(comGasto, "2026-09");
+describe("verdict", () => {
+  // 15% of R$ 3,33 = 49.95 cents: the exact limit has a fraction of a cent.
+  it("one cent above the exact limit is Overrun, with the exact overrun", () => {
+    const state = save(withIncome(333), upfront({ jar: "comfort", amount: 50 }));
 
-    const depois = projectMonth(salvar(comGasto, aVista({ jar: "comfort", amount: -29_790 })), "2026-09");
+    const comfort = jarOf(projectMonth(state, "2026-09"), "comfort");
 
-    expect(poteDe(depois, "comfort").total).toBe(50_210);
-    expect(depois.aggregates.monthExpenses).toBe(50_210);
-    expect(depois.monthIncome).toBe(antes.monthIncome);
-    expect(depois.jars.map((p) => p.limit)).toEqual(antes.jars.map((p) => p.limit));
+    expect(comfort.verdict).toBe("overrun");
+    expect(comfort.overrun).toBeCloseTo(0.05, 10);
   });
 
-  it("pode deixar o total do pote negativo", () => {
-    const estado = salvar(comReceita(), aVista({ jar: "comfort", amount: -29_790 }));
+  it("exactly at the limit is Leftover", () => {
+    const state = save(withIncome(), upfront({ jar: "comfort", amount: 150_000 }));
 
-    const conforto = poteDe(projectMonth(estado, "2026-09"), "comfort");
+    const comfort = jarOf(projectMonth(state, "2026-09"), "comfort");
 
-    expect(conforto.total).toBe(-29_790);
-    expect(conforto.verdict).toBe("leftover");
+    expect(comfort.verdict).toBe("leftover");
+    expect(comfort.overrun).toBe(0);
   });
 
-  it("tira um pote do estouro", () => {
-    let estado = salvar(comReceita(), aVista({ jar: "comfort", amount: 160_000 }));
-    estado = salvar(estado, aVista({ jar: "comfort", amount: -10_000 }));
+  it("one cent above the limit is Overrun by one cent", () => {
+    const state = save(withIncome(), upfront({ jar: "comfort", amount: 150_001 }));
 
-    expect(poteDe(projectMonth(estado, "2026-09"), "comfort").verdict).toBe("leftover");
-  });
-});
+    const comfort = jarOf(projectMonth(state, "2026-09"), "comfort");
 
-describe("agregados do mês", () => {
-  it("Despesas é a soma dos seis potes, e Saldo do mês é Receitas − Despesas", () => {
-    let estado = salvar(comReceita(), aVista({ jar: "fixed-costs", amount: 150_000 }));
-    estado = salvar(estado, aVista({ jar: "comfort", amount: 42_000 }));
-    estado = salvar(estado, aVista({ jar: "pleasures", amount: 18_990 }));
-    estado = salvar(estado, aVista({ jar: "comfort", amount: -5_000 }));
-    estado = salvar(estado, aVista({ date: "2026-10-01", jar: "goals", amount: 99_999 }));
-
-    const vista = projectMonth(estado, "2026-09");
-
-    const somaDosPotes = vista.jars.reduce((s, p) => s + p.total, 0);
-    expect(vista.aggregates.monthExpenses).toBe(205_990);
-    expect(vista.aggregates.monthExpenses).toBe(somaDosPotes);
-    expect(vista.aggregates.monthBalance).toBe(1_000_000 - 205_990);
+    expect(comfort.verdict).toBe("overrun");
+    expect(comfort.overrun).toBe(1);
   });
 
-  it("Saldo em conta ignora as ocorrências no Cartão de Crédito", () => {
-    let estado = salvar(comReceita(), aVista({ paymentMethod: "credit-card", amount: 300_000 }));
-    estado = salvar(estado, aVista({ paymentMethod: "pix", amount: 50_000 }));
-    estado = salvar(estado, aVista({ paymentMethod: "debit-card", amount: 20_000 }));
-    estado = salvar(estado, aVista({ paymentMethod: "credit-card", amount: -10_000 }));
+  it("a month without income is No income, even with expenses", () => {
+    const state = save(emptyState(), upfront({ jar: "comfort", amount: 42_000 }));
 
-    const { aggregates: agregados } = projectMonth(estado, "2026-09");
+    const comfort = jarOf(projectMonth(state, "2026-09"), "comfort");
 
-    expect(agregados.monthExpenses).toBe(360_000);
-    expect(agregados.accountBalance).toBe(1_000_000 - 70_000);
-  });
-
-  it("gastar mais do que entrou deixa o saldo negativo", () => {
-    const estado = salvar(comReceita(100_000), aVista({ amount: 150_000 }));
-
-    expect(projectMonth(estado, "2026-09").aggregates.monthBalance).toBe(-50_000);
+    expect(comfort).toMatchObject({ total: 42_000, limit: null, verdict: "no-income", overrun: null });
   });
 });
 
-describe("validação do lançamento", () => {
+describe("refund", () => {
+  it("reduces the jar's total and the Expenses, without touching the income or the limits", () => {
+    const withExpense = save(withIncome(), upfront({ jar: "comfort", amount: 80_000 }));
+    const before = projectMonth(withExpense, "2026-09");
+
+    const after = projectMonth(save(withExpense, upfront({ jar: "comfort", amount: -29_790 })), "2026-09");
+
+    expect(jarOf(after, "comfort").total).toBe(50_210);
+    expect(after.aggregates.monthExpenses).toBe(50_210);
+    expect(after.monthIncome).toBe(before.monthIncome);
+    expect(after.jars.map((j) => j.limit)).toEqual(before.jars.map((j) => j.limit));
+  });
+
+  it("can leave the jar's total negative", () => {
+    const state = save(withIncome(), upfront({ jar: "comfort", amount: -29_790 }));
+
+    const comfort = jarOf(projectMonth(state, "2026-09"), "comfort");
+
+    expect(comfort.total).toBe(-29_790);
+    expect(comfort.verdict).toBe("leftover");
+  });
+
+  it("takes a jar out of overrun", () => {
+    let state = save(withIncome(), upfront({ jar: "comfort", amount: 160_000 }));
+    state = save(state, upfront({ jar: "comfort", amount: -10_000 }));
+
+    expect(jarOf(projectMonth(state, "2026-09"), "comfort").verdict).toBe("leftover");
+  });
+});
+
+describe("month aggregates", () => {
+  it("Expenses is the sum of the six jars, and Month balance is Income − Expenses", () => {
+    let state = save(withIncome(), upfront({ jar: "fixed-costs", amount: 150_000 }));
+    state = save(state, upfront({ jar: "comfort", amount: 42_000 }));
+    state = save(state, upfront({ jar: "pleasures", amount: 18_990 }));
+    state = save(state, upfront({ jar: "comfort", amount: -5_000 }));
+    state = save(state, upfront({ date: "2026-10-01", jar: "goals", amount: 99_999 }));
+
+    const view = projectMonth(state, "2026-09");
+
+    const jarsSum = view.jars.reduce((s, j) => s + j.total, 0);
+    expect(view.aggregates.monthExpenses).toBe(205_990);
+    expect(view.aggregates.monthExpenses).toBe(jarsSum);
+    expect(view.aggregates.monthBalance).toBe(1_000_000 - 205_990);
+  });
+
+  it("Account balance ignores the occurrences on the Credit Card", () => {
+    let state = save(withIncome(), upfront({ paymentMethod: "credit-card", amount: 300_000 }));
+    state = save(state, upfront({ paymentMethod: "pix", amount: 50_000 }));
+    state = save(state, upfront({ paymentMethod: "debit-card", amount: 20_000 }));
+    state = save(state, upfront({ paymentMethod: "credit-card", amount: -10_000 }));
+
+    const { aggregates } = projectMonth(state, "2026-09");
+
+    expect(aggregates.monthExpenses).toBe(360_000);
+    expect(aggregates.accountBalance).toBe(1_000_000 - 70_000);
+  });
+
+  it("spending more than came in leaves the balance negative", () => {
+    const state = save(withIncome(100_000), upfront({ amount: 150_000 }));
+
+    expect(projectMonth(state, "2026-09").aggregates.monthBalance).toBe(-50_000);
+  });
+});
+
+describe("expense validation", () => {
   it.each(["cash", "credit-card", "debit-card", "pix", "transfer", "boleto", "direct-debit"] as const)(
-    "tipo de pagamento %s é aceito",
-    (tipo) => {
-      expect(apply(emptyState(), salvarLancamento(aVista({ paymentMethod: tipo })), HOJE).ok).toBe(true);
+    "payment method %s is accepted",
+    (method) => {
+      expect(apply(emptyState(), saveExpense(upfront({ paymentMethod: method })), TODAY).ok).toBe(true);
     },
   );
 
   it.each([
-    ["valor zero", { amount: 0 }],
-    ["valor com fração de centavo", { amount: 100.5 }],
-    ["valor que não é número", { amount: "100" as never }],
-    ["descrição em branco", { description: "   " }],
-    ["descrição ausente, num comando malformado", { description: undefined as never }],
-    ["pote fora da lista", { jar: "viagens" as never }],
-    ["tipo de pagamento fora da lista", { paymentMethod: "cheque" as never }],
-    ["data que não existe", { date: "2026-02-30" as IsoDate }],
-    ["data malformada", { date: "12/09/2026" as IsoDate }],
-  ])("%s é recusado", (_, campos) => {
-    expect(apply(emptyState(), salvarLancamento(aVista(campos)), HOJE).ok).toBe(false);
+    ["zero amount", { amount: 0 }],
+    ["amount with a fraction of a cent", { amount: 100.5 }],
+    ["amount that is not a number", { amount: "100" as never }],
+    ["blank description", { description: "   " }],
+    ["missing description, in a malformed command", { description: undefined as never }],
+    ["jar not on the list", { jar: "viagens" as never }],
+    ["payment method not on the list", { paymentMethod: "cheque" as never }],
+    ["date that does not exist", { date: "2026-02-30" as IsoDate }],
+    ["malformed date", { date: "12/09/2026" as IsoDate }],
+  ])("%s is rejected", (_, fields) => {
+    expect(apply(emptyState(), saveExpense(upfront(fields)), TODAY).ok).toBe(false);
   });
 
-  it("a descrição é gravada sem os espaços das pontas", () => {
-    const estado = salvar(emptyState(), aVista({ description: "  Mercado  " }));
+  it("the description is stored without the surrounding spaces", () => {
+    const state = save(emptyState(), upfront({ description: "  Mercado  " }));
 
-    expect(estado.expenses[0]).toMatchObject({ description: "Mercado" });
-  });
-});
-
-describe("nascimento do mês ao salvar um lançamento", () => {
-  it("o mês da data do gasto nasce com os percentuais que herdaria", () => {
-    const estado: State = { ...emptyState(), budgets: { "2026-08": pcts(40, 20, 10, 10, 10, 10) } };
-
-    const salvo = salvar(estado, aVista({ date: "2026-09-12" }));
-
-    const vista = projectMonth(salvo, "2026-09");
-    expect(vista.budget).toEqual({ born: true, inheritedFrom: null });
-    expect(vista.jars.map((p) => p.percentage)).toEqual([40, 20, 10, 10, 10, 10]);
-  });
-
-  it("um comando recusado não muda o estado nem faz mês nascer", () => {
-    const estado = emptyState();
-
-    apply(estado, salvarLancamento(aVista({ amount: 0 })), HOJE);
-
-    expect(estado).toEqual(emptyState());
+    expect(state.expenses[0]).toMatchObject({ description: "Mercado" });
   });
 });
 
-function aVista(campos: Partial<NewExpense>): ExpenseToSave {
+describe("month birth when saving an expense", () => {
+  it("the month of the expense's date is born with the percentages it would inherit", () => {
+    const state: State = { ...emptyState(), budgets: { "2026-08": pcts(40, 20, 10, 10, 10, 10) } };
+
+    const saved = save(state, upfront({ date: "2026-09-12" }));
+
+    const view = projectMonth(saved, "2026-09");
+    expect(view.budget).toEqual({ born: true, inheritedFrom: null });
+    expect(view.jars.map((j) => j.percentage)).toEqual([40, 20, 10, 10, 10, 10]);
+  });
+
+  it("a rejected command neither changes the state nor makes a month be born", () => {
+    const state = emptyState();
+
+    apply(state, saveExpense(upfront({ amount: 0 })), TODAY);
+
+    expect(state).toEqual(emptyState());
+  });
+});
+
+function upfront(fields: Partial<NewExpense>): ExpenseToSave {
   return {
     date: "2026-09-12",
     description: "Mercado",
@@ -239,24 +239,24 @@ function aVista(campos: Partial<NewExpense>): ExpenseToSave {
     paymentMethod: "debit-card",
     amount: 10_000,
     installments: 1,
-    ...campos,
+    ...fields,
   };
 }
 
-function salvarLancamento(lancamento: ExpenseToSave): Command {
-  return { type: "save-expense", expense: lancamento };
+function saveExpense(expense: ExpenseToSave): Command {
+  return { type: "save-expense", expense };
 }
 
-function salvar(estado: State, lancamento: ExpenseToSave): State {
-  const resultado = apply(estado, salvarLancamento(lancamento), HOJE);
-  if (!resultado.ok) throw new Error(resultado.error);
-  return resultado.value;
+function save(state: State, expense: ExpenseToSave): State {
+  const result = apply(state, saveExpense(expense), TODAY);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
 }
 
-function poteDe(vista: MonthView, id: string) {
-  return vista.jars.find((p) => p.id === id)!;
+function jarOf(view: MonthView, id: string) {
+  return view.jars.find((j) => j.id === id)!;
 }
 
-function pcts(...valores: [number, number, number, number, number, number]): Percentages {
-  return Object.fromEntries(JARS.map((p, i) => [p.id, valores[i]])) as Percentages;
+function pcts(...values: [number, number, number, number, number, number]): Percentages {
+  return Object.fromEntries(JARS.map((j, i) => [j.id, values[i]])) as Percentages;
 }

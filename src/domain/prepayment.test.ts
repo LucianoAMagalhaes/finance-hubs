@@ -18,10 +18,10 @@ import {
   type Month,
 } from "@/domain";
 
-const HOJE: IsoDate = "2026-09-18";
+const TODAY: IsoDate = "2026-09-18";
 
-/** Um parcelado de 10× de R$ 389,90 a partir de janeiro: a 7ª parcela cai em julho. */
-const EM_DEZ: ExpenseToSave = {
+/** A 10× installment purchase of R$ 389,90 starting in January: the 7th installment falls in July. */
+const IN_TEN: ExpenseToSave = {
   date: "2026-01-15",
   description: "Notebook",
   jar: "comfort",
@@ -30,25 +30,25 @@ const EM_DEZ: ExpenseToSave = {
   installments: 10,
 };
 
-describe("antecipar parcelas", () => {
-  it("3 parcelas antecipadas em julho tiram 8/10 a 10/10 dos seus meses e põem o valor pago em julho", () => {
-    const estado = comAntecipacao(EM_DEZ, { date: "2026-07-20", installments: 3, amount: 300_000 });
+describe("prepaying installments", () => {
+  it("3 installments prepaid in July take 8/10 to 10/10 out of their months and put the amount paid in July", () => {
+    const state = withPrepayment(IN_TEN, { date: "2026-07-20", installments: 3, amount: 300_000 });
 
-    expect(valoresPorMes(estado, ["2026-07", "2026-08", "2026-09", "2026-10"])).toEqual([
+    expect(amountsByMonth(state, ["2026-07", "2026-08", "2026-09", "2026-10"])).toEqual([
       [38_990, 300_000],
       [],
       [],
       [],
     ]);
-    expect(projectMonth(estado, "2026-06").occurrences.map((o) => o.amount)).toEqual([38_990]);
+    expect(projectMonth(state, "2026-06").occurrences.map((o) => o.amount)).toEqual([38_990]);
   });
 
-  it("a ocorrência da antecipação diz que parcelas levou, de quantas e de que total", () => {
-    const estado = comAntecipacao(EM_DEZ, { date: "2026-07-20", installments: 3, amount: 300_000 });
+  it("the prepayment's occurrence says which installments it took, of how many and of what total", () => {
+    const state = withPrepayment(IN_TEN, { date: "2026-07-20", installments: 3, amount: 300_000 });
 
-    const [, antecipacao] = projectMonth(estado, "2026-07").occurrences;
+    const [, prepayment] = projectMonth(state, "2026-07").occurrences;
 
-    expect(antecipacao).toMatchObject({
+    expect(prepayment).toMatchObject({
       description: "Notebook",
       date: "2026-07-20",
       amount: 300_000,
@@ -57,40 +57,40 @@ describe("antecipar parcelas", () => {
     });
   });
 
-  it("o valor pago é o que a pessoa informou, com ou sem desconto, e não precisa caber na soma das parcelas", () => {
-    const soma = prepaymentPreview(compraDe(salvar(emptyState(), EM_DEZ), 1), { date: "2026-07-20", installments: 3 }, HOJE).cut!.sum;
-    expect(soma).toBe(38_990 * 3);
+  it("the amount paid is what the person entered, with or without a discount, and need not fit the installments' sum", () => {
+    const sum = prepaymentPreview(purchaseOf(save(emptyState(), IN_TEN), 1), { date: "2026-07-20", installments: 3 }, TODAY).cut!.sum;
+    expect(sum).toBe(38_990 * 3);
 
-    const caro = comAntecipacao(EM_DEZ, { date: "2026-07-20", installments: 3, amount: 500_000 });
+    const expensive = withPrepayment(IN_TEN, { date: "2026-07-20", installments: 3, amount: 500_000 });
 
-    expect(projectMonth(caro, "2026-07").aggregates.monthExpenses).toBe(38_990 + 500_000);
+    expect(projectMonth(expensive, "2026-07").aggregates.monthExpenses).toBe(38_990 + 500_000);
   });
 
-  it("a antecipação herda pote, tipo de pagamento e tag do parcelado", () => {
-    const estado = comAntecipacao({ ...EM_DEZ, jar: "goals", tag: "casa" }, { date: "2026-07-20", installments: 2, amount: 70_000 });
+  it("the prepayment inherits jar, payment method and tag from the installment purchase", () => {
+    const state = withPrepayment({ ...IN_TEN, jar: "goals", tag: "casa" }, { date: "2026-07-20", installments: 2, amount: 70_000 });
 
-    expect(projectMonth(estado, "2026-07").occurrences.at(-1)).toMatchObject({
+    expect(projectMonth(state, "2026-07").occurrences.at(-1)).toMatchObject({
       jar: "goals",
       paymentMethod: "credit-card",
       tag: "casa",
     });
   });
 
-  it("a antecipação faz nascer o orçamento do seu mês; os meses de onde as parcelas saíram não nascem", () => {
-    const estado = comAntecipacao(EM_DEZ, { date: "2026-07-20", installments: 3, amount: 300_000 });
+  it("the prepayment makes its month's budget be born; the months the installments left are not born", () => {
+    const state = withPrepayment(IN_TEN, { date: "2026-07-20", installments: 3, amount: 300_000 });
 
-    expect(projectMonth(estado, "2026-07").budget.born).toBe(true);
-    for (const mes of ["2026-08", "2026-09", "2026-10"] as const) {
-      expect(projectMonth(estado, mes).budget.born, mes).toBe(false);
+    expect(projectMonth(state, "2026-07").budget.born).toBe(true);
+    for (const month of ["2026-08", "2026-09", "2026-10"] as const) {
+      expect(projectMonth(state, month).budget.born, month).toBe(false);
     }
   });
 });
 
-describe("a prévia da antecipação", () => {
-  it("em julho, 3 parcelas de um 10× de janeiro: leva 8/10 a 10/10, de agosto a outubro, e agosto já passou", () => {
-    const compra = compraDe(salvar(emptyState(), EM_DEZ), 1);
+describe("the prepayment preview", () => {
+  it("in July, 3 installments of a 10× from January: takes 8/10 to 10/10, from August to October, and August has already passed", () => {
+    const purchase = purchaseOf(save(emptyState(), IN_TEN), 1);
 
-    expect(prepaymentPreview(compra, { date: "2026-07-20", installments: 3 }, HOJE)).toEqual({
+    expect(prepaymentPreview(purchase, { date: "2026-07-20", installments: 3 }, TODAY)).toEqual({
       max: 3,
       refusal: null,
       cut: {
@@ -105,29 +105,29 @@ describe("a prévia da antecipação", () => {
   });
 
   it.each([
-    ["data inválida", EM_DEZ, { date: "2026-02-31", installments: 3 }],
-    ["data vazia", EM_DEZ, { date: "", installments: 3 }],
-    ["zero parcelas", EM_DEZ, { date: "2026-07-20", installments: 0 }],
-    ["parcelas fracionadas", EM_DEZ, { date: "2026-07-20", installments: 1.5 }],
-    ["um à vista", { ...EM_DEZ, installments: 1 }, { date: "2025-12-05", installments: 1 }],
-    ["um reembolso", { ...EM_DEZ, amount: -389_900 }, { date: "2026-07-20", installments: 3 }],
-    ["mais parcelas que o máximo", EM_DEZ, { date: "2026-07-20", installments: 4 }],
-    ["nada depois do mês da antecipação", EM_DEZ, { date: "2026-10-05", installments: 1 }],
-  ])("%s: a prévia recusa com a mesma frase que aplicar, e não mostra corte", (_, lancamento, prova) => {
-    const estado = salvar(emptyState(), lancamento);
-    const recusado = apply(estado, antecipar({ ...prova, date: prova.date as IsoDate, amount: 1_000 }), HOJE);
-    if (recusado.ok) throw new Error("aplicar deveria recusar");
+    ["invalid date", IN_TEN, { date: "2026-02-31", installments: 3 }],
+    ["empty date", IN_TEN, { date: "", installments: 3 }],
+    ["zero installments", IN_TEN, { date: "2026-07-20", installments: 0 }],
+    ["fractional installments", IN_TEN, { date: "2026-07-20", installments: 1.5 }],
+    ["an upfront purchase", { ...IN_TEN, installments: 1 }, { date: "2025-12-05", installments: 1 }],
+    ["a refund", { ...IN_TEN, amount: -389_900 }, { date: "2026-07-20", installments: 3 }],
+    ["more installments than the maximum", IN_TEN, { date: "2026-07-20", installments: 4 }],
+    ["nothing after the prepayment month", IN_TEN, { date: "2026-10-05", installments: 1 }],
+  ])("%s: the preview refuses with the same sentence as apply, and shows no cut", (_, expense, attempt) => {
+    const state = save(emptyState(), expense);
+    const rejected = apply(state, prepay({ ...attempt, date: attempt.date as IsoDate, amount: 1_000 }), TODAY);
+    if (rejected.ok) throw new Error("apply should reject");
 
-    const previa = prepaymentPreview(compraDe(estado, 1), prova, HOJE);
+    const preview = prepaymentPreview(purchaseOf(state, 1), attempt, TODAY);
 
-    expect(previa.refusal).toBe(recusado.error);
-    expect(previa.cut).toBeNull();
+    expect(preview.refusal).toBe(rejected.error);
+    expect(preview.cut).toBeNull();
   });
 
-  it("uma parcela só: o corte começa e termina no mesmo mês, e nada passou quando hoje ainda é julho", () => {
-    const compra = compraDe(salvar(emptyState(), EM_DEZ), 1);
+  it("a single installment: the cut starts and ends in the same month, and nothing has passed while today is still July", () => {
+    const purchase = purchaseOf(save(emptyState(), IN_TEN), 1);
 
-    expect(prepaymentPreview(compra, { date: "2026-07-20", installments: 1 }, "2026-07-25").cut).toMatchObject({
+    expect(prepaymentPreview(purchase, { date: "2026-07-20", installments: 1 }, "2026-07-25").cut).toMatchObject({
       first: 10,
       last: 10,
       firstMonth: "2026-10",
@@ -136,10 +136,10 @@ describe("a prévia da antecipação", () => {
     });
   });
 
-  it("antecipar em janeiro, já em setembro: sete das parcelas que saem caem em meses que passaram", () => {
-    const compra = compraDe(salvar(emptyState(), EM_DEZ), 1);
+  it("prepaying in January, already in September: seven of the installments leaving fall in months that have passed", () => {
+    const purchase = purchaseOf(save(emptyState(), IN_TEN), 1);
 
-    expect(prepaymentPreview(compra, { date: "2026-01-20", installments: 9 }, HOJE).cut!.pastMonths).toEqual([
+    expect(prepaymentPreview(purchase, { date: "2026-01-20", installments: 9 }, TODAY).cut!.pastMonths).toEqual([
       "2026-02",
       "2026-03",
       "2026-04",
@@ -150,120 +150,120 @@ describe("a prévia da antecipação", () => {
     ]);
   });
 
-  it("corrigir a de julho para cima da de agosto: a prévia recusa com a mesma frase que aplicar", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
-    estado = aplicarOk(estado, antecipar({ date: "2026-07-20", installments: 1, amount: 35_000 }));
-    estado = aplicarOk(estado, antecipar({ date: "2026-08-10", installments: 1, amount: 35_000 }));
-    const recusado = apply(estado, antecipar({ id: 1, date: "2026-07-20", installments: 3, amount: 90_000 }), HOJE);
-    if (recusado.ok) throw new Error("aplicar deveria recusar");
+  it("correcting July's to reach over August's: the preview refuses with the same sentence as apply", () => {
+    let state = save(emptyState(), IN_TEN);
+    state = applyOk(state, prepay({ date: "2026-07-20", installments: 1, amount: 35_000 }));
+    state = applyOk(state, prepay({ date: "2026-08-10", installments: 1, amount: 35_000 }));
+    const rejected = apply(state, prepay({ id: 1, date: "2026-07-20", installments: 3, amount: 90_000 }), TODAY);
+    if (rejected.ok) throw new Error("apply should reject");
 
-    const previa = prepaymentPreview(compraDe(estado, 1), { id: 1, date: "2026-07-20", installments: 3 }, HOJE);
+    const preview = prepaymentPreview(purchaseOf(state, 1), { id: 1, date: "2026-07-20", installments: 3 }, TODAY);
 
-    expect(previa).toEqual({ max: 1, refusal: recusado.error, cut: null });
+    expect(preview).toEqual({ max: 1, refusal: rejected.error, cut: null });
   });
 
-  it("com N acima do máximo, o máximo continua dito para a pessoa corrigir", () => {
-    const compra = compraDe(salvar(emptyState(), EM_DEZ), 1);
+  it("with N above the maximum, the maximum is still stated so the person can correct it", () => {
+    const purchase = purchaseOf(save(emptyState(), IN_TEN), 1);
 
-    expect(prepaymentPreview(compra, { date: "2026-07-20", installments: 4 }, HOJE).max).toBe(3);
-    expect(prepaymentPreview(compra, { date: "2026-07-20", installments: 0 }, HOJE).max).toBe(3);
-    expect(prepaymentPreview(compra, { date: "2026-02-31", installments: 3 }, HOJE).max).toBe(0);
+    expect(prepaymentPreview(purchase, { date: "2026-07-20", installments: 4 }, TODAY).max).toBe(3);
+    expect(prepaymentPreview(purchase, { date: "2026-07-20", installments: 0 }, TODAY).max).toBe(3);
+    expect(prepaymentPreview(purchase, { date: "2026-02-31", installments: 3 }, TODAY).max).toBe(0);
   });
 });
 
-describe("quantas parcelas cabem numa antecipação", () => {
-  it("só entram parcelas de meses posteriores ao da antecipação: em julho, o máximo de um 10× de janeiro é 3", () => {
-    const compra = compraDe(salvar(emptyState(), EM_DEZ), 1);
+describe("how many installments fit in a prepayment", () => {
+  it("only installments of months after the prepayment's count: in July, the maximum of a 10× from January is 3", () => {
+    const purchase = purchaseOf(save(emptyState(), IN_TEN), 1);
 
-    expect(maximoEm(compra, "2026-07-20")).toBe(3);
-    expect(prepaymentPreview(compra, { date: "2026-07-20", installments: 3 }, HOJE).cut).toMatchObject({ first: 8, last: 10 });
+    expect(maxOn(purchase, "2026-07-20")).toBe(3);
+    expect(prepaymentPreview(purchase, { date: "2026-07-20", installments: 3 }, TODAY).cut).toMatchObject({ first: 8, last: 10 });
   });
 
-  it("N maior que o máximo é recusado, e o máximo é exatamente o maior N aceito", () => {
-    const estado = salvar(emptyState(), EM_DEZ);
-    const maximo = maximoEm(compraDe(estado, 1), "2026-07-20");
+  it("N greater than the maximum is rejected, and the maximum is exactly the largest N accepted", () => {
+    const state = save(emptyState(), IN_TEN);
+    const max = maxOn(purchaseOf(state, 1), "2026-07-20");
 
-    expect(apply(estado, antecipar({ date: "2026-07-20", installments: maximo, amount: 1_000 }), HOJE).ok).toBe(true);
-    expect(apply(estado, antecipar({ date: "2026-07-20", installments: maximo + 1, amount: 1_000 }), HOJE)).toEqual({
+    expect(apply(state, prepay({ date: "2026-07-20", installments: max, amount: 1_000 }), TODAY).ok).toBe(true);
+    expect(apply(state, prepay({ date: "2026-07-20", installments: max + 1, amount: 1_000 }), TODAY)).toEqual({
       ok: false,
       error: expect.stringContaining("3"),
     });
-    expect(prepaymentPreview(compraDe(estado, 1), { date: "2026-07-20", installments: maximo + 1 }, HOJE).cut).toBeNull();
+    expect(prepaymentPreview(purchaseOf(state, 1), { date: "2026-07-20", installments: max + 1 }, TODAY).cut).toBeNull();
   });
 
-  it("no mês da última parcela, e depois dele, não sobra nada para antecipar", () => {
-    const estado = salvar(emptyState(), EM_DEZ);
+  it("in the month of the last installment, and after it, nothing is left to prepay", () => {
+    const state = save(emptyState(), IN_TEN);
 
-    expect(maximoEm(compraDe(estado, 1), "2026-10-05")).toBe(0);
-    expect(maximoEm(compraDe(estado, 1), "2026-12-05")).toBe(0);
-    expect(apply(estado, antecipar({ date: "2026-10-05", installments: 1, amount: 1_000 }), HOJE).ok).toBe(false);
+    expect(maxOn(purchaseOf(state, 1), "2026-10-05")).toBe(0);
+    expect(maxOn(purchaseOf(state, 1), "2026-12-05")).toBe(0);
+    expect(apply(state, prepay({ date: "2026-10-05", installments: 1, amount: 1_000 }), TODAY).ok).toBe(false);
   });
 
-  it("antes da compra, todas as parcelas são posteriores: o máximo é o parcelado inteiro", () => {
-    const estado = salvar(emptyState(), EM_DEZ);
+  it("before the purchase, every installment is later: the maximum is the whole installment purchase", () => {
+    const state = save(emptyState(), IN_TEN);
 
-    expect(maximoEm(compraDe(estado, 1), "2025-12-05")).toBe(10);
+    expect(maxOn(purchaseOf(state, 1), "2025-12-05")).toBe(10);
   });
 
-  it("um à vista não tem parcelas para antecipar, em data nenhuma", () => {
-    const estado = salvar(emptyState(), { ...EM_DEZ, installments: 1 });
+  it("an upfront purchase has no installments to prepay, on any date", () => {
+    const state = save(emptyState(), { ...IN_TEN, installments: 1 });
 
-    expect(maximoEm(compraDe(estado, 1), "2025-12-05")).toBe(0);
-    expect(maximoEm(compraDe(estado, 1), "2026-01-20")).toBe(0);
-    expect(apply(estado, antecipar({ date: "2025-12-05", installments: 1, amount: 100 }), HOJE)).toEqual({
+    expect(maxOn(purchaseOf(state, 1), "2025-12-05")).toBe(0);
+    expect(maxOn(purchaseOf(state, 1), "2026-01-20")).toBe(0);
+    expect(apply(state, prepay({ date: "2025-12-05", installments: 1, amount: 100 }), TODAY)).toEqual({
       ok: false,
       error: expect.stringMatching(/à vista/),
     });
   });
 
-  it("um reembolso parcelado não se antecipa: o valor pago é sempre positivo", () => {
-    const estado = salvar(emptyState(), { ...EM_DEZ, amount: -389_900 });
+  it("a refund in installments is not prepaid: the amount paid is always positive", () => {
+    const state = save(emptyState(), { ...IN_TEN, amount: -389_900 });
 
-    expect(apply(estado, antecipar({ date: "2026-07-20", installments: 3, amount: 300_000 }), HOJE)).toEqual({
+    expect(apply(state, prepay({ date: "2026-07-20", installments: 3, amount: 300_000 }), TODAY)).toEqual({
       ok: false,
       error: expect.stringMatching(/reembolso/i),
     });
   });
 
   it.each([
-    ["valor zero", { amount: 0 }],
-    ["valor negativo", { amount: -100 }],
-    ["valor fracionado", { amount: 10.5 }],
-    ["zero parcelas", { installments: 0 }],
-    ["parcelas fracionadas", { installments: 1.5 }],
-    ["data inválida", { date: "2026-02-31" as IsoDate }],
-  ])("%s é recusado", (_, campos) => {
-    const estado = salvar(emptyState(), EM_DEZ);
+    ["zero amount", { amount: 0 }],
+    ["negative amount", { amount: -100 }],
+    ["fractional amount", { amount: 10.5 }],
+    ["zero installments", { installments: 0 }],
+    ["fractional installments", { installments: 1.5 }],
+    ["invalid date", { date: "2026-02-31" as IsoDate }],
+  ])("%s is rejected", (_, fields) => {
+    const state = save(emptyState(), IN_TEN);
 
-    expect(apply(estado, antecipar({ date: "2026-07-20", installments: 3, amount: 300_000, ...campos }), HOJE).ok).toBe(false);
+    expect(apply(state, prepay({ date: "2026-07-20", installments: 3, amount: 300_000, ...fields }), TODAY).ok).toBe(false);
   });
 
-  it("só um parcelado vivo aceita antecipação", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
+  it("only a live installment purchase accepts a prepayment", () => {
+    let state = save(emptyState(), IN_TEN);
 
-    expect(apply(estado, antecipar({ expense: 9, date: "2026-07-20", installments: 1, amount: 100 }), HOJE).ok).toBe(false);
+    expect(apply(state, prepay({ expense: 9, date: "2026-07-20", installments: 1, amount: 100 }), TODAY).ok).toBe(false);
 
-    estado = aplicarOk(estado, { type: "delete", record: "expense", id: 1 });
+    state = applyOk(state, { type: "delete", record: "expense", id: 1 });
 
-    expect(apply(estado, antecipar({ date: "2026-07-20", installments: 1, amount: 100 }), HOJE).ok).toBe(false);
+    expect(apply(state, prepay({ date: "2026-07-20", installments: 1, amount: 100 }), TODAY).ok).toBe(false);
   });
 });
 
-describe("várias antecipações no mesmo parcelado", () => {
-  it("cada uma corta a série pelo fim, em ordem de data, mesmo lançadas fora de ordem", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
-    // A de agosto entra primeiro, mas a de julho é aplicada antes dela.
-    estado = aplicarOk(estado, antecipar({ date: "2026-08-10", installments: 1, amount: 35_000 }));
-    estado = aplicarOk(estado, antecipar({ date: "2026-07-20", installments: 1, amount: 36_000 }));
+describe("several prepayments on the same installment purchase", () => {
+  it("each one cuts the series from the end, in date order, even when entered out of order", () => {
+    let state = save(emptyState(), IN_TEN);
+    // August's goes in first, but July's is applied before it.
+    state = applyOk(state, prepay({ date: "2026-08-10", installments: 1, amount: 35_000 }));
+    state = applyOk(state, prepay({ date: "2026-07-20", installments: 1, amount: 36_000 }));
 
-    const { cuts: cortes, last: ultima } = prepaymentsOf(compraDe(estado, 1));
-    expect(cortes.map((c) => [c.prepayment.date, c.first, c.last])).toEqual([
+    const { cuts, last } = prepaymentsOf(purchaseOf(state, 1));
+    expect(cuts.map((c) => [c.prepayment.date, c.first, c.last])).toEqual([
       ["2026-07-20", 10, 10],
       ["2026-08-10", 9, 9],
     ]);
-    expect(ultima).toBe(8);
-    // As ocorrências de um mês vêm em ordem de data: a parcela cai no dia 15, e as antecipações nos seus dias.
-    expect(valoresPorMes(estado, ["2026-07", "2026-08", "2026-09", "2026-10"])).toEqual([
+    expect(last).toBe(8);
+    // A month's occurrences come in date order: the installment falls on the 15th, and the prepayments on their own days.
+    expect(amountsByMonth(state, ["2026-07", "2026-08", "2026-09", "2026-10"])).toEqual([
       [38_990, 36_000],
       [35_000, 38_990],
       [],
@@ -271,247 +271,247 @@ describe("várias antecipações no mesmo parcelado", () => {
     ]);
   });
 
-  it("a antecipação de julho já não alcança a parcela de agosto: a de agosto não sobra para ninguém", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
-    estado = aplicarOk(estado, antecipar({ date: "2026-07-20", installments: 2, amount: 70_000 }));
+  it("July's prepayment no longer reaches August's installment: August's is left for no one", () => {
+    let state = save(emptyState(), IN_TEN);
+    state = applyOk(state, prepay({ date: "2026-07-20", installments: 2, amount: 70_000 }));
 
-    // Sobram as parcelas 1 a 8, e nenhuma delas cai depois de agosto.
-    expect(maximoEm(compraDe(estado, 1), "2026-08-10")).toBe(0);
-    expect(apply(estado, antecipar({ date: "2026-08-10", installments: 1, amount: 35_000 }), HOJE)).toEqual({
+    // Installments 1 to 8 remain, and none of them falls after August.
+    expect(maxOn(purchaseOf(state, 1), "2026-08-10")).toBe(0);
+    expect(apply(state, prepay({ date: "2026-08-10", installments: 1, amount: 35_000 }), TODAY)).toEqual({
       ok: false,
       error: expect.stringMatching(/agosto de 2026/),
     });
   });
 
-  it("a segunda antecipação só alcança o que a primeira deixou", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
-    estado = aplicarOk(estado, antecipar({ date: "2026-07-20", installments: 2, amount: 70_000 }));
+  it("the second prepayment only reaches what the first one left", () => {
+    let state = save(emptyState(), IN_TEN);
+    state = applyOk(state, prepay({ date: "2026-07-20", installments: 2, amount: 70_000 }));
 
-    expect(maximoEm(compraDe(estado, 1), "2026-07-25")).toBe(1);
-    expect(apply(estado, antecipar({ date: "2026-07-25", installments: 2, amount: 70_000 }), HOJE).ok).toBe(false);
+    expect(maxOn(purchaseOf(state, 1), "2026-07-25")).toBe(1);
+    expect(apply(state, prepay({ date: "2026-07-25", installments: 2, amount: 70_000 }), TODAY).ok).toBe(false);
   });
 
-  it("quitar é antecipar todas as que faltam: nenhuma parcela sobra depois", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
-    estado = aplicarOk(estado, antecipar({ date: "2026-04-10", installments: 3, amount: 100_000 }));
-    const compra = compraDe(estado, 1);
+  it("paying off is prepaying all the remaining ones: no installment is left afterwards", () => {
+    let state = save(emptyState(), IN_TEN);
+    state = applyOk(state, prepay({ date: "2026-04-10", installments: 3, amount: 100_000 }));
+    const purchase = purchaseOf(state, 1);
 
-    estado = aplicarOk(estado, antecipar({ date: "2026-05-10", installments: maximoEm(compra, "2026-05-10"), amount: 90_000 }));
+    state = applyOk(state, prepay({ date: "2026-05-10", installments: maxOn(purchase, "2026-05-10"), amount: 90_000 }));
 
-    expect(prepaymentsOf(compraDe(estado, 1)).last).toBe(5);
-    expect(valoresPorMes(estado, ["2026-05", "2026-06", "2026-07", "2026-08"])).toEqual([[90_000, 38_990], [], [], []]);
-    expect(maximoEm(compraDe(estado, 1), "2026-05-20")).toBe(0);
+    expect(prepaymentsOf(purchaseOf(state, 1)).last).toBe(5);
+    expect(amountsByMonth(state, ["2026-05", "2026-06", "2026-07", "2026-08"])).toEqual([[90_000, 38_990], [], [], []]);
+    expect(maxOn(purchaseOf(state, 1), "2026-05-20")).toBe(0);
   });
 
-  it("corrigir uma antecipação revalida a série inteira: a de julho não pode crescer sobre a de agosto", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
-    estado = aplicarOk(estado, antecipar({ date: "2026-07-20", installments: 1, amount: 35_000 }));
-    estado = aplicarOk(estado, antecipar({ date: "2026-08-10", installments: 1, amount: 35_000 }));
+  it("correcting a prepayment revalidates the whole series: July's cannot grow over August's", () => {
+    let state = save(emptyState(), IN_TEN);
+    state = applyOk(state, prepay({ date: "2026-07-20", installments: 1, amount: 35_000 }));
+    state = applyOk(state, prepay({ date: "2026-08-10", installments: 1, amount: 35_000 }));
 
-    expect(maximoEm(compraDe(estado, 1), "2026-07-20", 1)).toBe(1);
-    expect(apply(estado, antecipar({ id: 1, date: "2026-07-20", installments: 3, amount: 90_000 }), HOJE).ok).toBe(false);
+    expect(maxOn(purchaseOf(state, 1), "2026-07-20", 1)).toBe(1);
+    expect(apply(state, prepay({ id: 1, date: "2026-07-20", installments: 3, amount: 90_000 }), TODAY).ok).toBe(false);
 
-    const corrigida = aplicarOk(estado, antecipar({ id: 1, date: "2026-07-20", installments: 1, amount: 30_000 }));
+    const corrected = applyOk(state, prepay({ id: 1, date: "2026-07-20", installments: 1, amount: 30_000 }));
 
-    expect(projectMonth(corrigida, "2026-07").occurrences.at(-1)!.amount).toBe(30_000);
+    expect(projectMonth(corrected, "2026-07").occurrences.at(-1)!.amount).toBe(30_000);
   });
 });
 
-describe("a trava do parcelado com antecipação", () => {
-  const ATIVA: PrepaymentToSave = { expense: 1, date: "2026-07-20", installments: 3, amount: 300_000 };
+describe("the lock on an installment purchase with a prepayment", () => {
+  const ACTIVE: PrepaymentToSave = { expense: 1, date: "2026-07-20", installments: 3, amount: 300_000 };
 
   it.each([
-    ["o total", { amount: 500_000 }],
-    ["a data", { date: "2026-02-15" as IsoDate }],
-    ["o número de parcelas", { installments: 12 }],
-    ["a forma, voltando para à vista", { installments: 1 }],
-  ])("editar %s é recusado", (_, campos) => {
-    const estado = comAntecipacao(EM_DEZ, ATIVA);
+    ["the total", { amount: 500_000 }],
+    ["the date", { date: "2026-02-15" as IsoDate }],
+    ["the number of installments", { installments: 12 }],
+    ["the form, going back to upfront", { installments: 1 }],
+  ])("editing %s is rejected", (_, fields) => {
+    const state = withPrepayment(IN_TEN, ACTIVE);
 
-    expect(apply(estado, salvarLancamento({ ...EM_DEZ, ...campos, id: 1 }), HOJE)).toEqual({
+    expect(apply(state, saveExpense({ ...IN_TEN, ...fields, id: 1 }), TODAY)).toEqual({
       ok: false,
       error: expect.stringMatching(/antecipa/i),
     });
   });
 
-  it("descrição, pote, tipo e tag continuam editáveis, e a ocorrência da antecipação acompanha", () => {
-    const estado = comAntecipacao(EM_DEZ, ATIVA);
+  it("description, jar, payment method and tag remain editable, and the prepayment's occurrence follows along", () => {
+    const state = withPrepayment(IN_TEN, ACTIVE);
 
-    const movido = aplicarOk(estado, salvarLancamento({ ...EM_DEZ, id: 1, description: "Notebook novo", jar: "goals", tag: "casa" }));
+    const moved = applyOk(state, saveExpense({ ...IN_TEN, id: 1, description: "Notebook novo", jar: "goals", tag: "casa" }));
 
-    expect(projectMonth(movido, "2026-07").occurrences.at(-1)).toMatchObject({
+    expect(projectMonth(moved, "2026-07").occurrences.at(-1)).toMatchObject({
       description: "Notebook novo",
       jar: "goals",
       tag: "casa",
       amount: 300_000,
     });
-    expect(groups(projectMonth(movido, "2026-07"), "jar").find((g) => g.key === "goals")!.total).toBe(38_990 + 300_000);
+    expect(groups(projectMonth(moved, "2026-07"), "jar").find((g) => g.key === "goals")!.total).toBe(38_990 + 300_000);
   });
 
-  it("desfeita a antecipação, a trava sai", () => {
-    let estado = comAntecipacao(EM_DEZ, ATIVA);
-    estado = aplicarOk(estado, { type: "delete", record: "prepayment", id: 1 });
+  it("once the prepayment is undone, the lock is lifted", () => {
+    let state = withPrepayment(IN_TEN, ACTIVE);
+    state = applyOk(state, { type: "delete", record: "prepayment", id: 1 });
 
-    expect(apply(estado, salvarLancamento({ ...EM_DEZ, id: 1, amount: 500_000 }), HOJE).ok).toBe(true);
+    expect(apply(state, saveExpense({ ...IN_TEN, id: 1, amount: 500_000 }), TODAY).ok).toBe(true);
   });
 
-  it("um parcelado sem antecipação continua livre", () => {
-    const estado = salvar(emptyState(), EM_DEZ);
+  it("an installment purchase without a prepayment remains free", () => {
+    const state = save(emptyState(), IN_TEN);
 
-    expect(apply(estado, salvarLancamento({ ...EM_DEZ, id: 1, amount: 500_000, installments: 5 }), HOJE).ok).toBe(true);
+    expect(apply(state, saveExpense({ ...IN_TEN, id: 1, amount: 500_000, installments: 5 }), TODAY).ok).toBe(true);
   });
 });
 
-describe("desfazer e restaurar uma antecipação", () => {
-  it("desfazer manda para a lixeira e devolve as parcelas aos seus meses; restaurar volta ao que era", () => {
-    const estado = comAntecipacao(EM_DEZ, { date: "2026-07-20", installments: 3, amount: 300_000 });
-    const antes = ["2026-07", "2026-08", "2026-09", "2026-10"].map((m) => projectMonth(estado, m as Month));
+describe("undoing and restoring a prepayment", () => {
+  it("undoing sends it to the trash and gives the installments back to their months; restoring goes back to how it was", () => {
+    const state = withPrepayment(IN_TEN, { date: "2026-07-20", installments: 3, amount: 300_000 });
+    const before = ["2026-07", "2026-08", "2026-09", "2026-10"].map((m) => projectMonth(state, m as Month));
 
-    const desfeita = aplicarOk(estado, { type: "delete", record: "prepayment", id: 1 });
+    const undone = applyOk(state, { type: "delete", record: "prepayment", id: 1 });
 
-    expect(valoresPorMes(desfeita, ["2026-07", "2026-08", "2026-09", "2026-10"])).toEqual([
+    expect(amountsByMonth(undone, ["2026-07", "2026-08", "2026-09", "2026-10"])).toEqual([
       [38_990],
       [38_990],
       [38_990],
       [38_990],
     ]);
-    expect(trashItems(desfeita).map((i) => [i.record, i.id])).toEqual([["prepayment", 1]]);
+    expect(trashItems(undone).map((i) => [i.record, i.id])).toEqual([["prepayment", 1]]);
 
-    const restaurada = aplicarOk(desfeita, { type: "restore", record: "prepayment", id: 1 });
+    const restored = applyOk(undone, { type: "restore", record: "prepayment", id: 1 });
 
-    expect(["2026-07", "2026-08", "2026-09", "2026-10"].map((m) => projectMonth(restaurada, m as Month))).toEqual(antes);
-    expect(trashItems(restaurada)).toEqual([]);
+    expect(["2026-07", "2026-08", "2026-09", "2026-10"].map((m) => projectMonth(restored, m as Month))).toEqual(before);
+    expect(trashItems(restored)).toEqual([]);
   });
 
-  it("restaurar é recusado quando outra antecipação já levou aquelas parcelas", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
-    estado = aplicarOk(estado, antecipar({ date: "2026-07-20", installments: 3, amount: 300_000 }));
-    estado = aplicarOk(estado, { type: "delete", record: "prepayment", id: 1 });
-    estado = aplicarOk(estado, antecipar({ date: "2026-08-10", installments: 2, amount: 70_000 }));
+  it("restoring is rejected when another prepayment has already taken those installments", () => {
+    let state = save(emptyState(), IN_TEN);
+    state = applyOk(state, prepay({ date: "2026-07-20", installments: 3, amount: 300_000 }));
+    state = applyOk(state, { type: "delete", record: "prepayment", id: 1 });
+    state = applyOk(state, prepay({ date: "2026-08-10", installments: 2, amount: 70_000 }));
 
-    const recusa = apply(estado, { type: "restore", record: "prepayment", id: 1 }, HOJE);
+    const refusal = apply(state, { type: "restore", record: "prepayment", id: 1 }, TODAY);
 
-    expect(recusa.ok).toBe(false);
-    expect(prepaymentsOf(compraDe(estado, 1)).cuts).toHaveLength(1);
+    expect(refusal.ok).toBe(false);
+    expect(prepaymentsOf(purchaseOf(state, 1)).cuts).toHaveLength(1);
   });
 
-  it("restaurar é recusado quando o parcelado encolheu e as parcelas não existem mais", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
-    estado = aplicarOk(estado, antecipar({ date: "2026-07-20", installments: 3, amount: 300_000 }));
-    estado = aplicarOk(estado, { type: "delete", record: "prepayment", id: 1 });
-    estado = aplicarOk(estado, salvarLancamento({ ...EM_DEZ, id: 1, installments: 6 }));
+  it("restoring is rejected when the installment purchase shrank and the installments no longer exist", () => {
+    let state = save(emptyState(), IN_TEN);
+    state = applyOk(state, prepay({ date: "2026-07-20", installments: 3, amount: 300_000 }));
+    state = applyOk(state, { type: "delete", record: "prepayment", id: 1 });
+    state = applyOk(state, saveExpense({ ...IN_TEN, id: 1, installments: 6 }));
 
-    expect(apply(estado, { type: "restore", record: "prepayment", id: 1 }, HOJE).ok).toBe(false);
+    expect(apply(state, { type: "restore", record: "prepayment", id: 1 }, TODAY).ok).toBe(false);
   });
 
-  it("não se desfaz duas vezes, nem se restaura o que não está na lixeira", () => {
-    let estado = comAntecipacao(EM_DEZ, { date: "2026-07-20", installments: 3, amount: 300_000 });
+  it("you cannot undo twice, nor restore what is not in the trash", () => {
+    let state = withPrepayment(IN_TEN, { date: "2026-07-20", installments: 3, amount: 300_000 });
 
-    expect(apply(estado, { type: "restore", record: "prepayment", id: 1 }, HOJE).ok).toBe(false);
-    expect(apply(estado, { type: "delete", record: "prepayment", id: 9 }, HOJE).ok).toBe(false);
+    expect(apply(state, { type: "restore", record: "prepayment", id: 1 }, TODAY).ok).toBe(false);
+    expect(apply(state, { type: "delete", record: "prepayment", id: 9 }, TODAY).ok).toBe(false);
 
-    estado = aplicarOk(estado, { type: "delete", record: "prepayment", id: 1 });
+    state = applyOk(state, { type: "delete", record: "prepayment", id: 1 });
 
-    expect(apply(estado, { type: "delete", record: "prepayment", id: 1 }, HOJE).ok).toBe(false);
+    expect(apply(state, { type: "delete", record: "prepayment", id: 1 }, TODAY).ok).toBe(false);
   });
 
-  it("uma antecipação nova não reaproveita o id de uma que está na lixeira", () => {
-    let estado = salvar(emptyState(), EM_DEZ);
-    estado = aplicarOk(estado, antecipar({ date: "2026-07-20", installments: 1, amount: 35_000 }));
-    estado = aplicarOk(estado, { type: "delete", record: "prepayment", id: 1 });
+  it("a new prepayment does not reuse the id of one that is in the trash", () => {
+    let state = save(emptyState(), IN_TEN);
+    state = applyOk(state, prepay({ date: "2026-07-20", installments: 1, amount: 35_000 }));
+    state = applyOk(state, { type: "delete", record: "prepayment", id: 1 });
 
-    estado = aplicarOk(estado, antecipar({ date: "2026-07-20", installments: 1, amount: 35_000 }));
+    state = applyOk(state, prepay({ date: "2026-07-20", installments: 1, amount: 35_000 }));
 
-    expect(compraDe(estado, 1).prepayments.map((a) => a.id)).toEqual([1, 2]);
+    expect(purchaseOf(state, 1).prepayments.map((p) => p.id)).toEqual([1, 2]);
   });
 });
 
-describe("apagar o parcelado com antecipação", () => {
-  it("as antecipações vão junto para a lixeira, sem virar item solto, e voltam com ele", () => {
-    let estado = comAntecipacao({ ...EM_DEZ, tag: "casa" }, { date: "2026-07-20", installments: 3, amount: 300_000 });
-    // Um gasto vivo ao lado, para o mês não ficar zerado quando o parcelado sair.
-    estado = salvar(estado, { ...EM_DEZ, date: "2026-07-03", jar: "goals", amount: 12_000, installments: 1, tag: null });
-    const antes = projectMonth(estado, "2026-07");
+describe("deleting an installment purchase with a prepayment", () => {
+  it("the prepayments go along to the trash, without becoming a loose item, and come back with it", () => {
+    let state = withPrepayment({ ...IN_TEN, tag: "casa" }, { date: "2026-07-20", installments: 3, amount: 300_000 });
+    // A live expense alongside, so the month is not zeroed out when the installment purchase leaves.
+    state = save(state, { ...IN_TEN, date: "2026-07-03", jar: "goals", amount: 12_000, installments: 1, tag: null });
+    const before = projectMonth(state, "2026-07");
 
-    const apagado = aplicarOk(estado, { type: "delete", record: "expense", id: 1 });
-    const vista = projectMonth(apagado, "2026-07");
+    const deleted = applyOk(state, { type: "delete", record: "expense", id: 1 });
+    const view = projectMonth(deleted, "2026-07");
 
-    expect(vista.occurrences.map((o) => o.amount)).toEqual([12_000]);
-    expect(vista.aggregates.monthExpenses).toBe(12_000);
-    expect(trashItems(apagado).map((i) => [i.record, i.id])).toEqual([["expense", 1]]);
-    // Sem o parcelado, os três eixos continuam somando as despesas do mês.
-    for (const eixo of ["jar", "payment-method", "tag"] as Axis[]) {
-      expect(groups(vista, eixo).reduce((s, g) => s + g.total, 0), eixo).toBe(vista.aggregates.monthExpenses);
+    expect(view.occurrences.map((o) => o.amount)).toEqual([12_000]);
+    expect(view.aggregates.monthExpenses).toBe(12_000);
+    expect(trashItems(deleted).map((i) => [i.record, i.id])).toEqual([["expense", 1]]);
+    // Without the installment purchase, the three axes still add up to the month's expenses.
+    for (const axis of ["jar", "payment-method", "tag"] as Axis[]) {
+      expect(groups(view, axis).reduce((s, g) => s + g.total, 0), axis).toBe(view.aggregates.monthExpenses);
     }
 
-    const restaurado = aplicarOk(apagado, { type: "restore", record: "expense", id: 1 });
+    const restored = applyOk(deleted, { type: "restore", record: "expense", id: 1 });
 
-    expect(projectMonth(restaurado, "2026-07")).toEqual(antes);
+    expect(projectMonth(restored, "2026-07")).toEqual(before);
   });
 
-  it("uma antecipação de um parcelado na lixeira não se restaura sozinha", () => {
-    let estado = comAntecipacao(EM_DEZ, { date: "2026-07-20", installments: 3, amount: 300_000 });
-    estado = aplicarOk(estado, { type: "delete", record: "prepayment", id: 1 });
-    estado = aplicarOk(estado, { type: "delete", record: "expense", id: 1 });
+  it("a prepayment of an installment purchase in the trash is not restored on its own", () => {
+    let state = withPrepayment(IN_TEN, { date: "2026-07-20", installments: 3, amount: 300_000 });
+    state = applyOk(state, { type: "delete", record: "prepayment", id: 1 });
+    state = applyOk(state, { type: "delete", record: "expense", id: 1 });
 
-    expect(apply(estado, { type: "restore", record: "prepayment", id: 1 }, HOJE)).toEqual({
+    expect(apply(state, { type: "restore", record: "prepayment", id: 1 }, TODAY)).toEqual({
       ok: false,
       error: expect.stringMatching(/lixeira/i),
     });
   });
 });
 
-describe("a invariante dos três eixos com antecipação", () => {
-  const EIXOS: Axis[] = ["jar", "payment-method", "tag"];
-  const MESES: Month[] = ["2026-01", "2026-04", "2026-07", "2026-08", "2026-10"];
+describe("the three axes invariant with a prepayment", () => {
+  const AXES: Axis[] = ["jar", "payment-method", "tag"];
+  const MONTHS: Month[] = ["2026-01", "2026-04", "2026-07", "2026-08", "2026-10"];
 
-  it("toda ocorrência, inclusive a da antecipação, cai em um grupo de cada eixo", () => {
-    let estado = comAntecipacao({ ...EM_DEZ, tag: "casa" }, { date: "2026-07-20", installments: 2, amount: 70_000 });
-    // Um segundo parcelado, em outro pote e sem tag, para os eixos terem mais de um grupo.
-    estado = salvar(estado, { ...EM_DEZ, date: "2026-07-03", jar: "goals", amount: 60_000, installments: 4, tag: null });
-    estado = aplicarOk(estado, antecipar({ expense: 2, date: "2026-08-04", installments: 2, amount: 28_000 }));
+  it("every occurrence, including the prepayment's, falls into one group of each axis", () => {
+    let state = withPrepayment({ ...IN_TEN, tag: "casa" }, { date: "2026-07-20", installments: 2, amount: 70_000 });
+    // A second installment purchase, in another jar and without a tag, so the axes have more than one group.
+    state = save(state, { ...IN_TEN, date: "2026-07-03", jar: "goals", amount: 60_000, installments: 4, tag: null });
+    state = applyOk(state, prepay({ expense: 2, date: "2026-08-04", installments: 2, amount: 28_000 }));
 
-    for (const mes of MESES) {
-      const vista = projectMonth(estado, mes);
-      expect(vista.jars.reduce((s, p) => s + p.total, 0), mes).toBe(vista.aggregates.monthExpenses);
-      for (const eixo of EIXOS) {
-        const gs = groups(vista, eixo);
-        expect(gs.reduce((s, g) => s + g.total, 0), `eixo ${eixo} em ${mes}`).toBe(vista.aggregates.monthExpenses);
-        expect(gs.flatMap((g) => g.occurrences), `eixo ${eixo} em ${mes}`).toHaveLength(vista.occurrences.length);
+    for (const month of MONTHS) {
+      const view = projectMonth(state, month);
+      expect(view.jars.reduce((s, j) => s + j.total, 0), month).toBe(view.aggregates.monthExpenses);
+      for (const axis of AXES) {
+        const gs = groups(view, axis);
+        expect(gs.reduce((s, g) => s + g.total, 0), `axis ${axis} in ${month}`).toBe(view.aggregates.monthExpenses);
+        expect(gs.flatMap((g) => g.occurrences), `axis ${axis} in ${month}`).toHaveLength(view.occurrences.length);
       }
-      expect(allExpenses(vista).total, mes).toBe(vista.aggregates.monthExpenses);
+      expect(allExpenses(view).total, month).toBe(view.aggregates.monthExpenses);
     }
   });
 });
 
-function valoresPorMes(estado: State, meses: Month[]): number[][] {
-  return meses.map((m) => projectMonth(estado, m).occurrences.map((o) => o.amount));
+function amountsByMonth(state: State, months: Month[]): number[][] {
+  return months.map((m) => projectMonth(state, m).occurrences.map((o) => o.amount));
 }
 
-const compraDe = (estado: State, id: number): Purchase => estado.expenses.find((l) => l.id === id) as Purchase;
+const purchaseOf = (state: State, id: number): Purchase => state.expenses.find((e) => e.id === id) as Purchase;
 
-/** O "até N" que a prévia diz para uma antecipação nessa data; com id, para corrigir a que já existe. */
-const maximoEm = (compra: Purchase, data: IsoDate, id?: number): number =>
-  prepaymentPreview(compra, { ...(id !== undefined && { id }), date: data, installments: 1 }, HOJE).max;
+/** The "up to N" the preview states for a prepayment on this date; with an id, for correcting an existing one. */
+const maxOn = (purchase: Purchase, date: IsoDate, id?: number): number =>
+  prepaymentPreview(purchase, { ...(id !== undefined && { id }), date, installments: 1 }, TODAY).max;
 
-function salvarLancamento(lancamento: ExpenseToSave): Command {
-  return { type: "save-expense", expense: lancamento };
+function saveExpense(expense: ExpenseToSave): Command {
+  return { type: "save-expense", expense };
 }
 
-function antecipar(campos: Partial<PrepaymentToSave> & { date: IsoDate; installments: number; amount: number }): Command {
-  return { type: "save-prepayment", prepayment: { expense: 1, ...campos } };
+function prepay(fields: Partial<PrepaymentToSave> & { date: IsoDate; installments: number; amount: number }): Command {
+  return { type: "save-prepayment", prepayment: { expense: 1, ...fields } };
 }
 
-function salvar(estado: State, lancamento: ExpenseToSave): State {
-  return aplicarOk(estado, salvarLancamento(lancamento));
+function save(state: State, expense: ExpenseToSave): State {
+  return applyOk(state, saveExpense(expense));
 }
 
-function comAntecipacao(lancamento: ExpenseToSave, antecipacao: Omit<PrepaymentToSave, "expense">): State {
-  return aplicarOk(salvar(emptyState(), lancamento), { type: "save-prepayment", prepayment: { expense: 1, ...antecipacao } });
+function withPrepayment(expense: ExpenseToSave, prepayment: Omit<PrepaymentToSave, "expense">): State {
+  return applyOk(save(emptyState(), expense), { type: "save-prepayment", prepayment: { expense: 1, ...prepayment } });
 }
 
-function aplicarOk(estado: State, comando: Command, hoje: IsoDate = HOJE): State {
-  const resultado = apply(estado, comando, hoje);
-  if (!resultado.ok) throw new Error(resultado.error);
-  return resultado.value;
+function applyOk(state: State, command: Command, today: IsoDate = TODAY): State {
+  const result = apply(state, command, today);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
 }

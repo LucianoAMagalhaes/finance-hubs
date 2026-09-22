@@ -20,65 +20,65 @@ import {
   type NewExpense,
 } from "@/domain";
 
-const HOJE: IsoDate = "2026-09-18";
+const TODAY: IsoDate = "2026-09-18";
 
-describe("parcelas de um parcelado", () => {
-  it("R$ 1.000 em 3× são 333,34 + 333,33 + 333,33 a partir do mês da compra, e nada fora deles", () => {
-    const estado = salvar(emptyState(), parcelado({ date: "2026-09-12", amount: 100_000, installments: 3 }));
+describe("installments of an installment purchase", () => {
+  it("R$ 1.000 in 3× is 333,34 + 333,33 + 333,33 from the purchase month on, and nothing outside them", () => {
+    const state = save(emptyState(), inInstallments({ date: "2026-09-12", amount: 100_000, installments: 3 }));
 
-    expect(valoresPorMes(estado, ["2026-08", "2026-09", "2026-10", "2026-11", "2026-12"])).toEqual([[], [33_334], [33_333], [33_333], []]);
+    expect(amountsByMonth(state, ["2026-08", "2026-09", "2026-10", "2026-11", "2026-12"])).toEqual([[], [33_334], [33_333], [33_333], []]);
   });
 
-  it("a ocorrência diz qual parcela é, de quantas, e de que total", () => {
-    const estado = salvar(emptyState(), parcelado({ date: "2026-06-18", amount: 389_900, installments: 10 }));
+  it("the occurrence says which installment it is, of how many, and of what total", () => {
+    const state = save(emptyState(), inInstallments({ date: "2026-06-18", amount: 389_900, installments: 10 }));
 
-    const [ocorrencia] = projectMonth(estado, "2026-09").occurrences;
+    const [occurrence] = projectMonth(state, "2026-09").occurrences;
 
-    expect(ocorrencia).toMatchObject({ amount: 38_990, installment: { number: 4, of: 10, total: 389_900 } });
+    expect(occurrence).toMatchObject({ amount: 38_990, installment: { number: 4, of: 10, total: 389_900 } });
   });
 
-  it("o à vista não é parcela", () => {
-    const estado = salvar(emptyState(), parcelado({ installments: 1 }));
+  it("an upfront purchase is not an installment", () => {
+    const state = save(emptyState(), inInstallments({ installments: 1 }));
 
-    expect(projectMonth(estado, "2026-09").occurrences[0]!.installment).toBeNull();
+    expect(projectMonth(state, "2026-09").occurrences[0]!.installment).toBeNull();
   });
 
-  it("a parcela cai no dia da compra, limitado ao último dia do mês", () => {
-    const estado = salvar(emptyState(), parcelado({ date: "2026-01-31", installments: 3 }));
+  it("the installment falls on the purchase day, capped at the last day of the month", () => {
+    const state = save(emptyState(), inInstallments({ date: "2026-01-31", installments: 3 }));
 
-    expect(projectMonth(estado, "2026-02").occurrences[0]!.date).toBe("2026-02-28");
-    expect(projectMonth(estado, "2026-03").occurrences[0]!.date).toBe("2026-03-31");
+    expect(projectMonth(state, "2026-02").occurrences[0]!.date).toBe("2026-02-28");
+    expect(projectMonth(state, "2026-03").occurrences[0]!.date).toBe("2026-03-31");
   });
 
-  it("um parcelado que começou antes do app, lançado com a data original, só tem as restantes daqui para frente", () => {
-    const estado = salvar(emptyState(), parcelado({ date: "2026-03-10", amount: 120_000, installments: 10 }));
+  it("an installment purchase that started before the app, entered with the original date, only has the remaining ones from here on", () => {
+    const state = save(emptyState(), inInstallments({ date: "2026-03-10", amount: 120_000, installments: 10 }));
 
-    expect(projectMonth(estado, "2026-09").occurrences[0]!.installment).toMatchObject({ number: 7 });
-    expect(projectMonth(estado, "2026-12").occurrences[0]!.installment).toMatchObject({ number: 10 });
-    expect(projectMonth(estado, "2027-01").occurrences).toEqual([]);
+    expect(projectMonth(state, "2026-09").occurrences[0]!.installment).toMatchObject({ number: 7 });
+    expect(projectMonth(state, "2026-12").occurrences[0]!.installment).toMatchObject({ number: 10 });
+    expect(projectMonth(state, "2027-01").occurrences).toEqual([]);
   });
 
-  it("um reembolso parcelado divide o total negativo do mesmo jeito", () => {
-    const estado = salvar(emptyState(), parcelado({ amount: -100_000, installments: 3 }));
+  it("a refund in installments splits the negative total the same way", () => {
+    const state = save(emptyState(), inInstallments({ amount: -100_000, installments: 3 }));
 
-    expect(valoresPorMes(estado, ["2026-09", "2026-10", "2026-11"])).toEqual([[-33_334], [-33_333], [-33_333]]);
+    expect(amountsByMonth(state, ["2026-09", "2026-10", "2026-11"])).toEqual([[-33_334], [-33_333], [-33_333]]);
   });
 
-  it("as parcelas sempre somam o total, e o centavo que sobra fica na primeira", () => {
+  it("the installments always add up to the total, and the leftover cent goes on the first", () => {
     for (const [total, n] of [[100_000, 3], [1, 2], [-1, 2], [99_999, 7], [-389_900, 10], [5, 12], [42_000, 1]] as const) {
-      const { first: primeira, rest: demais } = splitIntoInstallments(total, n);
-      expect(primeira + demais * (n - 1), `${total} em ${n}×`).toBe(total);
-      expect(Math.sign(primeira)).toBe(Math.sign(total));
-      expect(Math.abs(primeira - demais)).toBeLessThan(n);
+      const { first, rest } = splitIntoInstallments(total, n);
+      expect(first + rest * (n - 1), `${total} in ${n}×`).toBe(total);
+      expect(Math.sign(first)).toBe(Math.sign(total));
+      expect(Math.abs(first - rest)).toBeLessThan(n);
     }
   });
 });
 
-describe("validação do parcelado", () => {
-  it.each(PAYMENT_METHODS.filter((t) => t.id !== "credit-card").map((t) => t.id))(
-    "mais de uma parcela em %s é recusado",
-    (tipo) => {
-      expect(apply(emptyState(), salvarLancamento(parcelado({ paymentMethod: tipo, installments: 3 })), HOJE)).toEqual({
+describe("installment purchase validation", () => {
+  it.each(PAYMENT_METHODS.filter((m) => m.id !== "credit-card").map((m) => m.id))(
+    "more than one installment on %s is rejected",
+    (method) => {
+      expect(apply(emptyState(), saveExpense(inInstallments({ paymentMethod: method, installments: 3 })), TODAY)).toEqual({
         ok: false,
         error: expect.stringMatching(/Cartão de Crédito/),
       });
@@ -86,116 +86,116 @@ describe("validação do parcelado", () => {
   );
 
   it.each([
-    ["zero parcelas", 0],
-    ["parcelas negativas", -2],
-    ["parcelas fracionadas", 2.5],
-    ["parcelas que não são número", "3" as never],
-  ])("%s é recusado", (_, parcelas) => {
-    expect(apply(emptyState(), salvarLancamento(parcelado({ installments: parcelas })), HOJE).ok).toBe(false);
+    ["zero installments", 0],
+    ["negative installments", -2],
+    ["fractional installments", 2.5],
+    ["installments that are not a number", "3" as never],
+  ])("%s is rejected", (_, installments) => {
+    expect(apply(emptyState(), saveExpense(inInstallments({ installments })), TODAY).ok).toBe(false);
   });
 });
 
-describe("corrigir um parcelado", () => {
-  it("corrigir o total muda todas as parcelas, inclusive as de meses passados", () => {
-    const estado = salvar(emptyState(), parcelado({ date: "2026-07-05", amount: 90_000, installments: 3 }));
-    const id = projectMonth(estado, "2026-07").occurrences[0]!.expense;
+describe("correcting an installment purchase", () => {
+  it("correcting the total changes every installment, including those of past months", () => {
+    const state = save(emptyState(), inInstallments({ date: "2026-07-05", amount: 90_000, installments: 3 }));
+    const id = projectMonth(state, "2026-07").occurrences[0]!.expense;
 
-    const corrigido = salvar(estado, { ...parcelado({ date: "2026-07-05", amount: 120_000, installments: 3 }), id });
+    const corrected = save(state, { ...inInstallments({ date: "2026-07-05", amount: 120_000, installments: 3 }), id });
 
-    expect(valoresPorMes(corrigido, ["2026-07", "2026-08", "2026-09"])).toEqual([[40_000], [40_000], [40_000]]);
+    expect(amountsByMonth(corrected, ["2026-07", "2026-08", "2026-09"])).toEqual([[40_000], [40_000], [40_000]]);
   });
 
-  it("trocar para à vista deixa uma ocorrência só, com o total, no mês da compra", () => {
-    const estado = salvar(emptyState(), parcelado({ date: "2026-07-05", amount: 90_000, installments: 3 }));
-    const id = projectMonth(estado, "2026-07").occurrences[0]!.expense;
+  it("switching to upfront leaves a single occurrence, with the total, in the purchase month", () => {
+    const state = save(emptyState(), inInstallments({ date: "2026-07-05", amount: 90_000, installments: 3 }));
+    const id = projectMonth(state, "2026-07").occurrences[0]!.expense;
 
-    const aVista = salvar(estado, { ...parcelado({ date: "2026-07-05", amount: 90_000, installments: 1 }), id });
+    const upfront = save(state, { ...inInstallments({ date: "2026-07-05", amount: 90_000, installments: 1 }), id });
 
-    expect(valoresPorMes(aVista, ["2026-07", "2026-08", "2026-09"])).toEqual([[90_000], [], []]);
+    expect(amountsByMonth(upfront, ["2026-07", "2026-08", "2026-09"])).toEqual([[90_000], [], []]);
   });
 
-  it("trocar de à vista para parcelado espalha o total pelos meses", () => {
-    const estado = salvar(emptyState(), parcelado({ amount: 60_000, installments: 1 }));
-    const id = projectMonth(estado, "2026-09").occurrences[0]!.expense;
+  it("switching from upfront to installments spreads the total over the months", () => {
+    const state = save(emptyState(), inInstallments({ amount: 60_000, installments: 1 }));
+    const id = projectMonth(state, "2026-09").occurrences[0]!.expense;
 
-    const emParcelas = salvar(estado, { ...parcelado({ amount: 60_000, installments: 2 }), id });
+    const split = save(state, { ...inInstallments({ amount: 60_000, installments: 2 }), id });
 
-    expect(valoresPorMes(emParcelas, ["2026-09", "2026-10"])).toEqual([[30_000], [30_000]]);
+    expect(amountsByMonth(split, ["2026-09", "2026-10"])).toEqual([[30_000], [30_000]]);
   });
 });
 
-describe("nascimento do mês com parcelado", () => {
-  it("só o mês da compra nasce: a 4ª parcela caindo em dezembro não faz dezembro nascer", () => {
-    const estado = salvar(emptyState(), parcelado({ date: "2026-09-12", installments: 4 }));
+describe("month birth with an installment purchase", () => {
+  it("only the purchase month is born: the 4th installment falling in December does not make December be born", () => {
+    const state = save(emptyState(), inInstallments({ date: "2026-09-12", installments: 4 }));
 
-    expect(projectMonth(estado, "2026-09").budget.born).toBe(true);
-    for (const mes of ["2026-10", "2026-11", "2026-12"] as const) {
-      expect(projectMonth(estado, mes).occurrences, mes).toHaveLength(1);
-      expect(projectMonth(estado, mes).budget.born, mes).toBe(false);
+    expect(projectMonth(state, "2026-09").budget.born).toBe(true);
+    for (const month of ["2026-10", "2026-11", "2026-12"] as const) {
+      expect(projectMonth(state, month).occurrences, month).toHaveLength(1);
+      expect(projectMonth(state, month).budget.born, month).toBe(false);
     }
   });
 });
 
-describe("invariante dos eixos com parcelados (propriedade)", () => {
-  const EIXOS: Axis[] = ["jar", "payment-method", "tag"];
-  const MESES: Month[] = ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"];
+describe("axes invariant with installment purchases (property)", () => {
+  const AXES: Axis[] = ["jar", "payment-method", "tag"];
+  const MONTHS: Month[] = ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"];
 
-  it.each(Array.from({ length: 200 }, (_, i) => i + 1))("estado gerado com a semente %i", (semente) => {
-    const estado = estadoGerado(semente);
+  it.each(Array.from({ length: 200 }, (_, i) => i + 1))("state generated with seed %i", (seed) => {
+    const state = generatedState(seed);
 
-    for (const mes of MESES) {
-      const vista = projectMonth(estado, mes);
-      expect(vista.jars.reduce((s, p) => s + p.total, 0)).toBe(vista.aggregates.monthExpenses);
-      for (const eixo of EIXOS) {
-        const gs = groups(vista, eixo);
-        expect(gs.reduce((s, g) => s + g.total, 0), `eixo ${eixo} em ${mes}`).toBe(vista.aggregates.monthExpenses);
-        expect(new Set(gs.flatMap((g) => g.occurrences))).toEqual(new Set(vista.occurrences));
-        expect(gs.flatMap((g) => g.occurrences)).toHaveLength(vista.occurrences.length);
+    for (const month of MONTHS) {
+      const view = projectMonth(state, month);
+      expect(view.jars.reduce((s, j) => s + j.total, 0)).toBe(view.aggregates.monthExpenses);
+      for (const axis of AXES) {
+        const gs = groups(view, axis);
+        expect(gs.reduce((s, g) => s + g.total, 0), `axis ${axis} in ${month}`).toBe(view.aggregates.monthExpenses);
+        expect(new Set(gs.flatMap((g) => g.occurrences))).toEqual(new Set(view.occurrences));
+        expect(gs.flatMap((g) => g.occurrences)).toHaveLength(view.occurrences.length);
       }
-      expect(allExpenses(vista).total).toBe(vista.aggregates.monthExpenses);
+      expect(allExpenses(view).total).toBe(view.aggregates.monthExpenses);
     }
-    // Somadas em todos os meses, as parcelas de cada compra dão o seu total.
-    for (const l of estado.expenses) {
-      // A última parcela possível: 12× a partir de dezembro cai em novembro do ano seguinte.
-      const soma = Array.from({ length: 17 }, (_, i) => addMonths("2026-07", i))
-        .flatMap((m) => projectMonth(estado, m).occurrences)
-        .filter((o) => o.expense === l.id)
+    // Summed over every month, each purchase's installments give its total.
+    for (const e of state.expenses) {
+      // The last possible installment: 12× starting in December falls in November of the next year.
+      const sum = Array.from({ length: 17 }, (_, i) => addMonths("2026-07", i))
+        .flatMap((m) => projectMonth(state, m).occurrences)
+        .filter((o) => o.expense === e.id)
         .reduce((s, o) => s + o.amount, 0);
-      expect(soma).toBe((l as Purchase).amount);
+      expect(sum).toBe((e as Purchase).amount);
     }
   });
 
-  /** Compras à vista e parceladas, reembolsos e correções de forma, espalhadas por meses. */
-  function estadoGerado(semente: number): State {
-    const aleatorio = gerador(semente);
-    const um = <T,>(lista: readonly T[]): T => lista[Math.floor(aleatorio() * lista.length)]!;
-    const data = (): IsoDate => {
-      const mes = um(MESES);
-      return `${mes}-${String(1 + Math.floor(aleatorio() * lastDayOfMonth(mes))).padStart(2, "0")}` as IsoDate;
+  /** Upfront and installment purchases, refunds and changes of form, spread over months. */
+  function generatedState(seed: number): State {
+    const random = generator(seed);
+    const pick = <T,>(list: readonly T[]): T => list[Math.floor(random() * list.length)]!;
+    const date = (): IsoDate => {
+      const month = pick(MONTHS);
+      return `${month}-${String(1 + Math.floor(random() * lastDayOfMonth(month))).padStart(2, "0")}` as IsoDate;
     };
-    let estado = emptyState();
-    for (let i = Math.floor(aleatorio() * 20); i > 0; i--) {
-      const valor = 1 + Math.floor(aleatorio() * 500_000);
-      const parcelas = aleatorio() < 0.5 ? 1 : 2 + Math.floor(aleatorio() * 11);
-      const corrigir = estado.expenses.length > 0 && aleatorio() < 0.2;
-      const dados = parcelado({
-        ...(corrigir && { id: um(estado.expenses).id }),
-        date: data(),
-        jar: um(JARS).id,
-        paymentMethod: parcelas > 1 ? "credit-card" : um(PAYMENT_METHODS).id,
-        amount: aleatorio() < 0.25 ? -valor : valor,
-        installments: parcelas,
-        tag: aleatorio() < 0.4 ? null : um(["transporte", "casa", "#Saúde"]),
+    let state = emptyState();
+    for (let i = Math.floor(random() * 20); i > 0; i--) {
+      const amount = 1 + Math.floor(random() * 500_000);
+      const installments = random() < 0.5 ? 1 : 2 + Math.floor(random() * 11);
+      const correct = state.expenses.length > 0 && random() < 0.2;
+      const data = inInstallments({
+        ...(correct && { id: pick(state.expenses).id }),
+        date: date(),
+        jar: pick(JARS).id,
+        paymentMethod: installments > 1 ? "credit-card" : pick(PAYMENT_METHODS).id,
+        amount: random() < 0.25 ? -amount : amount,
+        installments,
+        tag: random() < 0.4 ? null : pick(["transporte", "casa", "#Saúde"]),
       });
-      estado = salvar(estado, dados);
+      state = save(state, data);
     }
-    return estado;
+    return state;
   }
 });
 
-/** mulberry32: reproduzível, para que uma semente que falha falhe sempre. */
-function gerador(semente: number): () => number {
-  let a = semente >>> 0;
+/** mulberry32: reproducible, so a seed that fails always fails. */
+function generator(seed: number): () => number {
+  let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
     let t = a;
@@ -205,11 +205,11 @@ function gerador(semente: number): () => number {
   };
 }
 
-function valoresPorMes(estado: State, meses: Month[]): number[][] {
-  return meses.map((m) => projectMonth(estado, m).occurrences.map((o) => o.amount));
+function amountsByMonth(state: State, months: Month[]): number[][] {
+  return months.map((m) => projectMonth(state, m).occurrences.map((o) => o.amount));
 }
 
-function parcelado(campos: Partial<NewExpense> & { id?: number }): ExpenseToSave {
+function inInstallments(fields: Partial<NewExpense> & { id?: number }): ExpenseToSave {
   return {
     date: "2026-09-12",
     description: "Notebook",
@@ -217,16 +217,16 @@ function parcelado(campos: Partial<NewExpense> & { id?: number }): ExpenseToSave
     paymentMethod: "credit-card",
     amount: 100_000,
     installments: 3,
-    ...campos,
+    ...fields,
   };
 }
 
-function salvarLancamento(lancamento: ExpenseToSave): Command {
-  return { type: "save-expense", expense: lancamento };
+function saveExpense(expense: ExpenseToSave): Command {
+  return { type: "save-expense", expense };
 }
 
-function salvar(estado: State, lancamento: ExpenseToSave): State {
-  const resultado = apply(estado, salvarLancamento(lancamento), HOJE);
-  if (!resultado.ok) throw new Error(resultado.error);
-  return resultado.value;
+function save(state: State, expense: ExpenseToSave): State {
+  const result = apply(state, saveExpense(expense), TODAY);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
 }

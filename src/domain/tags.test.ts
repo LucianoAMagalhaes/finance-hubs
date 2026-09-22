@@ -20,207 +20,207 @@ import {
   type PeriodToSave,
 } from "@/domain";
 
-const HOJE: IsoDate = "2026-09-18";
+const TODAY: IsoDate = "2026-09-18";
 
 /**
- * `#transporte` no combustível de janeiro, num parcelado que atravessa o ano, e
- * num recorrente cuja segunda vigência a mantém; `#casa` à parte, para ver que
- * renomear não a toca.
+ * `#transporte` on January's fuel, on an installment purchase that spans the year, and
+ * on a recurring whose second period keeps it; `#casa` apart, to see that
+ * renaming does not touch it.
  */
-function historico(): State {
-  let estado = salvar(emptyState(), gasto({ date: "2026-01-10", description: "Combustível", tag: "transporte", amount: 30_000 }));
-  estado = salvar(estado, gasto({ date: "2026-02-05", description: "Pneus", tag: "#Transporte", amount: 120_000, installments: 12 }));
-  estado = salvar(estado, gasto({ date: "2026-03-01", description: "Faxina", tag: "casa", amount: 20_000 }));
-  estado = criar(estado, { date: "2026-01-15", description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 25_000, tag: "transporte" });
-  return mudar(estado, 4, "2026-06", { description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 28_000, tag: "transporte" });
+function history(): State {
+  let state = save(emptyState(), expense({ date: "2026-01-10", description: "Combustível", tag: "transporte", amount: 30_000 }));
+  state = save(state, expense({ date: "2026-02-05", description: "Pneus", tag: "#Transporte", amount: 120_000, installments: 12 }));
+  state = save(state, expense({ date: "2026-03-01", description: "Faxina", tag: "casa", amount: 20_000 }));
+  state = create(state, { date: "2026-01-15", description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 25_000, tag: "transporte" });
+  return change(state, 4, "2026-06", { description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 28_000, tag: "transporte" });
 }
 
-describe("renomear uma tag", () => {
-  it("troca o nome nas compras e nas vigências de recorrentes, em meses passados e futuros", () => {
-    const estado = renomear(historico(), "transporte", "#Mobilidade");
+describe("renaming a tag", () => {
+  it("changes the name on purchases and on recurring periods, in past and future months", () => {
+    const state = rename(history(), "transporte", "#Mobilidade");
 
-    expect(tagsInUse(estado)).toEqual(["casa", "mobilidade"]);
-    expect(estado.expenses.map((l) => (l.kind === "purchase" ? l.tag : l.periods.map((v) => v.tag)))).toEqual([
+    expect(tagsInUse(state)).toEqual(["casa", "mobilidade"]);
+    expect(state.expenses.map((e) => (e.kind === "purchase" ? e.tag : e.periods.map((p) => p.tag)))).toEqual([
       "mobilidade",
       "mobilidade",
       "casa",
       ["mobilidade", "mobilidade"],
     ]);
-    for (const mes of ["2026-01", "2026-02", "2026-06", "2026-12", "2028-01"] as const) {
-      expect(projectMonth(estado, mes).occurrences.map((o) => o.tag), mes).not.toContain("transporte");
+    for (const month of ["2026-01", "2026-02", "2026-06", "2026-12", "2028-01"] as const) {
+      expect(projectMonth(state, month).occurrences.map((o) => o.tag), month).not.toContain("transporte");
     }
-    expect(projectMonth(estado, "2026-01").occurrences.map((o) => o.tag)).toEqual(["mobilidade", "mobilidade"]);
+    expect(projectMonth(state, "2026-01").occurrences.map((o) => o.tag)).toEqual(["mobilidade", "mobilidade"]);
   });
 
-  it("o nome novo passa pela mesma normalização da tag", () => {
-    const estado = renomear(historico(), "transporte", " # Ida e Volta ");
+  it("the new name goes through the same tag normalization", () => {
+    const state = rename(history(), "transporte", " # Ida e Volta ");
 
-    expect(tagsInUse(estado)).toEqual(["casa", "ida-e-volta"]);
+    expect(tagsInUse(state)).toEqual(["casa", "ida-e-volta"]);
   });
 
-  it("nada mais do lançamento muda: só a tag", () => {
-    const antes = historico();
+  it("nothing else about the expense changes: only the tag", () => {
+    const before = history();
 
-    const depois = renomear(antes, "transporte", "mobilidade");
+    const after = rename(before, "transporte", "mobilidade");
 
-    expect(depois.budgets).toEqual(antes.budgets);
-    expect(depois.incomes).toEqual(antes.incomes);
-    expect(depois.expenses.map((l) => ({ ...l, tag: null, periods: undefined }))).toEqual(
-      antes.expenses.map((l) => ({ ...l, tag: null, periods: undefined })),
+    expect(after.budgets).toEqual(before.budgets);
+    expect(after.incomes).toEqual(before.incomes);
+    expect(after.expenses.map((e) => ({ ...e, tag: null, periods: undefined }))).toEqual(
+      before.expenses.map((e) => ({ ...e, tag: null, periods: undefined })),
     );
   });
 
-  it("renomear não faz mês nenhum nascer: a tag não tem mês", () => {
-    const antes = criar(emptyState(), { date: "2026-01-15", description: "Estacionamento", jar: "fixed-costs", paymentMethod: "pix", amount: 25_000, tag: "transporte" });
+  it("renaming makes no month be born: the tag has no month", () => {
+    const before = create(emptyState(), { date: "2026-01-15", description: "Estacionamento", jar: "fixed-costs", paymentMethod: "pix", amount: 25_000, tag: "transporte" });
 
-    const depois = renomear(antes, "transporte", "mobilidade");
+    const after = rename(before, "transporte", "mobilidade");
 
-    expect(Object.keys(depois.budgets)).toEqual(["2026-01"]);
+    expect(Object.keys(after.budgets)).toEqual(["2026-01"]);
   });
 
-  it("a cor acompanha o nome novo, porque é derivada dele", () => {
-    const estado = renomear(historico(), "transporte", "mobilidade");
+  it("the color follows the new name, because it is derived from it", () => {
+    const state = rename(history(), "transporte", "mobilidade");
 
-    expect(tagHue(groups(projectMonth(estado, "2026-01"), "tag")[0]!.key!)).toBe(tagHue("mobilidade"));
+    expect(tagHue(groups(projectMonth(state, "2026-01"), "tag")[0]!.key!)).toBe(tagHue("mobilidade"));
   });
 
-  it("um lançamento na lixeira também é renomeado, para não ressuscitar o nome antigo", () => {
-    let estado = salvar(emptyState(), gasto({ tag: "transporte" }));
-    estado = salvar(estado, gasto({ date: "2026-09-13", tag: "transporte" }));
-    estado = aplicarOk(estado, { type: "delete", record: "expense", id: 2 });
+  it("an expense in the trash is also renamed, so the old name does not come back to life", () => {
+    let state = save(emptyState(), expense({ tag: "transporte" }));
+    state = save(state, expense({ date: "2026-09-13", tag: "transporte" }));
+    state = applyOk(state, { type: "delete", record: "expense", id: 2 });
 
-    estado = renomear(estado, "transporte", "mobilidade");
+    state = rename(state, "transporte", "mobilidade");
 
-    expect(estado.expenses.map((l) => (l as Purchase).tag)).toEqual(["mobilidade", "mobilidade"]);
-    expect(trashItems(estado)).toHaveLength(1);
+    expect(state.expenses.map((e) => (e as Purchase).tag)).toEqual(["mobilidade", "mobilidade"]);
+    expect(trashItems(state)).toHaveLength(1);
 
-    const restaurado = aplicarOk(estado, { type: "restore", record: "expense", id: 2 });
+    const restored = applyOk(state, { type: "restore", record: "expense", id: 2 });
 
-    expect(tagsInUse(restaurado)).toEqual(["mobilidade"]);
-  });
-});
-
-describe("quantos lançamentos usam a tag", () => {
-  it("conta os lançamentos vivos, com o recorrente uma vez só, e ignora a lixeira", () => {
-    let estado = historico();
-
-    expect(expensesWithTag(estado, "transporte")).toBe(3);
-    expect(expensesWithTag(estado, "casa")).toBe(1);
-    expect(expensesWithTag(estado, "uber")).toBe(0);
-
-    estado = aplicarOk(estado, { type: "delete", record: "expense", id: 1 });
-
-    expect(expensesWithTag(estado, "transporte")).toBe(2);
+    expect(tagsInUse(restored)).toEqual(["mobilidade"]);
   });
 });
 
-describe("fundir duas tags", () => {
-  /** `#transporte` em janeiro e `#uber` em fevereiro, dois gastos cada. */
-  function duasTags(): State {
-    let estado = salvar(emptyState(), gasto({ date: "2026-01-10", tag: "transporte", amount: 30_000 }));
-    estado = salvar(estado, gasto({ date: "2026-01-20", tag: "transporte", amount: 10_000 }));
-    estado = salvar(estado, gasto({ date: "2026-01-25", tag: "uber", amount: 5_000 }));
-    return salvar(estado, gasto({ date: "2026-02-03", tag: "uber", amount: 7_000 }));
+describe("how many expenses use the tag", () => {
+  it("counts the live expenses, with the recurring only once, and ignores the trash", () => {
+    let state = history();
+
+    expect(expensesWithTag(state, "transporte")).toBe(3);
+    expect(expensesWithTag(state, "casa")).toBe(1);
+    expect(expensesWithTag(state, "uber")).toBe(0);
+
+    state = applyOk(state, { type: "delete", record: "expense", id: 1 });
+
+    expect(expensesWithTag(state, "transporte")).toBe(2);
+  });
+});
+
+describe("merging two tags", () => {
+  /** `#transporte` in January and `#uber` in February, two expenses each. */
+  function twoTags(): State {
+    let state = save(emptyState(), expense({ date: "2026-01-10", tag: "transporte", amount: 30_000 }));
+    state = save(state, expense({ date: "2026-01-20", tag: "transporte", amount: 10_000 }));
+    state = save(state, expense({ date: "2026-01-25", tag: "uber", amount: 5_000 }));
+    return save(state, expense({ date: "2026-02-03", tag: "uber", amount: 7_000 }));
   }
 
-  it("renomear para um nome que já existe, sem confirmação, é recusado e não muda nada", () => {
-    const antes = duasTags();
+  it("renaming to a name that already exists, without confirmation, is rejected and changes nothing", () => {
+    const before = twoTags();
 
-    const recusa = apply(antes, renomearTag("transporte", "uber", false), HOJE);
+    const refusal = apply(before, renameTag("transporte", "uber", false), TODAY);
 
-    expect(recusa).toEqual({ ok: false, error: expect.stringMatching(/#uber/) });
-    expect(apply(antes, { type: "rename-tag", from: "transporte", to: "uber" } as Command, HOJE).ok).toBe(false);
+    expect(refusal).toEqual({ ok: false, error: expect.stringMatching(/#uber/) });
+    expect(apply(before, { type: "rename-tag", from: "transporte", to: "uber" } as Command, TODAY).ok).toBe(false);
   });
 
-  it("com a confirmação, as duas viram uma só e os totais do grupo somam", () => {
-    const estado = aplicarOk(duasTags(), renomearTag("transporte", "uber", true));
+  it("with the confirmation, the two become one and the group totals add up", () => {
+    const state = applyOk(twoTags(), renameTag("transporte", "uber", true));
 
-    expect(tagsInUse(estado)).toEqual(["uber"]);
-    const janeiro = groups(projectMonth(estado, "2026-01"), "tag");
-    expect(janeiro.map((g) => [g.key, g.total])).toEqual([["uber", 45_000]]);
-    expect(janeiro[0]!.occurrences).toHaveLength(3);
-    expect(groups(projectMonth(estado, "2026-02"), "tag").map((g) => [g.key, g.total])).toEqual([["uber", 7_000]]);
+    expect(tagsInUse(state)).toEqual(["uber"]);
+    const january = groups(projectMonth(state, "2026-01"), "tag");
+    expect(january.map((g) => [g.key, g.total])).toEqual([["uber", 45_000]]);
+    expect(january[0]!.occurrences).toHaveLength(3);
+    expect(groups(projectMonth(state, "2026-02"), "tag").map((g) => [g.key, g.total])).toEqual([["uber", 7_000]]);
   });
 
-  it("a fusão também junta as vigências de um recorrente", () => {
-    let estado = criar(emptyState(), { date: "2026-01-15", description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 25_000, tag: "transporte" });
-    estado = mudar(estado, 1, "2026-06", { description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 28_000, tag: "uber" });
+  it("the merge also joins a recurring's periods", () => {
+    let state = create(emptyState(), { date: "2026-01-15", description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 25_000, tag: "transporte" });
+    state = change(state, 1, "2026-06", { description: "Estacionamento", jar: "fixed-costs", paymentMethod: "boleto", amount: 28_000, tag: "uber" });
 
-    estado = aplicarOk(estado, renomearTag("transporte", "uber", true));
+    state = applyOk(state, renameTag("transporte", "uber", true));
 
-    expect(periodsWithEnd(estado.expenses[0] as Recurring).map((v) => v.tag)).toEqual(["uber", "uber"]);
-    expect(tagsInUse(estado)).toEqual(["uber"]);
+    expect(periodsWithEnd(state.expenses[0] as Recurring).map((p) => p.tag)).toEqual(["uber", "uber"]);
+    expect(tagsInUse(state)).toEqual(["uber"]);
   });
 
-  it("um nome que só dorme na lixeira também pede confirmação: ele volta ao restaurar", () => {
-    let estado = salvar(emptyState(), gasto({ tag: "transporte" }));
-    estado = salvar(estado, gasto({ date: "2026-09-13", tag: "uber" }));
-    estado = aplicarOk(estado, { type: "delete", record: "expense", id: 2 });
+  it("a name that only sleeps in the trash also asks for confirmation: it comes back on restore", () => {
+    let state = save(emptyState(), expense({ tag: "transporte" }));
+    state = save(state, expense({ date: "2026-09-13", tag: "uber" }));
+    state = applyOk(state, { type: "delete", record: "expense", id: 2 });
 
-    expect(tagsInUse(estado)).toEqual(["transporte"]);
-    expect(apply(estado, renomearTag("transporte", "uber", false), HOJE).ok).toBe(false);
+    expect(tagsInUse(state)).toEqual(["transporte"]);
+    expect(apply(state, renameTag("transporte", "uber", false), TODAY).ok).toBe(false);
 
-    const fundido = aplicarOk(estado, renomearTag("transporte", "uber", true));
-    const restaurado = aplicarOk(fundido, { type: "restore", record: "expense", id: 2 });
+    const merged = applyOk(state, renameTag("transporte", "uber", true));
+    const restored = applyOk(merged, { type: "restore", record: "expense", id: 2 });
 
-    expect(tagsInUse(restaurado)).toEqual(["uber"]);
+    expect(tagsInUse(restored)).toEqual(["uber"]);
   });
 
-  it("confirmar a fusão sem que o nome novo exista renomeia como sempre", () => {
-    const estado = aplicarOk(duasTags(), renomearTag("transporte", "mobilidade", true));
+  it("confirming the merge when the new name does not exist renames as usual", () => {
+    const state = applyOk(twoTags(), renameTag("transporte", "mobilidade", true));
 
-    expect(tagsInUse(estado)).toEqual(["mobilidade", "uber"]);
+    expect(tagsInUse(state)).toEqual(["mobilidade", "uber"]);
   });
 });
 
-describe("validação do renomear", () => {
-  it("renomear uma tag que ninguém usa é recusado", () => {
-    const estado = salvar(emptyState(), gasto({ tag: "casa" }));
+describe("rename validation", () => {
+  it("renaming a tag nobody uses is rejected", () => {
+    const state = save(emptyState(), expense({ tag: "casa" }));
 
-    expect(apply(estado, renomearTag("transporte", "mobilidade", false), HOJE).ok).toBe(false);
+    expect(apply(state, renameTag("transporte", "mobilidade", false), TODAY).ok).toBe(false);
   });
 
-  it("uma tag que só existe na lixeira já não está em uso: renomeá-la é recusado", () => {
-    let estado = salvar(emptyState(), gasto({ tag: "transporte" }));
-    estado = aplicarOk(estado, { type: "delete", record: "expense", id: 1 });
+  it("a tag that only exists in the trash is no longer in use: renaming it is rejected", () => {
+    let state = save(emptyState(), expense({ tag: "transporte" }));
+    state = applyOk(state, { type: "delete", record: "expense", id: 1 });
 
-    expect(apply(estado, renomearTag("transporte", "mobilidade", false), HOJE).ok).toBe(false);
+    expect(apply(state, renameTag("transporte", "mobilidade", false), TODAY).ok).toBe(false);
   });
 
-  it("um nome novo que não sobra depois de normalizado é recusado", () => {
-    const estado = salvar(emptyState(), gasto({ tag: "transporte" }));
+  it("a new name with nothing left after normalization is rejected", () => {
+    const state = save(emptyState(), expense({ tag: "transporte" }));
 
-    for (const para of ["", "   ", " # "]) {
-      expect(apply(estado, renomearTag("transporte", para, false), HOJE).ok, para).toBe(false);
+    for (const to of ["", "   ", " # "]) {
+      expect(apply(state, renameTag("transporte", to, false), TODAY).ok, to).toBe(false);
     }
   });
 
-  it("renomear para o mesmo nome é recusado, ainda que digitado de outro jeito", () => {
-    const estado = salvar(emptyState(), gasto({ tag: "transporte" }));
+  it("renaming to the same name is rejected, even if typed differently", () => {
+    const state = save(emptyState(), expense({ tag: "transporte" }));
 
-    expect(apply(estado, renomearTag("transporte", "#Transporte", false), HOJE)).toEqual({
+    expect(apply(state, renameTag("transporte", "#Transporte", false), TODAY)).toEqual({
       ok: false,
       error: expect.stringMatching(/já é o nome/),
     });
   });
 
-  it("o nome de origem também passa pela normalização: vem da tela como foi clicado", () => {
-    const estado = salvar(emptyState(), gasto({ tag: "transporte" }));
+  it("the source name also goes through normalization: it comes from the screen as it was clicked", () => {
+    const state = save(emptyState(), expense({ tag: "transporte" }));
 
-    expect(tagsInUse(aplicarOk(estado, renomearTag("#Transporte", "mobilidade", false)))).toEqual(["mobilidade"]);
+    expect(tagsInUse(applyOk(state, renameTag("#Transporte", "mobilidade", false)))).toEqual(["mobilidade"]);
   });
 
   it.each([
-    ["de que não é texto", 42 as never, "mobilidade"],
-    ["para que não é texto", "transporte", 42 as never],
-  ])("%s é recusado", (_, de, para) => {
-    const estado = salvar(emptyState(), gasto({ tag: "transporte" }));
+    ["from that is not text", 42 as never, "mobilidade"],
+    ["to that is not text", "transporte", 42 as never],
+  ])("%s is rejected", (_, from, to) => {
+    const state = save(emptyState(), expense({ tag: "transporte" }));
 
-    expect(apply(estado, renomearTag(de, para, false), HOJE).ok).toBe(false);
+    expect(apply(state, renameTag(from, to, false), TODAY).ok).toBe(false);
   });
 });
 
-function gasto(campos: {
+function expense(fields: {
   date?: IsoDate;
   description?: string;
   jar?: Jar;
@@ -228,22 +228,22 @@ function gasto(campos: {
   installments?: number;
   tag?: string | null;
 }): ExpenseToSave {
-  return { date: "2026-09-12", description: "Mercado", jar: "fixed-costs", paymentMethod: "credit-card", amount: 10_000, installments: 1, ...campos };
+  return { date: "2026-09-12", description: "Mercado", jar: "fixed-costs", paymentMethod: "credit-card", amount: 10_000, installments: 1, ...fields };
 }
 
-const renomearTag = (de: string, para: string, fundir: boolean): Command => ({ type: "rename-tag", from: de, to: para, merge: fundir });
+const renameTag = (from: string, to: string, merge: boolean): Command => ({ type: "rename-tag", from, to, merge });
 
-const renomear = (estado: State, de: string, para: string) => aplicarOk(estado, renomearTag(de, para, false));
+const rename = (state: State, from: string, to: string) => applyOk(state, renameTag(from, to, false));
 
-const salvar = (estado: State, lancamento: ExpenseToSave) => aplicarOk(estado, { type: "save-expense", expense: lancamento });
+const save = (state: State, expense: ExpenseToSave) => applyOk(state, { type: "save-expense", expense });
 
-const criar = (estado: State, recorrente: PeriodToSave & { date: IsoDate }) => aplicarOk(estado, { type: "create-recurring", recurring: recorrente });
+const create = (state: State, recurring: PeriodToSave & { date: IsoDate }) => applyOk(state, { type: "create-recurring", recurring });
 
-const mudar = (estado: State, id: number, mes: Month, vigencia: PeriodToSave) =>
-  aplicarOk(estado, { type: "change-recurring", id, month: mes, period: vigencia });
+const change = (state: State, id: number, month: Month, period: PeriodToSave) =>
+  applyOk(state, { type: "change-recurring", id, month, period });
 
-function aplicarOk(estado: State, comando: Command): State {
-  const resultado = apply(estado, comando, HOJE);
-  if (!resultado.ok) throw new Error(resultado.error);
-  return resultado.value;
+function applyOk(state: State, command: Command): State {
+  const result = apply(state, command, TODAY);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
 }
