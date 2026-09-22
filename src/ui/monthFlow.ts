@@ -1,6 +1,7 @@
 import {
   findPrepayment,
   apply,
+  monthBornBy,
   trashItems,
   monthOf,
   monthName,
@@ -140,13 +141,14 @@ export function createMonthFlow(initialState: State, { today, execute }: { today
     },
     closeForm: () => update({ form: null }),
 
-    /** Saves the open form's record and, if it weighs from another month on, gives notice without leaving this one. */
-    async save(command: Command, target: Month): Promise<string | null> {
+    /** Saves the open form's record and, if it makes another month be born, gives notice without leaving this one. */
+    async save(command: Command): Promise<string | null> {
       const { month } = memory;
       const label = labelOf(formOnScreen());
+      const born = monthBornBy(command);
       return send(command, () => ({
         form: null,
-        notice: target === month ? null : { text: `${label} em ${monthName(target)}.`, month: target },
+        notice: born !== null && born !== month ? { text: `${label} em ${monthName(born)}.`, month: born } : null,
       }));
     },
     /** Deleting sends to the trash and closes the form; the affected months recalculate with the new state. */

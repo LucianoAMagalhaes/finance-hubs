@@ -162,7 +162,7 @@ export function MonthScreen({ initialState, today }: Props) {
         <IncomeForm
           income={form.income}
           proposedDate={proposedDate(month, today)}
-          save={(income) => flow.save({ type: "save-income", income }, monthOf(income.date))}
+          save={(income) => flow.save({ type: "save-income", income })}
           delete={flow.delete}
           close={flow.closeForm}
         />

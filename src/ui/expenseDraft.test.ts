@@ -27,7 +27,7 @@ function stateAfter(...commands: Command[]): State {
 function send(draft: Draft, state: State): { error: string | null; state: State } {
   const built = commandFrom(draft);
   if (!built.ok) return { error: built.error, state };
-  const result = apply(state, built.value.command, TODAY);
+  const result = apply(state, built.value, TODAY);
   return result.ok ? { error: null, state: result.value } : { error: result.error, state };
 }
 
@@ -125,26 +125,23 @@ describe("opening the draft", () => {
 });
 
 describe("closing the draft into a command", () => {
-  it("an upfront expense becomes a purchase of one installment, weighing on the month of its own date", () => {
+  it("an upfront expense becomes a purchase of one installment", () => {
     const draft: Draft = { ...draftFrom(null, "2026-09", PROPOSED), description: "Padaria", amount: "18,90", date: "2026-10-02" };
     const built = commandFrom(draft);
 
     expect(built).toEqual({
       ok: true,
       value: {
-        command: {
-          type: "save-expense",
-          expense: {
-            date: "2026-10-02",
-            description: "Padaria",
-            jar: "fixed-costs",
-            paymentMethod: "pix",
-            amount: 1890,
-            installments: 1,
-            tag: "",
-          },
+        type: "save-expense",
+        expense: {
+          date: "2026-10-02",
+          description: "Padaria",
+          jar: "fixed-costs",
+          paymentMethod: "pix",
+          amount: 1890,
+          installments: 1,
+          tag: "",
         },
-        month: "2026-10",
       },
     });
     expect(send(draft, emptyState()).error).toBeNull();
@@ -162,7 +159,7 @@ describe("closing the draft into a command", () => {
 
     expect(commandFrom(draft)).toMatchObject({
       ok: true,
-      value: { command: { expense: { amount: 300000, installments: 6 } }, month: "2026-09" },
+      value: { expense: { amount: 300000, installments: 6 } },
     });
     expect(send(draft, emptyState()).error).toBeNull();
   });
@@ -170,13 +167,13 @@ describe("closing the draft into a command", () => {
   it("the refund checkbox stores a negative amount", () => {
     const draft: Draft = { ...draftFrom(null, "2026-09", PROPOSED), description: "Estorno", amount: "50,00", refund: true };
 
-    expect(commandFrom(draft)).toMatchObject({ ok: true, value: { command: { expense: { amount: -5000 } } } });
+    expect(commandFrom(draft)).toMatchObject({ ok: true, value: { expense: { amount: -5000 } } });
   });
 
   it("correcting a purchase carries its id, so it replaces instead of adding", () => {
     const draft = { ...draftFrom(only(upfront), "2026-09", PROPOSED), amount: "200,00" };
 
-    expect(commandFrom(draft)).toMatchObject({ ok: true, value: { command: { expense: { id: 1 } } } });
+    expect(commandFrom(draft)).toMatchObject({ ok: true, value: { expense: { id: 1 } } });
 
     const { error, state } = send(draft, upfront);
     expect(error).toBeNull();
@@ -184,7 +181,7 @@ describe("closing the draft into a command", () => {
     expect((state.expenses[0] as Purchase).amount).toBe(20000);
   });
 
-  it("a new recurring expense becomes create-recurring, weighing on the month of its first occurrence", () => {
+  it("a new recurring expense becomes create-recurring, dated at its first occurrence", () => {
     const draft: Draft = {
       ...draftFrom(null, "2026-09", PROPOSED),
       shape: "recurring",
@@ -195,7 +192,7 @@ describe("closing the draft into a command", () => {
 
     expect(commandFrom(draft)).toMatchObject({
       ok: true,
-      value: { command: { type: "create-recurring", recurring: { date: "2026-11-08", amount: 3990 } }, month: "2026-11" },
+      value: { type: "create-recurring", recurring: { date: "2026-11-08", amount: 3990 } },
     });
     expect(send(draft, emptyState()).error).toBeNull();
   });
@@ -205,7 +202,7 @@ describe("closing the draft into a command", () => {
 
     expect(commandFrom(draft)).toMatchObject({
       ok: true,
-      value: { command: { type: "change-recurring", id: 1, month: "2026-10", period: { amount: 170000 } }, month: "2026-10" },
+      value: { type: "change-recurring", id: 1, month: "2026-10", period: { amount: 170000 } },
     });
 
     const { error, state } = send(draft, recurring);

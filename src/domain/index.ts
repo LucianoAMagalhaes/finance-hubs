@@ -2,6 +2,7 @@
 // server and in the browser (ADR-0004). `today` always comes in as a parameter.
 export {
   apply,
+  monthBornBy,
   whatItCanBecome,
   whyNoInstallments,
   whyTooFewInstallments,

@@ -1,7 +1,6 @@
 import {
   centsToField,
   isValidDate,
-  monthOf,
   periodIn,
   reaisToCents,
   whyTooFewInstallments,
@@ -66,12 +65,12 @@ export function draftFrom(expense: Expense | null, month: Month, proposedDate: I
 }
 
 /**
- * The command the draft sends and the month it weighs on, or the refusal that
- * keeps it on the screen. Every refusal here is either about reading the typed
- * text or the same one the domain would give; everything else is left for
- * `apply` to say.
+ * The command the draft sends, or the refusal that keeps it on the screen. Every
+ * refusal here is either about reading the typed text or the same one the domain
+ * would give; everything else is left for `apply` to say — including which month
+ * the command makes be born, which `monthBornBy` answers.
  */
-export function commandFrom(draft: Draft): Result<{ command: Command; month: Month }> {
+export function commandFrom(draft: Draft): Result<Command> {
   const { expense, month, shape } = draft;
   const cents = reaisToCents(draft.amount);
   if (cents === null || cents === 0) return { ok: false, error: "Informe o valor em reais, como 297,90." };
@@ -86,7 +85,7 @@ export function commandFrom(draft: Draft): Result<{ command: Command; month: Mon
 
   // A recurring expense is corrected from the open month on, and keeps its own day.
   if (expense?.kind === "recurring") {
-    return { ok: true, value: { command: { type: "change-recurring", id: expense.id, month, period }, month } };
+    return { ok: true, value: { type: "change-recurring", id: expense.id, month, period } };
   }
 
   const n = Number(draft.installments);
@@ -97,17 +96,14 @@ export function commandFrom(draft: Draft): Result<{ command: Command; month: Mon
   const date = draft.date;
 
   if (shape === "recurring") {
-    return { ok: true, value: { command: { type: "create-recurring", recurring: { ...period, date } }, month: monthOf(date) } };
+    return { ok: true, value: { type: "create-recurring", recurring: { ...period, date } } };
   }
   const purchase: Purchase | null = expense;
   return {
     ok: true,
     value: {
-      command: {
-        type: "save-expense",
-        expense: { ...(purchase && { id: purchase.id }), ...period, date, installments: shape === "installments" ? n : 1 },
-      },
-      month: monthOf(date),
+      type: "save-expense",
+      expense: { ...(purchase && { id: purchase.id }), ...period, date, installments: shape === "installments" ? n : 1 },
     },
   };
 }

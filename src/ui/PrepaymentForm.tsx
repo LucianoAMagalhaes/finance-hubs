@@ -29,8 +29,8 @@ type Props = {
   proposedDate: IsoDate;
   /** To warn when a removed installment falls in a month that has already passed. */
   today: IsoDate;
-  /** Sends the command and says which month it weighs on. Returns the validation error, or null if it saved. */
-  save: (command: Command, month: Month) => Promise<string | null>;
+  /** Sends the command. Returns the validation error, or null if it saved. */
+  save: (command: Command) => Promise<string | null>;
   /** Sends the prepayment to the trash. Returns the error, or null if it undid it. */
   undo: () => Promise<string | null>;
   close: () => void;
@@ -75,7 +75,7 @@ export function PrepaymentForm({ purchase, prepayment, proposedDate, today, save
       type: "save-prepayment",
       prepayment: { expense: purchase.id, ...draft, date: date as IsoDate, amount: cents },
     };
-    await whileSaving(() => save(command, monthOf(date as IsoDate)));
+    await whileSaving(() => save(command));
   }
 
   async function whileSaving(action: () => Promise<string | null>) {

@@ -41,8 +41,8 @@ type Props = {
   tags: string[];
   /** The date the form proposes for a new expense. */
   proposedDate: IsoDate;
-  /** Sends the command and says which month it weighs on. Returns the validation error, or null if it saved. */
-  save: (command: Command, month: Month) => Promise<string | null>;
+  /** Sends the command. Returns the validation error, or null if it saved. */
+  save: (command: Command) => Promise<string | null>;
   /** Sends the purchase being corrected to the trash. Returns the error, or null if it deleted. */
   delete: () => Promise<string | null>;
   /** Ends the recurring expense being corrected from the open month on. Returns the error, or null if it ended. */
@@ -104,7 +104,7 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
       setError(built.error);
       return;
     }
-    await whileSaving(() => save(built.value.command, built.value.month));
+    await whileSaving(() => save(built.value));
   }
 
   async function whileSaving(action: () => Promise<string | null>) {

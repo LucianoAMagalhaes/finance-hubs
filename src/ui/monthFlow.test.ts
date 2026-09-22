@@ -28,7 +28,7 @@ describe("saving a record", () => {
     const { flow } = build();
     flow.openExpense(null);
 
-    const error = await flow.save(saveExpense(GROCERIES), "2026-09");
+    const error = await flow.save(saveExpense(GROCERIES));
 
     expect(error).toBeNull();
     expect(flow.snapshot()).toMatchObject({ form: null, notice: null });
@@ -39,7 +39,7 @@ describe("saving a record", () => {
     const { flow } = build();
     flow.openExpense(null);
 
-    await flow.save(saveExpense({ ...GROCERIES, date: "2026-10-05" }), "2026-10");
+    await flow.save(saveExpense({ ...GROCERIES, date: "2026-10-05" }));
 
     expect(flow.snapshot()).toMatchObject({ month: "2026-09", form: null, notice: { text: "Gasto lançado em outubro de 2026.", month: "2026-10" } });
 
@@ -52,11 +52,11 @@ describe("saving a record", () => {
     const { flow } = build(after(saveExpense(GROCERIES)));
     const groceries = flow.snapshot().state.expenses[0]!;
     flow.openExpense(groceries);
-    await flow.save(saveExpense({ ...GROCERIES, id: groceries.id, date: "2026-10-05" }), "2026-10");
+    await flow.save(saveExpense({ ...GROCERIES, id: groceries.id, date: "2026-10-05" }));
     expect(flow.snapshot().notice?.text).toBe("Gasto salvo em outubro de 2026.");
 
     flow.openIncome(null);
-    await flow.save(saveIncome("2026-10-05"), "2026-10");
+    await flow.save(saveIncome("2026-10-05"));
     expect(flow.snapshot().notice?.text).toBe("Entrada lançada em outubro de 2026.");
   });
 
@@ -64,7 +64,7 @@ describe("saving a record", () => {
     const { flow, server } = build();
     flow.openExpense(null);
 
-    const error = await flow.save(saveExpense({ ...GROCERIES, description: " " }), "2026-09");
+    const error = await flow.save(saveExpense({ ...GROCERIES, description: " " }));
 
     expect(error).toBe("Informe uma descrição.");
     expect(server.calls).toEqual([]);
@@ -89,7 +89,7 @@ describe("navigating the screen", () => {
   it("changing month clears the notice and the draft, and the open group stays", async () => {
     const { flow } = build();
     flow.openExpense(null);
-    await flow.save(saveExpense({ ...GROCERIES, date: "2026-10-05" }), "2026-10");
+    await flow.save(saveExpense({ ...GROCERIES, date: "2026-10-05" }));
     flow.open({ kind: "group", key: "fixed-costs" });
     flow.editPercentages();
     expect(flow.snapshot().notice).not.toBeNull();
@@ -223,7 +223,7 @@ describe("subscribe", () => {
     const views: { form: unknown; occurrences: number }[] = [];
     flow.subscribe(() => views.push({ form: flow.snapshot().form, occurrences: flow.snapshot().view.occurrences.length }));
 
-    await flow.save(saveExpense(GROCERIES), "2026-09");
+    await flow.save(saveExpense(GROCERIES));
 
     expect(views).toEqual([{ form: null, occurrences: 1 }]);
   });

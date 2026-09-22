@@ -48,8 +48,49 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 /**
  * Applies a command and returns the new state or the validation error. Pure:
  * never changes the state it receives, and `today` comes from outside so the domain doesn't read the clock.
+ * The month is born here, in one place, so that `monthBornBy` and what happens can't disagree.
  */
 export function apply(state: State, command: Command, today: IsoDate): Result<State> {
+  const result = run(state, command, today);
+  if (!result.ok) return result;
+  const born = monthBornBy(command);
+  return { ok: true, value: born === null ? result.value : ensureBorn(result.value, born) };
+}
+
+/**
+ * The month this command makes be born (ADR-0001), or null when it makes none.
+ * Only meaningful for a command that was accepted: a refused one is never born, and
+ * only an accepted one is known to carry a date the domain could read.
+ */
+export function monthBornBy(command: Command): Month | null {
+  switch (command.type) {
+    case "save-income":
+      return monthOf(command.income.date);
+    case "save-expense":
+      return monthOf(command.expense.date);
+    case "save-prepayment":
+      return monthOf(command.prepayment.date);
+    case "create-recurring":
+      return monthOf(command.recurring.date);
+    case "change-recurring":
+    case "save-percentages":
+      return command.month;
+    /**
+     * In the start month, ending sends the whole recurring expense to the trash and nothing
+     * new is born: that month was born when it was created, and deleting never takes the
+     * budget along. Saying the month here is a no-op there, not an exception.
+     */
+    case "end-recurring":
+      return command.month;
+    /** A tag belongs to no month, and the trash mark doesn't move a record between months. */
+    case "rename-tag":
+    case "delete":
+    case "restore":
+      return null;
+  }
+}
+
+function run(state: State, command: Command, today: IsoDate): Result<State> {
   switch (command.type) {
     case "save-income":
       return saveIncome(state, command.income);
@@ -217,7 +258,7 @@ function saveIncome(state: State, data: IncomeToSave): Result<State> {
   if (error) return { ok: false, error };
   const incomes = writeToList(state.incomes, { ...data, description: data.description.trim() });
   if (!incomes) return { ok: false, error: "Essa entrada não existe mais." };
-  return { ok: true, value: ensureBorn({ ...state, incomes }, monthOf(data.date)) };
+  return { ok: true, value: { ...state, incomes } };
 }
 
 function saveExpense(state: State, data: ExpenseToSave): Result<State> {
@@ -236,7 +277,7 @@ function saveExpense(state: State, data: ExpenseToSave): Result<State> {
     prepayments: previous?.prepayments ?? [],
   });
   if (!expenses) return { ok: false, error: "Esse lançamento não existe mais." };
-  return { ok: true, value: ensureBorn({ ...state, expenses }, monthOf(data.date)) };
+  return { ok: true, value: { ...state, expenses } };
 }
 
 /**
@@ -277,7 +318,7 @@ function savePrepayment(state: State, data: PrepaymentToSave): Result<State> {
   const prepayment: Prepayment = { id, date: data.date, installments: data.installments, amount: data.amount, deletedAt: null };
   // In id order, which is how the database returns them: correcting one doesn't change its place.
   const prepayments = [...purchase.prepayments.filter((p) => p.id !== id), prepayment].sort((a, b) => a.id - b.id);
-  return withPrepayments(state, purchase, prepayments, monthOf(data.date));
+  return withPrepayments(state, purchase, prepayments);
 }
 
 /**
@@ -295,20 +336,16 @@ function setPrepaymentTrashMark(state: State, id: number, deletedAt: IsoDate | n
     return { ok: false, error: "O parcelado desta antecipação está na lixeira: restaure-o antes." };
   }
   const prepayments = purchase.prepayments.map((p) => (p.id === id ? { ...p, deletedAt } : p));
-  return withPrepayments(state, purchase, prepayments, null);
+  return withPrepayments(state, purchase, prepayments);
 }
 
-/**
- * Replaces an installment purchase's prepayments, refusing the one that doesn't fit in the series.
- * `month` is the one that is born; null when none is born.
- */
-function withPrepayments(state: State, purchase: Purchase, prepayments: Prepayment[], month: Month | null): Result<State> {
+/** Replaces an installment purchase's prepayments, refusing the one that doesn't fit in the series. */
+function withPrepayments(state: State, purchase: Purchase, prepayments: Prepayment[]): Result<State> {
   const updated: Purchase = { ...purchase, prepayments };
   const { rejected } = prepaymentsOf(updated);
   if (rejected) return { ok: false, error: didNotFit(updated, rejected) };
   const expenses = state.expenses.map((e) => (e.id === updated.id ? updated : e));
-  const replaced = { ...state, expenses };
-  return { ok: true, value: month === null ? replaced : ensureBorn(replaced, month) };
+  return { ok: true, value: { ...state, expenses } };
 }
 
 /** Why the prepayment didn't fit, stated with the max it would reach today. */
@@ -360,7 +397,7 @@ function createRecurring(state: State, data: RecurringToCreate): Result<State> {
     endedIn: null,
     deletedAt: null,
   };
-  return { ok: true, value: ensureBorn({ ...state, expenses: [...state.expenses, recurring] }, start) };
+  return { ok: true, value: { ...state, expenses: [...state.expenses, recurring] } };
 }
 
 /**
@@ -376,7 +413,7 @@ function changeRecurring(state: State, id: number, month: Month, data: PeriodToS
   const periods = [...r.periods.filter((p) => p.since !== month), periodFrom(month, data)].sort((a, b) =>
     a.since < b.since ? -1 : 1,
   );
-  return { ok: true, value: ensureBorn(replaceExpense(state, { ...r, periods }), month) };
+  return { ok: true, value: replaceExpense(state, { ...r, periods }) };
 }
 
 /**
@@ -390,7 +427,7 @@ function endRecurring(state: State, id: number, month: Month, today: IsoDate): R
   const r = target.value;
   if (ending(r, month).type === "trash") return setTrashMark(state, "expense", id, today);
   const ended = { ...r, periods: remainingPeriods(r, month), endedIn: month };
-  return { ok: true, value: ensureBorn(replaceExpense(state, ended), month) };
+  return { ok: true, value: replaceExpense(state, ended) };
 }
 
 /** What ending a recurring expense in a month does: in the start month, nothing is left and it goes to the trash. */
