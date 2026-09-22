@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { mergeOnRename, normalizeTag } from "@/domain";
-import { plural, TagPill } from "./parts";
+import { Refusal, plural, TagPill } from "./parts";
+import { Sheet } from "./Sheet";
+import { useAction } from "./useAction";
 
 type Props = {
   /** The tag being renamed, as it is stored. */
@@ -25,35 +27,21 @@ type Props = {
  * confirmation checked, which is what the command requires.
  */
 export function RenameTagForm({ tag, tags, historyTags, expensesWithTag, rename, close }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(tag);
   const [confirmed, setConfirmed] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const { run, running, refusal } = useAction();
   const normalized = normalizeTag(name);
   const expenses = expensesWithTag(tag);
   // The same question the command asks: the confirmation requested here is the one it requires.
   const merge = mergeOnRename(historyTags, tag, name);
 
-  // Modal <dialog>: the browser handles focus, Esc and the inert backdrop.
-  useEffect(() => dialog.current?.showModal(), []);
-
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setSaving(true);
-    const refusal = await rename(name, merge !== null && confirmed);
-    setSaving(false);
-    setError(refusal);
+    await run(() => rename(name, merge !== null && confirmed));
   }
 
   return (
-    <dialog
-      ref={dialog}
-      className="sheet"
-      onClose={close}
-      onClick={(e) => e.target === dialog.current && close()}
-      aria-labelledby="rename-tag-title"
-    >
+    <Sheet labelledBy="rename-tag-title" close={close}>
       <form onSubmit={submit}>
         <header>
           <h2 id="rename-tag-title">
@@ -108,21 +96,17 @@ export function RenameTagForm({ tag, tags, historyTags, expensesWithTag, rename,
               </label>
             </>
           )}
-          {error && (
-            <p className="notice bad" role="alert">
-              {error}
-            </p>
-          )}
+          <Refusal refusal={refusal} />
         </div>
         <footer>
           <button type="button" className="btn" onClick={close}>
             Cancelar
           </button>
-          <button type="submit" className="btn primary" disabled={saving || (merge !== null && !confirmed)}>
+          <button type="submit" className="btn primary" disabled={running || (merge !== null && !confirmed)}>
             {merge ? "Fundir as duas" : "Renomear"}
           </button>
         </footer>
       </form>
-    </dialog>
+    </Sheet>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   centsToField,
   INCOME_SOURCES,
@@ -12,6 +12,9 @@ import {
   type IncomeSource,
   type IncomeMethod,
 } from "@/domain";
+import { Refusal } from "./parts";
+import { Sheet } from "./Sheet";
+import { useAction } from "./useAction";
 
 type Props = {
   /** The income being corrected; null for a new income. */
@@ -26,53 +29,34 @@ type Props = {
 };
 
 export function IncomeForm({ income, proposedDate, save, delete: remove, close }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const [date, setDate] = useState<string>(income?.date ?? proposedDate);
   const [description, setDescription] = useState(income?.description ?? "");
   const [amount, setAmount] = useState(income ? centsToField(income.amount) : "");
   const [source, setSource] = useState<IncomeSource>(income?.source ?? "salary");
   const [method, setMethod] = useState<IncomeMethod>(income?.paymentMethod ?? "transfer");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Modal <dialog>: the browser handles focus, Esc and the inert backdrop.
-  useEffect(() => dialog.current?.showModal(), []);
+  const { run, running, refusal, refuse } = useAction();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     const cents = reaisToCents(amount);
     if (cents === null) {
-      setError("Informe o valor em reais, como 7.200,00.");
+      refuse("Informe o valor em reais, como 7.200,00.");
       return;
     }
-    setSaving(true);
-    const refusal = await save({
-      ...(income && { id: income.id }),
-      date: date as IsoDate,
-      description,
-      source,
-      paymentMethod: method,
-      amount: cents,
-    });
-    setSaving(false);
-    setError(refusal);
-  }
-
-  async function deleteIncome() {
-    setSaving(true);
-    const refusal = await remove();
-    setSaving(false);
-    setError(refusal);
+    await run(() =>
+      save({
+        ...(income && { id: income.id }),
+        date: date as IsoDate,
+        description,
+        source,
+        paymentMethod: method,
+        amount: cents,
+      }),
+    );
   }
 
   return (
-    <dialog
-      ref={dialog}
-      className="sheet"
-      onClose={close}
-      onClick={(e) => e.target === dialog.current && close()}
-      aria-labelledby="income-title"
-    >
+    <Sheet labelledBy="income-title" close={close}>
       <form onSubmit={submit}>
         <header>
           <h2 id="income-title">{income ? "Entrada" : "Nova entrada"}</h2>
@@ -122,26 +106,22 @@ export function IncomeForm({ income, proposedDate, save, delete: remove, close }
               ))}
             </select>
           </label>
-          {error && (
-            <p className="notice bad" role="alert">
-              {error}
-            </p>
-          )}
+          <Refusal refusal={refusal} />
         </div>
         <footer>
           {income && (
-            <button type="button" className="btn delete" disabled={saving} onClick={deleteIncome} title="Vai para a lixeira, de onde volta intacta">
+            <button type="button" className="btn delete" disabled={running} onClick={() => run(remove)} title="Vai para a lixeira, de onde volta intacta">
               Apagar
             </button>
           )}
           <button type="button" className="btn" onClick={close}>
             Cancelar
           </button>
-          <button type="submit" className="btn income" disabled={saving}>
+          <button type="submit" className="btn income" disabled={running}>
             Salvar
           </button>
         </footer>
       </form>
-    </dialog>
+    </Sheet>
   );
 }

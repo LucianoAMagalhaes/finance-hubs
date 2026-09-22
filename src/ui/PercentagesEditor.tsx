@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { type FormEvent } from "react";
 import { JARS, type Percentages } from "@/domain";
 import { checkDraft, type Draft } from "./percentagesDraft";
-import { jarColor } from "./parts";
+import { Refusal, jarColor } from "./parts";
+import { useAction } from "./useAction";
 
 type Props = {
   draft: Draft;
@@ -19,17 +20,15 @@ type Props = {
  * there.
  */
 export function PercentagesEditor({ draft, change, save, cancel }: Props) {
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  // Two errors, from two places: the draft's is a pure function of what is typed,
+  // and exists before any action; the refusal comes back from one.
+  const { run, running, refusal, clearRefusal } = useAction();
   const { percentages, error, sum } = checkDraft(draft);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (error) return;
-    setSaving(true);
-    const refusal = await save(percentages);
-    setSaving(false);
-    setServerError(refusal);
+    await run(() => save(percentages));
   }
 
   return (
@@ -51,7 +50,7 @@ export function PercentagesEditor({ draft, change, save, cancel }: Props) {
                 className="num"
                 value={draft[j.id]}
                 onChange={(e) => {
-                  setServerError(null);
+                  clearRefusal();
                   change({ ...draft, [j.id]: e.target.value });
                 }}
               />
@@ -65,15 +64,11 @@ export function PercentagesEditor({ draft, change, save, cancel }: Props) {
         <button type="button" className="btn" onClick={cancel}>
           Cancelar
         </button>
-        <button type="submit" className="btn primary" disabled={error !== null || saving}>
+        <button type="submit" className="btn primary" disabled={error !== null || running}>
           Salvar
         </button>
       </div>
-      {(serverError ?? error) && (
-        <p className="notice bad" role="alert">
-          {serverError ?? error}
-        </p>
-      )}
+      <Refusal refusal={refusal ?? error} />
     </form>
   );
 }

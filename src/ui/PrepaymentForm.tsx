@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   centsToField,
   formatReais,
@@ -18,7 +18,9 @@ import {
   type IsoDate,
   type Month,
 } from "@/domain";
-import { installmentRange, TagPill } from "./parts";
+import { Refusal, installmentRange, TagPill } from "./parts";
+import { Sheet } from "./Sheet";
+import { useAction } from "./useAction";
 
 type Props = {
   /** The installment purchase the prepayment belongs to. */
@@ -43,20 +45,16 @@ type Props = {
  * in the prepayment's month, with the purchase's jar, payment method and tag.
  */
 export function PrepaymentForm({ purchase, prepayment, proposedDate, today, save, undo, close }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const [date, setDate] = useState<string>(prepayment?.date ?? proposedDate);
   const [installments, setInstallments] = useState(String(prepayment?.installments ?? 1));
   const [amount, setAmount] = useState(prepayment ? centsToField(prepayment.amount) : "");
   // Until the person touches the amount, it follows the sum of the installments that leave.
   const [amountEdited, setAmountEdited] = useState(prepayment !== null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Modal <dialog>: the browser handles focus, Esc and the inert backdrop.
-  useEffect(() => dialog.current?.showModal(), []);
+  const { run, running, refusal, refuse } = useAction();
 
   const draft = { ...(prepayment && { id: prepayment.id }), date, installments: Number(installments) };
-  const { max, refusal, cut } = prepaymentPreview(purchase, draft, today);
+  // The domain refuses the prepayment being put together before it is sent; the action refuses it afterwards.
+  const { max, refusal: previewRefusal, cut } = prepaymentPreview(purchase, draft, today);
   const shownAmount = amountEdited ? amount : cut ? centsToField(cut.sum) : "";
 
   function changeAmount(next: string) {
@@ -68,31 +66,18 @@ export function PrepaymentForm({ purchase, prepayment, proposedDate, today, save
     event.preventDefault();
     const cents = reaisToCents(shownAmount);
     if (cents === null || cents <= 0) {
-      setError("Informe o valor pago em reais, como 3.899,00.");
+      refuse("Informe o valor pago em reais, como 3.899,00.");
       return;
     }
     const command: Command = {
       type: "save-prepayment",
       prepayment: { expense: purchase.id, ...draft, date: date as IsoDate, amount: cents },
     };
-    await whileSaving(() => save(command));
-  }
-
-  async function whileSaving(action: () => Promise<string | null>) {
-    setSaving(true);
-    const refusal = await action();
-    setSaving(false);
-    setError(refusal);
+    await run(() => save(command));
   }
 
   return (
-    <dialog
-      ref={dialog}
-      className="sheet"
-      onClose={close}
-      onClick={(e) => e.target === dialog.current && close()}
-      aria-labelledby="prepayment-title"
-    >
+    <Sheet labelledBy="prepayment-title" close={close}>
       <form onSubmit={submit}>
         <header>
           <h2 id="prepayment-title">{prepayment ? "Antecipação" : "Antecipar parcelas"}</h2>
@@ -123,7 +108,7 @@ export function PrepaymentForm({ purchase, prepayment, proposedDate, today, save
               />
             </label>
           </div>
-          {refusal && <p className="notice bad">{refusal}</p>}
+          {previewRefusal && <p className="notice bad">{previewRefusal}</p>}
           {cut && <Preview purchase={purchase} cut={cut} />}
           <label className="field">
             <span>
@@ -140,19 +125,15 @@ export function PrepaymentForm({ purchase, prepayment, proposedDate, today, save
           </label>
           {cut && <Discount sum={cut.sum} paid={reaisToCents(shownAmount)} />}
           {cut && <PastMonthNotice past={cut.pastMonths} />}
-          {error && (
-            <p className="notice bad" role="alert">
-              {error}
-            </p>
-          )}
+          <Refusal refusal={refusal} />
         </div>
         <footer>
           {prepayment && (
             <button
               type="button"
               className="btn delete"
-              disabled={saving}
-              onClick={() => whileSaving(undo)}
+              disabled={running}
+              onClick={() => run(undo)}
               title="A antecipação vai para a lixeira e as parcelas voltam aos seus meses"
             >
               Desfazer
@@ -161,12 +142,12 @@ export function PrepaymentForm({ purchase, prepayment, proposedDate, today, save
           <button type="button" className="btn" onClick={close}>
             Cancelar
           </button>
-          <button type="submit" className="btn primary" disabled={saving || refusal !== null}>
+          <button type="submit" className="btn primary" disabled={running || previewRefusal !== null}>
             Salvar
           </button>
         </footer>
       </form>
-    </dialog>
+    </Sheet>
   );
 }
 

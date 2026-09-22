@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import {
   formatReais,
   startOf,
@@ -13,7 +12,9 @@ import {
   type Expense,
   type RecordType,
 } from "@/domain";
-import { Amount } from "./parts";
+import { Amount, Refusal } from "./parts";
+import { Sheet } from "./Sheet";
+import { useAction } from "./useAction";
 
 type Props = {
   items: TrashItem[];
@@ -28,27 +29,10 @@ type Props = {
  * more than one. Emptying does not exist: nothing is destroyed for good.
  */
 export function Trash({ items, restore, close }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [restoring, setRestoring] = useState(false);
-
-  // Modal <dialog>: the browser handles focus, Esc and the inert backdrop.
-  useEffect(() => dialog.current?.showModal(), []);
-
-  async function restoreItem(item: TrashItem) {
-    setRestoring(true);
-    setError(await restore(item.record, item.id));
-    setRestoring(false);
-  }
+  const { run, running, refusal } = useAction();
 
   return (
-    <dialog
-      ref={dialog}
-      className="sheet trash"
-      onClose={close}
-      onClick={(e) => e.target === dialog.current && close()}
-      aria-labelledby="trash-title"
-    >
+    <Sheet labelledBy="trash-title" className="trash" close={close}>
       <header>
         <h2 id="trash-title">Lixeira</h2>
         <p className="hint">O que foi apagado não gera receita nem gasto. Restaurar devolve o registro intacto, no mês dele.</p>
@@ -66,25 +50,21 @@ export function Trash({ items, restore, close }: Props) {
                   </span>
                 </div>
                 <span className="num">{amountOf(item)}</span>
-                <button type="button" className="btn" disabled={restoring} onClick={() => restoreItem(item)}>
+                <button type="button" className="btn" disabled={running} onClick={() => run(() => restore(item.record, item.id))}>
                   Restaurar
                 </button>
               </li>
             ))}
           </ul>
         )}
-        {error && (
-          <p className="notice bad" role="alert">
-            {error}
-          </p>
-        )}
+        <Refusal refusal={refusal} />
       </div>
       <footer>
         <button type="button" className="btn" onClick={close}>
           Fechar
         </button>
       </footer>
-    </dialog>
+    </Sheet>
   );
 }
 

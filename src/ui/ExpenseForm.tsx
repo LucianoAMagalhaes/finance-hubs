@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   prepaymentsOf,
   splitIntoInstallments,
@@ -30,7 +30,9 @@ import {
   type PaymentMethod,
 } from "@/domain";
 import { commandFrom, draftFrom, type Draft } from "./expenseDraft";
-import { installmentRange, TagPill } from "./parts";
+import { Refusal, installmentRange, TagPill } from "./parts";
+import { Sheet } from "./Sheet";
+import { useAction } from "./useAction";
 
 type Props = {
   /** The expense being corrected; null for a new expense. */
@@ -65,7 +67,6 @@ const SHAPES: { id: ExpenseShape; name: string }[] = [
  * is typed positive and stored negative, in any shape.
  */
 export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: remove, end, prepay, close }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const purchase = expense?.kind === "purchase" ? expense : null;
   const recurring = expense?.kind === "recurring" ? expense : null;
   // What is written in the fields; the draft module knows how to open it and how to close it into a command.
@@ -80,11 +81,7 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
   const canBecome = whatItCanBecome(expense, month);
   // With an active prepayment, date, total and installments are locked (ADR-0005).
   const locked = canBecome.lock !== null;
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Modal <dialog>: the browser handles focus, Esc and the inert backdrop.
-  useEffect(() => dialog.current?.showModal(), []);
+  const { run, running, refusal, refuse } = useAction();
 
   // Only "Cartão de Crédito" pays in installments: leaving it turns the purchase back to upfront.
   function changeMethod(paymentMethod: PaymentMethod) {
@@ -101,27 +98,14 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
     event.preventDefault();
     const built = commandFrom(draft);
     if (!built.ok) {
-      setError(built.error);
+      refuse(built.error);
       return;
     }
-    await whileSaving(() => save(built.value));
-  }
-
-  async function whileSaving(action: () => Promise<string | null>) {
-    setSaving(true);
-    const refusal = await action();
-    setSaving(false);
-    setError(refusal);
+    await run(() => save(built.value));
   }
 
   return (
-    <dialog
-      ref={dialog}
-      className="sheet"
-      onClose={close}
-      onClick={(e) => e.target === dialog.current && close()}
-      aria-labelledby="expense-title"
-    >
+    <Sheet labelledBy="expense-title" close={close}>
       <form onSubmit={submit}>
         <header>
           <h2 id="expense-title">{recurring ? `Recorrente, aberto em ${monthName(month)}` : expense ? "Gasto" : "Novo gasto"}</h2>
@@ -260,11 +244,7 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
             )}
           </label>
           {canBecome.end && <p className="hint">{whatEndingDoes(canBecome.end, month)}</p>}
-          {error && (
-            <p className="notice bad" role="alert">
-              {error}
-            </p>
-          )}
+          <Refusal refusal={refusal} />
         </div>
         <footer>
           {wasInstallments && (
@@ -281,8 +261,8 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
             <button
               type="button"
               className="btn delete"
-              disabled={saving}
-              onClick={() => whileSaving(remove)}
+              disabled={running}
+              onClick={() => run(remove)}
               title={
                 wasInstallments
                   ? "A compra inteira vai para a lixeira, com todas as parcelas, e volta intacta"
@@ -293,19 +273,19 @@ export function ExpenseForm({ expense, month, tags, proposedDate, save, delete: 
             </button>
           )}
           {recurring && (
-            <button type="button" className="btn delete" disabled={saving} onClick={() => whileSaving(end)}>
+            <button type="button" className="btn delete" disabled={running} onClick={() => run(end)}>
               Encerrar a partir de {monthName(month)}
             </button>
           )}
           <button type="button" className="btn" onClick={close}>
             Cancelar
           </button>
-          <button type="submit" className="btn primary" disabled={saving}>
+          <button type="submit" className="btn primary" disabled={running}>
             {recurring ? `Salvar a partir de ${monthName(month)}` : "Salvar"}
           </button>
         </footer>
       </form>
-    </dialog>
+    </Sheet>
   );
 }
 
