@@ -24,7 +24,8 @@ _Avoid_: Meta (é um pote do orçamento), Percentual, Alocação, Peso
 
 **Ativo**:
 Algo em que a pessoa investe ou quer investir, cadastrado por ela com o seu código de negociação
-(PETR4, AAPL, BTC, HGLG11) e a sua classe. O código é único na carteira. A classe é escolhida no
+(PETR4, AAPL, BTC, HGLG11) e a sua classe. O código é único na carteira e pode ser corrigido quando
+a empresa troca de código, sem perder o histórico. A classe é escolhida no
 cadastro e nunca muda. A moeda vem da classe: dólar para Ações Internacionais, real para as outras.
 O ativo existe antes da primeira compra: já tem nota e pode receber aporte com quantidade zero.
 Só pode ser apagado enquanto não tem nenhuma operação nem provento.
@@ -71,6 +72,22 @@ na curva. O resgate total vende todas as cotas pelo valor que a pessoa recebeu d
 diferença para a curva vai para o resultado da venda.
 _Code_: `Trade`; os tipos, `buy` e `sell`
 _Avoid_: Transação, lote, lançamento (é do orçamento), movimentação
+
+**Evento corporativo**:
+Uma mudança que a empresa ou o fundo faz no número de unidades de um ativo: um desdobramento, um
+grupamento ou uma bonificação. Registra o ativo, a data e a **proporção** ("1 para 4", "10 para 1",
+"1 nova para cada 10"). Não é uma operação, mas vale em ordem de data junto com elas: multiplica a
+quantidade pela proporção e mantém o custo, de modo que o preço médio se ajusta sozinho. O tipo é
+só informativo, e a bonificação não tem custo atribuído. Uma fração que sobra fica na quantidade
+até a pessoa lançar a sua venda. Só existe em Ações Nacionais, Ações Internacionais e FIIs.
+A fonte **propõe** todo evento de uma data em que a posição era maior que zero, e ele fica
+**pendente** até a pessoa confirmar ou descartar. Enquanto houver um pendente, o ativo não recebe
+aporte. O confirmado é da pessoa, e o descartado não volta. Também pode ser lançado pela pessoa.
+Pode ser corrigido e apagado com a mesma trava das operações. Apagado, o que veio da fonte volta a
+ser proposto. Troca de código não é evento: é a correção do código do ativo. Incorporação e cisão
+são uma venda do ativo antigo e uma compra do novo.
+_Code_: `CorporateAction`; os tipos, `split`, `reverse-split` e `bonus`; a proporção, `ratio`
+_Avoid_: Operação (é compra ou venda), split, desdobramento (é só um dos tipos)
 
 **Provento**:
 Dinheiro que um ativo pagou à pessoa: dividendo, JCP, rendimento de FII ou os juros semestrais de
@@ -207,7 +224,7 @@ Para onde o app manda um aporte: quanto vai para cada classe e, dentro dela, qua
 unidades de cada ativo. Primeiro, entre as classes, na proporção da falta de cada uma. Depois,
 dentro da classe, na proporção da falta de cada ativo. É recalculada a cada pedido e nunca gravada.
 Nunca manda vender. Um ativo só recebe se tiver nota positiva e cotação (e câmbio atual, se for em
-dólar) e não estiver vencido. Uma classe só recebe se tiver alvo acima de zero e algum ativo que
+dólar), não estiver vencido e não tiver evento corporativo pendente. Uma classe só recebe se tiver alvo acima de zero e algum ativo que
 possa receber. Os que não recebem continuam contando no valor da classe e da carteira.
 Aceitar a sugestão abre as compras sugeridas para a pessoa revisar antes de gravar. O que se grava
 são operações comuns, todas ou nenhuma.
