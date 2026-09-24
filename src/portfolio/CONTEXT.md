@@ -28,8 +28,34 @@ Algo em que a pessoa investe ou quer investir, cadastrado por ela com o seu cód
 cadastro e nunca muda. A moeda vem da classe: dólar para Ações Internacionais, real para as outras.
 O ativo existe antes da primeira compra: já tem nota e pode receber aporte com quantidade zero.
 Só pode ser apagado enquanto não tem nenhuma operação nem provento.
-_Code_: `Asset`; o código, `ticker`
-_Avoid_: Papel, título, investimento, posição
+Na Renda Fixa há dois jeitos de ativo. Um título do **Tesouro Direto** é um ativo como os outros,
+escolhido numa lista de títulos ("Tesouro IPCA+ 2035"). Um **título privado** (CDB, LCI, LCA,
+debênture) não tem código de negociação: tem um nome livre e único ("CDB Inter 2028") no lugar do
+código, o tipo (só informativo), o indexador, a taxa e o vencimento. Uma aplicação com outra taxa é
+outro ativo.
+_Code_: `Asset`; o código, `ticker`; o título privado, `privateBond`; o tipo, `bondType`
+_Avoid_: Papel, título (sozinho), investimento, posição
+
+**Indexador**:
+A regra pela qual um título privado rende: um percentual do CDI (110% do CDI), uma taxa prefixada
+(12,5% ao ano) ou IPCA mais uma taxa (IPCA + 6%). É um só por ativo, junto com a taxa. Pode ser
+corrigido, e a correção vale para o título inteiro desde a primeira aplicação.
+_Code_: `indexer`; os três, `cdi-percentage`, `fixed-rate`, `ipca-plus`; a taxa, `rate`
+_Avoid_: Índice (é o CDI, a Selic, o IPCA publicados), rentabilidade
+
+**Índice**:
+O CDI, a Selic ou o IPCA como publicados por fonte oficial, dos quais sai o preço na curva de um
+título privado. É trazido de fora como uma cotação: continua valendo o último quando a fonte falha.
+Antes de o IPCA do mês sair, vale a sua projeção.
+_Code_: `rateIndex`
+_Avoid_: Indexador (é a regra do título), taxa
+
+**Vencimento**:
+A data em que um título de Renda Fixa acaba. A partir dela o preço do título para de mudar, e o
+ativo fica marcado como vencido até a pessoa registrar o resgate total. O app nunca registra o
+resgate sozinho.
+_Code_: `maturityDate`
+_Avoid_: Prazo, liquidez
 
 **Operação**:
 Um registro, feito pela pessoa, que muda a quantidade ou o custo de um ativo: uma compra ou uma
@@ -39,11 +65,16 @@ Não existe campo de taxa ou corretagem: o preço é o que foi pago ou recebido.
 ordem de data, e a quantidade nunca fica negativa em data nenhuma: uma venda sem quantidade
 suficiente é recusada, e também a correção ou exclusão de uma compra que deixaria uma venda
 posterior sem cobertura. Pode ser corrigida livremente, e apagar remove de vez, sem lixeira.
+No título privado, a compra é uma **aplicação** e a venda um **resgate**, ambos gravados em reais:
+as cotas são sempre derivadas do valor e do preço na curva do dia. O resgate parcial sai pelo preço
+na curva. O resgate total vende todas as cotas pelo valor que a pessoa recebeu de fato, e a
+diferença para a curva vai para o resultado da venda.
 _Code_: `Trade`; os tipos, `buy` e `sell`
 _Avoid_: Transação, lote, lançamento (é do orçamento), movimentação
 
 **Provento**:
-Dinheiro que um ativo pagou à pessoa: dividendo, JCP ou rendimento de FII. Registra o ativo, a data
+Dinheiro que um ativo pagou à pessoa: dividendo, JCP, rendimento de FII ou os juros semestrais de
+um título do Tesouro. Registra o ativo, a data
 de pagamento e o valor recebido em reais, já líquido. Não é uma operação: não muda a quantidade nem
 o custo do ativo. O tipo é só informativo. Vem da fonte na data de pagamento, pela quantidade ao fim
 da data-com, ou é lançado pela pessoa. Depois de gravado, é da pessoa: a fonte não o corrige nem o
@@ -57,7 +88,12 @@ _Avoid_: Dividendo (é só um dos tipos), Rendimento (é uma fonte do orçamento
 O preço de uma unidade de um ativo num momento, na moeda do ativo, trazido de uma fonte externa com
 a hora em que foi obtido. Só vale a última cotação de cada ativo, e ela continua valendo quando a
 fonte falha, com a sua data à vista. Um ativo pode nunca ter tido cotação.
-_Code_: `Quote`
+O título do Tesouro Direto tem cotação como qualquer ativo: o preço de venda do dia, a mercado. O
+título privado não tem cotação de fonte nenhuma: o seu preço é **calculado na curva**, uma cota que
+vale R$ 1,00 no dia da primeira aplicação e cresce pelo indexador. A pessoa aplica e resgata em
+reais, e o app converte em cotas, de modo que o preço médio, o custo e o ganho seguem as mesmas
+regras dos outros ativos.
+_Code_: `Quote`; o preço calculado na curva, `accruedPrice`
 _Avoid_: Preço (sozinho: é o da operação ou o preço médio), valor de mercado
 
 **Câmbio**:
@@ -73,7 +109,8 @@ _Avoid_: Dólar (sozinho), PTAX (é só a fonte da sugestão), conversão
 Quanto a posição vale agora: `quantidade × última cotação`. O ativo em dólar vale, em reais,
 `quantidade × última cotação × câmbio atual`. O ativo que nunca teve cotação vale o seu custo, e
 fica marcado como sem cotação. Enquanto nunca houve câmbio atual, o ativo em dólar vale o seu custo
-em reais, e fica marcado como sem câmbio.
+em reais, e fica marcado como sem câmbio. O valor é sempre bruto: nenhum imposto é descontado,
+nem o retido no resgate da Renda Fixa.
 _Code_: `currentValue`
 _Avoid_: Saldo, patrimônio, valor de mercado
 
@@ -120,3 +157,79 @@ Tudo o que um ativo já deu à pessoa: valorização + resultados das vendas + p
 sempre em reais. Continua existindo depois que a posição é zerada.
 _Code_: `totalGain`
 _Avoid_: Rentabilidade, retorno, lucro
+
+### A nota
+
+A nota segue o método do Diagrama do Cerrado: cada ativo é avaliado por perguntas de sim ou não, e
+a nota decide quanto do aporte da classe ele recebe.
+
+**Questionário**:
+O conjunto de perguntas com que a pessoa avalia os ativos de uma classe. São dois: um compartilhado
+por Ações Nacionais e Ações Internacionais, e um de FIIs. Ambos começam com as perguntas padrão do
+Cerrado, e a pessoa pode acrescentar, reescrever, remover e reordenar perguntas, desde que sobre
+pelo menos uma. Cripto e Renda Fixa não têm questionário.
+_Code_: `Questionnaire`
+_Avoid_: Diagrama (é o nome do método), checklist, critérios
+
+**Pergunta**:
+Uma questão de sim ou não de um questionário. Reescrever uma pergunta mantém as respostas já dadas.
+Remover uma pergunta apaga as suas respostas. Acrescentar uma pergunta deixa todos os ativos da
+classe sem nota até ela ser respondida em cada um.
+_Code_: `Question`
+_Avoid_: Critério, item
+
+**Resposta**:
+O sim ou o não de um ativo para uma pergunta. Vale só a resposta atual: mudar não guarda a
+anterior.
+_Code_: `Answer`
+_Avoid_: Avaliação (é o conjunto das respostas)
+
+**Nota**:
+Quanto a pessoa confia num ativo, dentro da sua classe. Nas classes com questionário, é `sim − não`
+sobre todas as perguntas, de −N a +N, e só existe quando todas as perguntas foram respondidas. Na
+Cripto e na Renda Fixa, é digitada, um inteiro de 0 a 10. Um ativo pode estar **sem nota**, que é
+diferente de nota zero. Sem nota ou com nota zero ou negativa, o ativo não recebe aporte e não entra
+na divisão da classe, mas continua na carteira, contando no valor da classe, e nada manda vendê-lo.
+Só vale a nota atual, com a data da última avaliação à vista: a data muda quando a pessoa responde
+perguntas ou digita a nota do ativo, não quando o questionário muda.
+_Code_: `score`; a data, `evaluatedAt`
+_Avoid_: Peso (é derivado da nota), pontuação, rating
+
+### O aporte
+
+**Aporte**:
+O valor em reais, maior que zero, que a pessoa diz que vai investir agora.
+_Code_: `contribution`
+_Avoid_: Investimento, depósito, Liberdade Financeira (é um pote do orçamento)
+
+**Sugestão de aporte**:
+Para onde o app manda um aporte: quanto vai para cada classe e, dentro dela, quanto e quantas
+unidades de cada ativo. Primeiro, entre as classes, na proporção da falta de cada uma. Depois,
+dentro da classe, na proporção da falta de cada ativo. É recalculada a cada pedido e nunca gravada.
+Nunca manda vender. Um ativo só recebe se tiver nota positiva e cotação (e câmbio atual, se for em
+dólar) e não estiver vencido. Uma classe só recebe se tiver alvo acima de zero e algum ativo que
+possa receber. Os que não recebem continuam contando no valor da classe e da carteira.
+Aceitar a sugestão abre as compras sugeridas para a pessoa revisar antes de gravar. O que se grava
+são operações comuns, todas ou nenhuma.
+_Code_: `ContributionSuggestion`
+_Avoid_: Recomendação, rebalanceamento, plano
+
+**Peso ideal**:
+A fatia de um ativo dentro da sua classe numa sugestão de aporte: a nota dele ÷ a soma das notas dos
+ativos da classe que podem receber. Nunca é digitado.
+_Code_: `idealWeight`
+_Avoid_: Alvo (é só da classe), peso manual, percentual
+
+**Falta**:
+Quanto uma classe ou um ativo está abaixo do seu valor ideal depois do aporte, ou zero se já está
+acima. O valor ideal da classe é o alvo × (valor da carteira + aporte). O do ativo é o peso ideal ×
+(valor dos ativos da classe que podem receber + a parcela da classe).
+_Code_: `shortfall`
+_Avoid_: Déficit, gap, diferença
+
+**Sem destino**:
+A parte de um aporte que a sugestão não manda para nenhum ativo, mostrada à parte com o motivo. Vem
+de uma classe com alvo acima de zero e nenhum ativo que possa receber (o dinheiro não vai para as
+outras classes) ou do que sobra depois de arredondar para unidades compráveis.
+_Code_: `unallocated`
+_Avoid_: Sobra (sozinho), troco, resto
