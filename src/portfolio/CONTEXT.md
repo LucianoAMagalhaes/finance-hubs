@@ -28,7 +28,8 @@ Algo em que a pessoa investe ou quer investir, cadastrado por ela com o seu cód
 a empresa troca de código, sem perder o histórico. A classe é escolhida no
 cadastro e nunca muda. A moeda vem da classe: dólar para Ações Internacionais, real para as outras.
 O ativo existe antes da primeira compra: já tem nota e pode receber aporte com quantidade zero.
-Só pode ser apagado enquanto não tem nenhuma operação nem provento.
+Só pode ser apagado enquanto não tem nenhuma operação nem provento. Não existe arquivar nem
+esconder: um ativo com histórico fica na carteira para sempre, mesmo com posição zero.
 Na Renda Fixa há dois jeitos de ativo. Um título do **Tesouro Direto** é um ativo como os outros,
 escolhido numa lista de títulos ("Tesouro IPCA+ 2035"). Um **título privado** (CDB, LCI, LCA,
 debênture) não tem código de negociação: tem um nome livre e único ("CDB Inter 2028") no lugar do
@@ -54,7 +55,8 @@ _Avoid_: Indexador (é a regra do título), taxa
 **Vencimento**:
 A data em que um título de Renda Fixa acaba. A partir dela o preço do título para de mudar, e o
 ativo fica marcado como vencido até a pessoa registrar o resgate total. O app nunca registra o
-resgate sozinho.
+resgate sozinho. Depois do resgate total, o título continua vencido, com posição zero. Nenhuma
+compra ou aplicação é aceita com data igual ou posterior ao vencimento.
 _Code_: `maturityDate`
 _Avoid_: Prazo, liquidez
 
@@ -104,13 +106,15 @@ _Avoid_: Dividendo (é só um dos tipos), Rendimento (é uma fonte do orçamento
 **Cotação**:
 O preço de uma unidade de um ativo num momento, na moeda do ativo, trazido de uma fonte externa com
 a hora em que foi obtido. Só vale a última cotação de cada ativo, e ela continua valendo quando a
-fonte falha, com a sua data à vista. Um ativo pode nunca ter tido cotação.
+fonte falha, com a sua data à vista. Um ativo pode nunca ter tido cotação. Uma cotação com mais de
+5 dias úteis é uma **cotação antiga**: continua valendo para o valor atual, mas o ativo não recebe
+aporte, como um ativo deslistado cuja venda a pessoa ainda não lançou.
 O título do Tesouro Direto tem cotação como qualquer ativo: o preço de venda do dia, a mercado. O
 título privado não tem cotação de fonte nenhuma: o seu preço é **calculado na curva**, uma cota que
 vale R$ 1,00 no dia da primeira aplicação e cresce pelo indexador. A pessoa aplica e resgata em
 reais, e o app converte em cotas, de modo que o preço médio, o custo e o ganho seguem as mesmas
 regras dos outros ativos.
-_Code_: `Quote`; o preço calculado na curva, `accruedPrice`
+_Code_: `Quote`; o preço calculado na curva, `accruedPrice`; a cotação antiga, `staleQuote`
 _Avoid_: Preço (sozinho: é o da operação ou o preço médio), valor de mercado
 
 **Câmbio**:
@@ -118,7 +122,8 @@ Quantos reais vale um dólar. Existe em dois lugares. O **câmbio da operação*
 compra ou venda de um ativo em dólar e diz quanto aquela operação valeu em reais. Vem sugerido
 pela taxa oficial do dia, e a pessoa pode corrigir para a taxa que pagou de fato. O **câmbio
 atual** é trazido de uma fonte externa como uma cotação: só vale o último, e ele continua valendo
-quando a fonte falha.
+quando a fonte falha. Com mais de 5 dias úteis, é um **câmbio antigo**: continua valendo para o
+valor atual, mas nenhum ativo em dólar recebe aporte.
 _Code_: `exchangeRate`
 _Avoid_: Dólar (sozinho), PTAX (é só a fonte da sugestão), conversão
 
@@ -171,7 +176,9 @@ _Avoid_: Lucro, ganho de capital
 
 **Ganho total**:
 Tudo o que um ativo já deu à pessoa: valorização + resultados das vendas + proventos recebidos,
-sempre em reais. Continua existindo depois que a posição é zerada.
+sempre em reais. Continua existindo depois que a posição é zerada. O ganho total de uma classe é a
+soma do ganho total de todos os seus ativos, com ou sem posição, e o da carteira é a soma das
+classes: zerar uma posição nunca tira o que ela já deu.
 _Code_: `totalGain`
 _Avoid_: Rentabilidade, retorno, lucro
 
@@ -223,8 +230,8 @@ _Avoid_: Investimento, depósito, Liberdade Financeira (é um pote do orçamento
 Para onde o app manda um aporte: quanto vai para cada classe e, dentro dela, quanto e quantas
 unidades de cada ativo. Primeiro, entre as classes, na proporção da falta de cada uma. Depois,
 dentro da classe, na proporção da falta de cada ativo. É recalculada a cada pedido e nunca gravada.
-Nunca manda vender. Um ativo só recebe se tiver nota positiva e cotação (e câmbio atual, se for em
-dólar), não estiver vencido e não tiver evento corporativo pendente. Uma classe só recebe se tiver alvo acima de zero e algum ativo que
+Nunca manda vender. Um ativo só recebe se tiver nota positiva e cotação que não seja antiga (e
+câmbio atual que não seja antigo, se for em dólar), não estiver vencido e não tiver evento corporativo pendente. Uma classe só recebe se tiver alvo acima de zero e algum ativo que
 possa receber. Os que não recebem continuam contando no valor da classe e da carteira.
 Aceitar a sugestão abre as compras sugeridas para a pessoa revisar antes de gravar. O que se grava
 são operações comuns, todas ou nenhuma.
