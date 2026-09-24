@@ -33,7 +33,8 @@ _Avoid_: Papel, título, investimento, posição
 
 **Operação**:
 Um registro, feito pela pessoa, que muda a quantidade ou o custo de um ativo: uma compra ou uma
-venda, com data, quantidade e preço unitário. A quantidade pode ser fracionária em qualquer classe.
+venda, com data, quantidade e preço unitário na moeda do ativo. A operação de um ativo em dólar
+também guarda o câmbio daquele dia. A quantidade pode ser fracionária em qualquer classe.
 Não existe campo de taxa ou corretagem: o preço é o que foi pago ou recebido. As operações valem em
 ordem de data, e a quantidade nunca fica negativa em data nenhuma: uma venda sem quantidade
 suficiente é recusada, e também a correção ou exclusão de uma compra que deixaria uma venda
@@ -59,15 +60,30 @@ fonte falha, com a sua data à vista. Um ativo pode nunca ter tido cotação.
 _Code_: `Quote`
 _Avoid_: Preço (sozinho: é o da operação ou o preço médio), valor de mercado
 
+**Câmbio**:
+Quantos reais vale um dólar. Existe em dois lugares. O **câmbio da operação** é gravado em cada
+compra ou venda de um ativo em dólar e diz quanto aquela operação valeu em reais. Vem sugerido
+pela taxa oficial do dia, e a pessoa pode corrigir para a taxa que pagou de fato. O **câmbio
+atual** é trazido de uma fonte externa como uma cotação: só vale o último, e ele continua valendo
+quando a fonte falha.
+_Code_: `exchangeRate`
+_Avoid_: Dólar (sozinho), PTAX (é só a fonte da sugestão), conversão
+
 **Valor atual**:
-Quanto a posição vale agora: `quantidade × última cotação`. O ativo que nunca teve cotação vale o
-seu custo, e fica marcado como sem cotação.
+Quanto a posição vale agora: `quantidade × última cotação`. O ativo em dólar vale, em reais,
+`quantidade × última cotação × câmbio atual`. O ativo que nunca teve cotação vale o seu custo, e
+fica marcado como sem cotação. Enquanto nunca houve câmbio atual, o ativo em dólar vale o seu custo
+em reais, e fica marcado como sem câmbio.
 _Code_: `currentValue`
 _Avoid_: Saldo, patrimônio, valor de mercado
 
 ### A posição e o ganho
 
 Tudo nesta seção é derivado das operações e dos proventos. Nada aqui é digitado.
+
+O ativo em dólar tem a posição nas duas moedas, calculadas em paralelo pelas mesmas regras: em
+dólar pelo preço da operação, em reais pelo `preço × câmbio da operação`. O que se soma entre
+ativos, classes e carteira é sempre em reais. Os números em dólar são só para mostrar.
 
 **Posição**:
 O que a pessoa tem de um ativo numa data: a quantidade, o preço médio e o custo, resultado de
@@ -94,12 +110,13 @@ _Avoid_: Ganho (sozinho), lucro, rentabilidade
 
 **Resultado da venda**:
 O ganho ou a perda realizados numa venda: `(preço de venda − preço médio) × quantidade vendida`,
-fixado no dia da venda, com o preço médio daquele dia.
+fixado no dia da venda, com o preço médio daquele dia. No ativo em dólar, o resultado em reais usa
+o preço de venda vezes o câmbio da venda contra o preço médio em reais.
 _Code_: `realizedGain`
 _Avoid_: Lucro, ganho de capital
 
 **Ganho total**:
-Tudo o que um ativo já deu à pessoa: valorização + resultados das vendas + proventos recebidos.
-Continua existindo depois que a posição é zerada.
+Tudo o que um ativo já deu à pessoa: valorização + resultados das vendas + proventos recebidos,
+sempre em reais. Continua existindo depois que a posição é zerada.
 _Code_: `totalGain`
 _Avoid_: Rentabilidade, retorno, lucro
