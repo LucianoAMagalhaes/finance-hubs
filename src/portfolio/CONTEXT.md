@@ -44,9 +44,26 @@ _Avoid_: Transação, lote, lançamento (é do orçamento), movimentação
 **Provento**:
 Dinheiro que um ativo pagou à pessoa: dividendo, JCP ou rendimento de FII. Registra o ativo, a data
 de pagamento e o valor recebido em reais, já líquido. Não é uma operação: não muda a quantidade nem
-o custo do ativo. O tipo é só informativo. Pode ser corrigido livremente, e apagar remove de vez.
+o custo do ativo. O tipo é só informativo. Vem da fonte na data de pagamento, pela quantidade ao fim
+da data-com, ou é lançado pela pessoa. Depois de gravado, é da pessoa: a fonte não o corrige nem o
+recria. Pode ser corrigido livremente, e apagar remove de vez.
 _Code_: `Payout`
 _Avoid_: Dividendo (é só um dos tipos), Rendimento (é uma fonte do orçamento), Renda
+
+### A cotação
+
+**Cotação**:
+O preço de uma unidade de um ativo num momento, na moeda do ativo, trazido de uma fonte externa com
+a hora em que foi obtido. Só vale a última cotação de cada ativo, e ela continua valendo quando a
+fonte falha, com a sua data à vista. Um ativo pode nunca ter tido cotação.
+_Code_: `Quote`
+_Avoid_: Preço (sozinho: é o da operação ou o preço médio), valor de mercado
+
+**Valor atual**:
+Quanto a posição vale agora: `quantidade × última cotação`. O ativo que nunca teve cotação vale o
+seu custo, e fica marcado como sem cotação.
+_Code_: `currentValue`
+_Avoid_: Saldo, patrimônio, valor de mercado
 
 ### A posição e o ganho
 
