@@ -27,8 +27,9 @@ export const asset = sqliteTable("asset", {
 
 /**
  * A buy or a sale of an asset. Quantity and unit price are exact decimals,
- * stored as integers scaled to 8 places. The id is also the order of entry.
- * Deleted for good: there is no trash mark.
+ * stored as integers scaled to 8 places; the exchange rate, as an integer
+ * scaled to 4. The id is also the order of entry. Deleted for good: there is
+ * no trash mark.
  */
 export const trade = sqliteTable("trade", {
   id: integer("id").primaryKey(),
@@ -40,6 +41,8 @@ export const trade = sqliteTable("trade", {
   date: text("date").notNull(),
   quantity: integer("quantity").notNull(),
   unitPrice: integer("unit_price").notNull(),
+  /** Reais per dollar, scaled to 4 places, in a trade in dollars; null in reais. */
+  exchangeRate: integer("exchange_rate"),
 });
 
 /**
@@ -67,6 +70,18 @@ export const quote = sqliteTable("quote", {
     .primaryKey()
     .references(() => asset.id),
   price: integer("price").notNull(),
+  /** When it was obtained, "YYYY-MM-DDTHH:MM:SS" on the machine's clock. */
+  at: text("at").notNull(),
+});
+
+/**
+ * The current exchange rate, a single row that exists once a fetch brought one
+ * and is rewritten by each fetch. Reais per dollar, scaled to 4 places.
+ */
+export const currentExchangeRate = sqliteTable("current_exchange_rate", {
+  /** Always 1: there is only the last rate. */
+  id: integer("id").primaryKey(),
+  rate: integer("rate").notNull(),
   /** When it was obtained, "YYYY-MM-DDTHH:MM:SS" on the machine's clock. */
   at: text("at").notNull(),
 });

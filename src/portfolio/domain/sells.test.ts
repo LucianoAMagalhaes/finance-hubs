@@ -151,7 +151,7 @@ describe("correcting and deleting a trade", () => {
     const corrected = run(state, { ...first!, asset: assetId(state, "VALE3"), date: "2026-01-12", quantity: decimal(7), unitPrice: decimal(60) });
 
     expect(corrected.trades).toEqual([
-      { id: first!.id, asset: assetId(state, "VALE3"), kind: "buy", date: "2026-01-12", quantity: decimal(7), unitPrice: decimal(60) },
+      { id: first!.id, asset: assetId(state, "VALE3"), kind: "buy", date: "2026-01-12", quantity: decimal(7), unitPrice: decimal(60), exchangeRate: null },
       state.trades[1],
     ]);
     expect(asset(corrected, "PETR4")).toMatchObject({ quantity: decimal(5) });

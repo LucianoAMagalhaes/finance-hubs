@@ -1,5 +1,6 @@
 import { formatDate, isValidDate, type IsoDate, type Result } from "@/shared";
 import { decimalToField, type Decimal } from "./decimal";
+import { checkExchangeRate, currencyOf, type ExchangeRate } from "./exchangeRate";
 import { replay } from "./position";
 import { nextId, type PortfolioState } from "./state";
 
@@ -8,28 +9,50 @@ export type TradeKind = "buy" | "sell";
 /**
  * A buy or a sale of an asset: date, quantity and unit price in the asset's
  * currency, both exact decimals. No fee field: the price is what was paid or
- * received. The id is also the order of entry, which orders trades on the
- * same date.
+ * received. A trade in dollars also keeps the exchange rate of the trade,
+ * which says how much it was worth in reais; it is null in reais. The id is
+ * also the order of entry, which orders trades on the same date.
  */
-export type Trade = { id: number; asset: number; kind: TradeKind; date: IsoDate; quantity: Decimal; unitPrice: Decimal };
+export type Trade = {
+  id: number;
+  asset: number;
+  kind: TradeKind;
+  date: IsoDate;
+  quantity: Decimal;
+  unitPrice: Decimal;
+  exchangeRate: ExchangeRate | null;
+};
 
-/** Without `id`, a new trade; with it, the correction of that one, which keeps its place in the order of entry. */
-export type TradeToSave = Omit<Trade, "id"> & { id?: number };
+/**
+ * Without `id`, a new trade; with it, the correction of that one, which keeps
+ * its place in the order of entry. A trade in reais may leave the rate out.
+ */
+export type TradeToSave = Omit<Trade, "id" | "exchangeRate"> & { id?: number; exchangeRate?: ExchangeRate | null };
 
 /**
  * Creates the trade, or corrects any of its fields. Checks every field,
  * because the command comes from the browser, and refuses what would make the
- * quantity negative on any date.
+ * quantity negative on any date. A trade in dollars without its exchange rate
+ * is refused; the rate is only ever changed here, by the person.
  */
 export function saveTrade(state: PortfolioState, data: TradeToSave, today: IsoDate): Result<PortfolioState> {
   if (data?.kind !== "buy" && data?.kind !== "sell") return { ok: false, error: "Escolha compra ou venda." };
   const existing = data.id === undefined ? null : state.trades.find((t) => t.id === data.id);
   if (existing === undefined) return { ok: false, error: "Essa operação não existe." };
-  if (!state.assets.some((a) => a.id === data.asset)) return { ok: false, error: "Esse ativo não existe." };
+  const asset = state.assets.find((a) => a.id === data.asset);
+  if (!asset) return { ok: false, error: "Esse ativo não existe." };
   if (typeof data.date !== "string" || !isValidDate(data.date)) return { ok: false, error: "Informe uma data válida." };
   if (data.date > today) return { ok: false, error: "A operação não pode ter data depois de hoje." };
   const error = checkPositive(data.quantity, "A quantidade") ?? checkPositive(data.unitPrice, "O preço unitário");
   if (error) return { ok: false, error };
+  const exchangeRate = data.exchangeRate ?? null;
+  if (currencyOf(asset.assetClass) === "USD") {
+    if (exchangeRate === null) return { ok: false, error: "Informe o câmbio da operação em dólar." };
+    const rateError = checkExchangeRate(exchangeRate, "O câmbio");
+    if (rateError) return { ok: false, error: rateError };
+  } else if (exchangeRate !== null) {
+    return { ok: false, error: "Só a operação em dólar tem câmbio." };
+  }
 
   const trade: Trade = {
     id: existing?.id ?? nextId(state.trades),
@@ -38,6 +61,7 @@ export function saveTrade(state: PortfolioState, data: TradeToSave, today: IsoDa
     date: data.date,
     quantity: data.quantity,
     unitPrice: data.unitPrice,
+    exchangeRate,
   };
   const trades = existing ? state.trades.map((t) => (t.id === trade.id ? trade : t)) : [...state.trades, trade];
   const uncovered = whyUncovered(state, trades, [trade.asset, existing?.asset], trade.id);

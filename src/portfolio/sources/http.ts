@@ -1,4 +1,4 @@
-import { decimal, type Decimal } from "@/portfolio/domain";
+import { decimal, exchangeRate, type Decimal, type ExchangeRate } from "@/portfolio/domain";
 import { SourceError } from "./port";
 
 /** How long a source may take before it counts as down. */
@@ -38,4 +38,11 @@ export function priceFrom(value: unknown, where: string): Decimal {
   const price = typeof value === "number" && Number.isFinite(value) ? decimal(value) : 0;
   if (price <= 0) throw new SourceError(`${where}: no price in the answer.`);
   return price;
+}
+
+/** Reads the source's number as an exchange rate of 4 places; anything else, or a rate that rounds to nothing, is a format failure. */
+export function rateFrom(value: unknown, where: string): ExchangeRate {
+  const rate = typeof value === "number" && Number.isFinite(value) ? exchangeRate(value) : 0;
+  if (rate <= 0) throw new SourceError(`${where}: no exchange rate in the answer.`);
+  return rate;
 }

@@ -1,9 +1,11 @@
 "use client";
 
 import { Fragment } from "react";
-import { decimalToNumber, formatDate, formatReais, type AssetView, type ClassView, type IsoDate } from "@/portfolio/domain";
+import { decimalToNumber, exchangeRateToField, formatDate, formatReais, type AssetView, type ClassView, type IsoDate } from "@/portfolio/domain";
 import {
   classColor,
+  formatDollars,
+  formatGainPercent,
   formatMoment,
   formatQuantity,
   formatShare,
@@ -39,7 +41,9 @@ type Props = {
 /**
  * The open class beside the column of cards (variation E): its header, and
  * its assets in a table whose rows expand in place with the trades and
- * payouts. A zero position stays, dimmed and last, with its total gain.
+ * payouts. A zero position stays, dimmed and last, with its total gain. An
+ * asset in dollars shows its prices in dollars, and its average price, value
+ * and gain in both currencies; the class's numbers stay in reais.
  */
 export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, newPayout, editPayout, editAsset, deleteAsset }: Props) {
   return (
@@ -119,6 +123,7 @@ type RowProps = {
 
 function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
   const zero = a.tags.includes("zero-position");
+  const usd = a.inDollars;
   return (
     <Fragment>
       <tr className={`clickable ${open ? "expanded" : ""} ${zero ? "zero-position" : ""}`} onClick={toggle} aria-expanded={open}>
@@ -132,12 +137,38 @@ function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
           </span>
         </td>
         <td className="right num">{zero ? "—" : formatQuantity(a.quantity)}</td>
-        <td className="right num">{a.averagePrice === null ? "—" : formatUnitPrice(a.averagePrice)}</td>
-        <td className="right num" title={a.quoteAt ? `cotação de ${formatMoment(a.quoteAt, today)}` : undefined}>
-          {a.quote === null ? "—" : formatUnitPrice(a.quote)}
+        <td className="right num">
+          {usd ? (
+            usd.averagePrice === null ? (
+              "—"
+            ) : (
+              <>
+                {formatUnitPrice(usd.averagePrice, "USD")}
+                <small className="sub">{formatUnitPrice(a.averagePrice!)}</small>
+              </>
+            )
+          ) : a.averagePrice === null ? (
+            "—"
+          ) : (
+            formatUnitPrice(a.averagePrice)
+          )}
         </td>
-        <td className="right num">{zero ? "—" : formatReais(a.currentValue)}</td>
-        <td className="right num">{!zero && Math.round(a.totalGain) === 0 ? "—" : <Gain cents={a.totalGain} />}</td>
+        <td className="right num" title={a.quoteAt ? `cotação de ${formatMoment(a.quoteAt, today)}` : undefined}>
+          {a.quote === null ? "—" : formatUnitPrice(a.quote, a.currency)}
+        </td>
+        <td className="right num">
+          {zero ? "—" : formatReais(a.currentValue)}
+          {usd && !zero && <small className="sub">{formatDollars(usd.currentValue)}</small>}
+        </td>
+        <td className="right num">
+          {!zero && Math.round(a.totalGain) === 0 ? "—" : <Gain cents={a.totalGain} />}
+          {usd && !zero && (
+            <small className="sub">
+              <Gain cents={usd.totalGain} currency="USD" />
+            </small>
+          )}
+          {a.totalGainPercent !== null && <small className="sub">{formatGainPercent(a.totalGainPercent)}</small>}
+        </td>
       </tr>
       {open && (
         <tr className="inline-row">
@@ -150,8 +181,13 @@ function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
   );
 }
 
-/** The asset's trades and payouts, newest first; clicking one opens its correction. */
+/**
+ * The asset's trades and payouts, newest first; clicking one opens its
+ * correction. In dollars, each trade shows its exchange rate and its total in
+ * dollars and in reais.
+ */
 function History({ a, newTrade, editTrade, newPayout, editPayout, editAsset, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
+  const dollar = a.currency === "USD";
   return (
     <div className="history">
       <div className="history-head">
@@ -178,6 +214,7 @@ function History({ a, newTrade, editTrade, newPayout, editPayout, editAsset, del
               <th>Tipo</th>
               <th className="right">Quantidade</th>
               <th className="right">Preço</th>
+              {dollar && <th className="right">Câmbio</th>}
               <th className="right">Total</th>
             </tr>
           </thead>
@@ -189,9 +226,11 @@ function History({ a, newTrade, editTrade, newPayout, editPayout, editAsset, del
                   <span className={`trade-kind ${t.kind}`}>{KIND_NAMES[t.kind]}</span>
                 </td>
                 <td className="right num">{formatQuantity(t.quantity)}</td>
-                <td className="right num">{formatUnitPrice(decimalToNumber(t.unitPrice) * 100)}</td>
+                <td className="right num">{formatUnitPrice(decimalToNumber(t.unitPrice) * 100, a.currency)}</td>
+                {dollar && <td className="right num">{t.exchangeRate === null ? "—" : exchangeRateToField(t.exchangeRate)}</td>}
                 <td className="right num">
-                  {formatReais(t.total)}
+                  {t.dollarTotal !== null && formatDollars(t.dollarTotal)}
+                  {t.dollarTotal === null ? formatReais(t.total) : <small className="sub">{formatReais(t.total)}</small>}
                   {t.realizedGain !== null && (
                     <small className="realized-gain">
                       resultado <Gain cents={t.realizedGain} />

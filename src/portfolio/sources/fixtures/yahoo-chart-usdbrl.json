@@ -1,0 +1,102 @@
+{
+    "chart": {
+        "result": [
+            {
+                "meta": {
+                    "currency": "BRL",
+                    "symbol": "USDBRL=X",
+                    "exchangeName": "CCY",
+                    "fullExchangeName": "CCY",
+                    "instrumentType": "CURRENCY",
+                    "firstTradeDate": 1070236800,
+                    "regularMarketTime": 1790363519,
+                    "hasPrePostMarketData": false,
+                    "gmtoffset": 3600,
+                    "timezone": "BST",
+                    "exchangeTimezoneName": "Europe/London",
+                    "regularMarketPrice": 5.1885,
+                    "regularMarketChangePercent": 0.0945,
+                    "fulldayPrice": 5.1885,
+                    "fulldayChange": 0.0049,
+                    "fulldayChangePercent": 0.0945,
+                    "fiftyTwoWeekHigh": 5.6168,
+                    "fiftyTwoWeekLow": 4.8812,
+                    "regularMarketDayHigh": 5.2139,
+                    "regularMarketDayLow": 5.1728,
+                    "regularMarketVolume": 0,
+                    "longName": "USD/BRL",
+                    "shortName": "USD/BRL",
+                    "chartPreviousClose": 5.1836,
+                    "priceHint": 4,
+                    "currentTradingPeriod": {
+                        "pre": {
+                            "timezone": "BST",
+                            "end": 1790290800,
+                            "start": 1790290800,
+                            "gmtoffset": 3600
+                        },
+                        "regular": {
+                            "timezone": "BST",
+                            "end": 1790377140,
+                            "start": 1790290800,
+                            "gmtoffset": 3600
+                        },
+                        "post": {
+                            "timezone": "BST",
+                            "end": 1790377140,
+                            "start": 1790377140,
+                            "gmtoffset": 3600
+                        }
+                    },
+                    "dataGranularity": "1d",
+                    "range": "1d",
+                    "validRanges": [
+                        "1d",
+                        "5d",
+                        "1mo",
+                        "3mo",
+                        "6mo",
+                        "1y",
+                        "2y",
+                        "5y",
+                        "10y",
+                        "ytd",
+                        "max"
+                    ]
+                },
+                "timestamp": [
+                    1790363519
+                ],
+                "indicators": {
+                    "quote": [
+                        {
+                            "close": [
+                                5.188499927520752
+                            ],
+                            "open": [
+                                5.183599948883057
+                            ],
+                            "high": [
+                                5.213900089263916
+                            ],
+                            "volume": [
+                                0
+                            ],
+                            "low": [
+                                5.172800064086914
+                            ]
+                        }
+                    ],
+                    "adjclose": [
+                        {
+                            "adjclose": [
+                                5.188499927520752
+                            ]
+                        }
+                    ]
+                }
+            }
+        ],
+        "error": null
+    }
+}

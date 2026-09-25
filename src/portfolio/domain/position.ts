@@ -2,7 +2,7 @@ import type { Cents, IsoDate } from "@/shared";
 import { decimalToNumber, type Decimal } from "./decimal";
 import type { Trade } from "./trades";
 
-/** What the person has of an asset: the quantity, the average price per unit and the cost, in reais. */
+/** What the person has of an asset: the quantity, the average price per unit and the cost, in one currency. */
 export type Position = {
   quantity: Decimal;
   /** Null while the quantity is zero: there is no average of nothing. */
@@ -36,27 +36,40 @@ export function inHistoryOrder<T extends { date: IsoDate; id: number }>(entries:
 export const tradeAmount = (quantity: Decimal, unitPrice: Decimal): Cents =>
   Number(BigInt(quantity) * BigInt(unitPrice)) / CENTS_SCALE;
 
-/** A trade's amount in reais. */
+/** A trade's amount in the asset's currency. */
 export const tradeTotal = (t: Trade): Cents => tradeAmount(t.quantity, t.unitPrice);
+
+/**
+ * A trade's amount in reais: in dollars, quantity × unit price × the trade's
+ * exchange rate, multiplied exactly before the only division.
+ */
+export const tradeTotalInReais = (t: Trade): Cents =>
+  t.exchangeRate === null
+    ? tradeTotal(t)
+    : Number(BigInt(t.quantity) * BigInt(t.unitPrice) * BigInt(t.exchangeRate)) / (CENTS_SCALE * RATE_SCALE);
 
 /** From quantity × unit price, both scaled to 8 places, to cents. */
 const CENTS_SCALE = 1e14;
+/** The exchange rate's 4 places. */
+const RATE_SCALE = 1e4;
 
 /**
- * Replays an asset's history in date order. Each buy recalculates the average
+ * Replays an asset's history in date order, each trade worth `amount`: its
+ * total in the currency being replayed. An asset in dollars is replayed twice
+ * by the same rules, in dollars and in reais. Each buy recalculates the average
  * price, `(cost + quantity × price) ÷ new quantity`, so the cost stays
  * `quantity × average price`. A sale reduces the quantity, keeps the average
  * price and fixes its result against it; selling everything makes the average
  * price stop existing, and the next buy starts from nothing.
  */
-export function replay(trades: Trade[]): Replay {
+export function replay(trades: Trade[], amount: (t: Trade) => Cents = tradeTotalInReais): Replay {
   let position: Position = { quantity: 0, averagePrice: null, cost: 0 };
   let realizedGain = 0;
   const realizedGainBySale = new Map<number, Cents>();
   for (const t of inHistoryOrder(trades)) {
     if (t.kind === "buy") {
       const quantity = position.quantity + t.quantity;
-      const cost = position.cost + tradeTotal(t);
+      const cost = position.cost + amount(t);
       position = { quantity, averagePrice: cost / decimalToNumber(quantity), cost };
       continue;
     }
@@ -64,7 +77,7 @@ export function replay(trades: Trade[]): Replay {
       return { position, realizedGain, realizedGainBySale, uncovered: { sale: t, available: position.quantity } };
     }
     const averagePrice = position.averagePrice;
-    const result = tradeTotal(t) - averagePrice * decimalToNumber(t.quantity);
+    const result = amount(t) - averagePrice * decimalToNumber(t.quantity);
     realizedGainBySale.set(t.id, result);
     realizedGain += result;
     const quantity = position.quantity - t.quantity;

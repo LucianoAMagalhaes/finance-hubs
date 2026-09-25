@@ -1,14 +1,20 @@
 import { b3Isin } from "./b3";
+import { bcbSellingPtax } from "./bcb";
 import { coinGeckoQuote, coinGeckoSearch } from "./coingecko";
 import { SourceError, type Sources } from "./port";
-import { yahooQuote, yahooTickerExists } from "./yahoo";
+import { yahooExchangeRate, yahooQuote, yahooTickerExists } from "./yahoo";
 
-/** The port answered by the real sources: Yahoo and the B3 for the B3's classes, CoinGecko for crypto. */
+/**
+ * The port answered by the real sources: Yahoo and the B3 for the B3's
+ * classes, Yahoo for the American stocks and the current exchange rate,
+ * CoinGecko for crypto, and the BCB for the PTAX.
+ */
 export function liveSources(fetchFn: typeof fetch = fetch): Sources {
   return {
     latestQuote(asset) {
       switch (asset.assetClass) {
         case "domestic-stocks":
+        case "international-stocks":
         case "real-estate-funds":
           return yahooQuote(asset, fetchFn);
         case "crypto":
@@ -20,5 +26,7 @@ export function liveSources(fetchFn: typeof fetch = fetch): Sources {
     tickerExists: (asset) => yahooTickerExists(asset, fetchFn),
     isin: (asset) => b3Isin(asset, fetchFn),
     searchCrypto: (ticker) => coinGeckoSearch(ticker, fetchFn),
+    currentExchangeRate: () => yahooExchangeRate(fetchFn),
+    sellingPtax: (date) => bcbSellingPtax(date, fetchFn),
   };
 }

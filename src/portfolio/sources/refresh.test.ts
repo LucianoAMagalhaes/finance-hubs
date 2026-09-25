@@ -3,8 +3,10 @@ import {
   apply,
   decimal,
   emptyPortfolio,
+  exchangeRate,
   type AssetClass,
   type Decimal,
+  type ExchangeRate,
   type IsoDateTime,
   type PortfolioCommand,
   type PortfolioState,
@@ -102,10 +104,70 @@ describe("refreshing the quotes", () => {
   });
 });
 
+describe("refreshing the current exchange rate", () => {
+  it("with an asset in dollars, fetches its quote by Yahoo and the rate with it, in the same commands", async () => {
+    const state = withAssets(["KO", "international-stocks"]);
+    const sources = fakeSources({ KO: decimal(87.645) }, exchangeRate(5.1885));
+
+    const commands = await refresh(state, sources, NOW, false);
+
+    expect(sources.asked).toEqual(["KO", "USDBRL=X"]);
+    expect(commands).toEqual([
+      {
+        type: "record-quotes",
+        quotes: [{ asset: 1, price: decimal(87.645), at: NOW }],
+        exchangeRate: { rate: exchangeRate(5.1885), at: NOW },
+      },
+      { type: "record-fetch", kind: "quotes", at: NOW },
+    ]);
+  });
+
+  it("without an asset in dollars, the rate is not asked", async () => {
+    const sources = fakeSources({ PETR4: decimal(37) }, exchangeRate(5.1885));
+
+    await refresh(withAssets(["PETR4", "domestic-stocks"]), sources, NOW, true);
+
+    expect(sources.asked).toEqual(["PETR4"]);
+  });
+
+  it("follows the 15 minutes' rule like a quote, and forced fetches it however fresh", async () => {
+    const fresh = run(withAssets(["KO", "international-stocks"]), recordQuotes([1, "2026-09-25T14:20:00"]), recordRate("2026-09-25T14:20:00"));
+    const old = run(fresh, recordRate("2026-09-25T14:16:59"));
+
+    const onlyRate = fakeSources({}, exchangeRate(5.2));
+    // A rate alone doesn't move the time of the quotes.
+    expect(await refresh(old, onlyRate, NOW, false)).toEqual([
+      { type: "record-quotes", quotes: [], exchangeRate: { rate: exchangeRate(5.2), at: NOW } },
+    ]);
+    expect(onlyRate.asked).toEqual(["USDBRL=X"]);
+
+    const none = fakeSources({}, exchangeRate(5.2));
+    expect(await refresh(fresh, none, NOW, false)).toEqual([]);
+    expect(none.asked).toEqual([]);
+
+    const forced = fakeSources({ KO: decimal(88) }, exchangeRate(5.2));
+    await refresh(fresh, forced, NOW, true);
+    expect(forced.asked).toEqual(["KO", "USDBRL=X"]);
+  });
+
+  it("a rate that fails doesn't stop the quotes, and the last rate keeps counting", async () => {
+    const state = run(withAssets(["KO", "international-stocks"]), recordRate("2026-09-24T18:00:00"));
+    const sources = fakeSources({ KO: decimal(88) }, new SourceError("Yahoo didn't answer."));
+
+    const commands = await refresh(state, sources, NOW, false);
+
+    expect(commands[0]).toEqual({ type: "record-quotes", quotes: [{ asset: 1, price: decimal(88), at: NOW }] });
+    expect(run(state, ...commands).exchangeRate).toEqual({ rate: exchangeRate(5.3), at: "2026-09-24T18:00:00" });
+  });
+});
+
 // ---------------------------------------------------------------- helpers
 
-/** A port that answers each ticker from the table, or fails with its error, and remembers what it was asked. */
-function fakeSources(answers: Record<string, Decimal | Error>): Sources & { asked: string[] } {
+/**
+ * A port that answers each ticker from the table, and the current exchange
+ * rate with `rate`, or fails with their error, and remembers what it was asked.
+ */
+function fakeSources(answers: Record<string, Decimal | Error>, rate: ExchangeRate | Error = new Error("Nobody asked for the rate.")): Sources & { asked: string[] } {
   const asked: string[] = [];
   return {
     asked,
@@ -116,14 +178,20 @@ function fakeSources(answers: Record<string, Decimal | Error>): Sources & { aske
       if (answer instanceof Error) throw answer;
       return answer;
     },
+    async currentExchangeRate() {
+      asked.push("USDBRL=X");
+      if (rate instanceof Error) throw rate;
+      return rate;
+    },
     tickerExists: notAsked,
     isin: notAsked,
     searchCrypto: notAsked,
+    sellingPtax: notAsked,
   };
 }
 
 async function notAsked(): Promise<never> {
-  throw new Error("The refresh only asks for quotes.");
+  throw new Error("The refresh only asks for quotes and the current exchange rate.");
 }
 
 function withAssets(...assets: [string, AssetClass][]): PortfolioState {
@@ -134,6 +202,13 @@ function withAssets(...assets: [string, AssetClass][]): PortfolioState {
 const recordQuotes = (...quotes: [number, string][]): PortfolioCommand => ({
   type: "record-quotes",
   quotes: quotes.map(([asset, at]) => ({ asset, price: decimal(400_000), at: at as IsoDateTime })),
+});
+
+/** A current exchange rate of R$ 5,30, obtained at the given time. */
+const recordRate = (at: string): PortfolioCommand => ({
+  type: "record-quotes",
+  quotes: [],
+  exchangeRate: { rate: exchangeRate(5.3), at: at as IsoDateTime },
 });
 
 function run(state: PortfolioState, ...commands: PortfolioCommand[]): PortfolioState {

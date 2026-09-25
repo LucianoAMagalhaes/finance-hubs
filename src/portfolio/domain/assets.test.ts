@@ -25,17 +25,18 @@ describe("registering an asset", () => {
     ]);
   });
 
-  it("accepts the classes in reais: Ações Nacionais, FIIs and Cripto", () => {
+  it("accepts Ações Nacionais, Ações Internacionais, FIIs and Cripto", () => {
     const state = saveOk(
       emptyPortfolio(),
       { ticker: "PETR4", assetClass: "domestic-stocks" },
+      { ticker: "AAPL", assetClass: "international-stocks" },
       { ticker: "HGLG11", assetClass: "real-estate-funds" },
       { ticker: "BTC", assetClass: "crypto" },
     );
 
     expect(projectPortfolio(state, TODAY).classes.map((c) => [c.key, c.assets.map((a) => a.ticker)])).toEqual([
       ["domestic-stocks", ["PETR4"]],
-      ["international-stocks", []],
+      ["international-stocks", ["AAPL"]],
       ["fixed-income", []],
       ["real-estate-funds", ["HGLG11"]],
       ["crypto", ["BTC"]],
@@ -57,14 +58,10 @@ describe("registering an asset", () => {
     });
   });
 
-  it("refuses Renda Fixa, whose bonds have their own registration, and Ações Internacionais, which arrive with the dollar", () => {
+  it("refuses Renda Fixa, whose bonds have their own registration", () => {
     expect(save(emptyPortfolio(), { ticker: "CDB INTER", assetClass: "fixed-income" })).toEqual({
       ok: false,
       error: "Os títulos de Renda Fixa têm cadastro próprio, que ainda não existe.",
-    });
-    expect(save(emptyPortfolio(), { ticker: "AAPL", assetClass: "international-stocks" })).toEqual({
-      ok: false,
-      error: "As Ações Internacionais chegam com o dólar e ainda não podem ser cadastradas.",
     });
   });
 

@@ -71,7 +71,7 @@ export function AssetForm({ asset, proposedClass, save, close }: Props) {
               autoCapitalize="characters"
               value={ticker}
               onChange={(e) => edit(() => setTicker(e.target.value))}
-              placeholder="Ex.: PETR4, HGLG11, BTC"
+              placeholder="Ex.: PETR4, AAPL, HGLG11, BTC"
             />
           </label>
           <label className="field">

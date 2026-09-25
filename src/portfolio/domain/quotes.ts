@@ -1,5 +1,6 @@
 import { isValidDateTime, type IsoDateTime, type Result } from "@/shared";
 import type { Decimal } from "./decimal";
+import { checkCurrentExchangeRate, type CurrentExchangeRate } from "./exchangeRate";
 import type { PortfolioState } from "./state";
 
 /**
@@ -19,21 +20,28 @@ export type FetchKind = "quotes";
 export type LastFetch = Partial<Record<FetchKind, IsoDateTime>>;
 
 /**
- * Keeps each quote as its asset's last one. A quote of an asset deleted while
- * the sources were asked is dropped. Checks every field, because the command
- * crosses the server's boundary.
+ * Keeps each quote as its asset's last one, and the current exchange rate, when
+ * one came, as the last rate. A quote of an asset deleted while the sources
+ * were asked is dropped. Checks every field, because the command crosses the
+ * server's boundary.
  */
-export function recordQuotes(state: PortfolioState, quotes: QuoteToRecord[]): Result<PortfolioState> {
+export function recordQuotes(
+  state: PortfolioState,
+  quotes: QuoteToRecord[],
+  exchangeRate: CurrentExchangeRate | undefined,
+): Result<PortfolioState> {
   if (!Array.isArray(quotes)) return { ok: false, error: "Informe as cotações." };
   for (const q of quotes) {
     if (!Number.isSafeInteger(q?.price)) return { ok: false, error: "A cotação aceita até 8 casas decimais." };
     if (q.price <= 0) return { ok: false, error: "A cotação tem que ser maior que zero." };
     if (typeof q.at !== "string" || !isValidDateTime(q.at)) return { ok: false, error: "A cotação precisa da hora em que foi obtida." };
   }
+  const rate = exchangeRate === undefined ? null : checkCurrentExchangeRate(exchangeRate);
+  if (rate && !rate.ok) return rate;
   const recorded = quotes.filter((q) => state.assets.some((a) => a.id === q.asset));
   const kept = state.quotes.filter((q) => !recorded.some((r) => r.asset === q.asset));
   const next = [...kept, ...recorded.map(({ asset, price, at }) => ({ asset, price, at }))].sort((a, b) => a.asset - b.asset);
-  return { ok: true, value: { ...state, quotes: next } };
+  return { ok: true, value: { ...state, quotes: next, exchangeRate: rate ? rate.value : state.exchangeRate } };
 }
 
 /** Records the time of the last successful fetch of that kind. */

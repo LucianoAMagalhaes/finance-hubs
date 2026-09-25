@@ -38,6 +38,12 @@ export async function checkAsset(state: PortfolioState, asset: AssetToSave, sour
       if (!exists) return unknown("O Yahoo Finance");
       return accept(await sources.isin(sourced).catch(orFallback(ticker, keptSourceId)));
     }
+    case "international-stocks": {
+      // Yahoo gives no id worth keeping: the ticker is how it knows the stock.
+      const exists = await sources.tickerExists({ ticker, assetClass: asset.assetClass }).catch(orFallback(ticker, null));
+      if (exists === false) return unknown("O Yahoo Finance");
+      return accept(null);
+    }
     case "crypto": {
       // The coin chosen from the list, or the one the asset had.
       const chosen = asset.sourceId ?? keptSourceId;

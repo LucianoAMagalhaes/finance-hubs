@@ -1,0 +1,102 @@
+{
+    "chart": {
+        "result": [
+            {
+                "meta": {
+                    "currency": "USD",
+                    "symbol": "KO",
+                    "exchangeName": "NYQ",
+                    "fullExchangeName": "NYSE",
+                    "instrumentType": "EQUITY",
+                    "firstTradeDate": -252322200,
+                    "regularMarketTime": 1790363518,
+                    "hasPrePostMarketData": true,
+                    "gmtoffset": -14400,
+                    "timezone": "EDT",
+                    "exchangeTimezoneName": "America/New_York",
+                    "regularMarketPrice": 87.645,
+                    "regularMarketChangePercent": -0.516,
+                    "fulldayPrice": 87.645,
+                    "fulldayChange": -0.429,
+                    "fulldayChangePercent": -0.487,
+                    "fiftyTwoWeekHigh": 92.49,
+                    "fiftyTwoWeekLow": 65.35,
+                    "regularMarketDayHigh": 88.318,
+                    "regularMarketDayLow": 87.555,
+                    "regularMarketVolume": 6627308,
+                    "longName": "The Coca-Cola Company",
+                    "shortName": "Coca-Cola Company (The)",
+                    "chartPreviousClose": 88.1,
+                    "priceHint": 2,
+                    "currentTradingPeriod": {
+                        "pre": {
+                            "timezone": "EDT",
+                            "start": 1790323200,
+                            "end": 1790343000,
+                            "gmtoffset": -14400
+                        },
+                        "regular": {
+                            "timezone": "EDT",
+                            "start": 1790343000,
+                            "end": 1790366400,
+                            "gmtoffset": -14400
+                        },
+                        "post": {
+                            "timezone": "EDT",
+                            "start": 1790366400,
+                            "end": 1790380800,
+                            "gmtoffset": -14400
+                        }
+                    },
+                    "dataGranularity": "1d",
+                    "range": "1d",
+                    "validRanges": [
+                        "1d",
+                        "5d",
+                        "1mo",
+                        "3mo",
+                        "6mo",
+                        "1y",
+                        "2y",
+                        "5y",
+                        "10y",
+                        "ytd",
+                        "max"
+                    ]
+                },
+                "timestamp": [
+                    1790363518
+                ],
+                "indicators": {
+                    "quote": [
+                        {
+                            "low": [
+                                87.55500030517578
+                            ],
+                            "close": [
+                                87.6449966430664
+                            ],
+                            "open": [
+                                88.16000366210938
+                            ],
+                            "volume": [
+                                6627308
+                            ],
+                            "high": [
+                                88.31829833984375
+                            ]
+                        }
+                    ],
+                    "adjclose": [
+                        {
+                            "adjclose": [
+                                87.6449966430664
+                            ]
+                        }
+                    ]
+                }
+            }
+        ],
+        "error": null
+    }
+}

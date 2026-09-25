@@ -7,6 +7,7 @@ export {
   type AssetTag,
   type AssetView,
   type ClassView,
+  type DollarView,
   type PayoutView,
   type PortfolioView,
   type TradeView,
@@ -16,6 +17,16 @@ export { normalizeTicker, REGISTRABLE_CLASSES, type Asset, type AssetToSave } fr
 export type { Trade, TradeKind, TradeToSave } from "./trades";
 export { PAYOUT_KINDS, type Payout, type PayoutKind, type PayoutToSave } from "./payouts";
 export { tradeAmount } from "./position";
+export {
+  currencyOf,
+  exchangeRate,
+  exchangeRateToField,
+  exchangeRateToNumber,
+  parseExchangeRate,
+  type Currency,
+  type CurrentExchangeRate,
+  type ExchangeRate,
+} from "./exchangeRate";
 export type { FetchKind, LastFetch, Quote, QuoteToRecord } from "./quotes";
 export { DECIMAL_PLACES, decimal, decimalToField, decimalToNumber, parseDecimal, type Decimal } from "./decimal";
 export {

@@ -1,7 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { decimal } from "@/portfolio/domain";
-import { b3Isin, coinGeckoQuote, coinGeckoSearch, SourceError, yahooQuote, yahooTickerExists } from "@/portfolio/sources";
+import { decimal, exchangeRate } from "@/portfolio/domain";
+import {
+  b3Isin,
+  bcbSellingPtax,
+  coinGeckoQuote,
+  coinGeckoSearch,
+  SourceError,
+  yahooExchangeRate,
+  yahooQuote,
+  yahooTickerExists,
+} from "@/portfolio/sources";
 
 // Real answers recorded in files: the suite never touches the network.
 const recorded = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
@@ -19,6 +28,13 @@ describe("the Yahoo adapter", () => {
 
     expect(await yahooQuote({ ticker: "HGLG11", assetClass: "real-estate-funds" }, fetch)).toBe(decimal(147.83));
     expect(fetch.asked[0]).toContain("/chart/HGLG11.SA?");
+  });
+
+  it("reads an American stock in dollars, asking by the bare ticker", async () => {
+    const fetch = fakeFetch(recorded("yahoo-chart-ko.json"));
+
+    expect(await yahooQuote({ ticker: "KO", assetClass: "international-stocks" }, fetch)).toBe(decimal(87.645));
+    expect(fetch.asked).toEqual(["https://query2.finance.yahoo.com/v8/finance/chart/KO?interval=1d&range=1d"]);
   });
 
   it("an unknown ticker, an error status, a changed format or a network failure is a failure, never an empty quote", async () => {
@@ -40,6 +56,13 @@ describe("the Yahoo ticker check", () => {
     expect(fetch.asked).toEqual(["https://query2.finance.yahoo.com/v8/finance/chart/PETR4.SA?interval=1d&range=1d"]);
   });
 
+  it("an American ticker is checked by its bare symbol", async () => {
+    const fetch = fakeFetch(recorded("yahoo-chart-ko.json"));
+
+    expect(await yahooTickerExists({ ticker: "KO", assetClass: "international-stocks" }, fetch)).toBe(true);
+    expect(fetch.asked).toEqual(["https://query2.finance.yahoo.com/v8/finance/chart/KO?interval=1d&range=1d"]);
+  });
+
   it("a ticker Yahoo answers Not Found for doesn't exist", async () => {
     const fetch = fakeFetch(recorded("yahoo-chart-not-found.json"), 404);
 
@@ -53,6 +76,56 @@ describe("the Yahoo ticker check", () => {
     await expect(yahooTickerExists(asset, fakeFetch("Not Found", 404))).rejects.toThrow(SourceError);
     await expect(yahooTickerExists(asset, fakeFetch('{"chart":{"result":[{"meta":{}}]}}'))).rejects.toThrow(SourceError);
     await expect(yahooTickerExists(asset, failingFetch())).rejects.toThrow(SourceError);
+  });
+});
+
+describe("the current exchange rate at Yahoo", () => {
+  it("reads USDBRL=X's last price as reais per dollar, to 4 places", async () => {
+    const fetch = fakeFetch(recorded("yahoo-chart-usdbrl.json"));
+
+    expect(await yahooExchangeRate(fetch)).toBe(exchangeRate(5.1885));
+    expect(fetch.asked).toEqual(["https://query2.finance.yahoo.com/v8/finance/chart/USDBRL%3DX?interval=1d&range=1d"]);
+  });
+
+  it("rounds a longer price to the 4th place", async () => {
+    expect(await yahooExchangeRate(fakeFetch('{"chart":{"result":[{"meta":{"regularMarketPrice":5.18867}}]}}'))).toBe(51887);
+  });
+
+  it("an error status, a changed format or a network failure is a failure, never an empty rate", async () => {
+    await expect(yahooExchangeRate(fakeFetch("Too Many Requests", 429))).rejects.toThrow(SourceError);
+    await expect(yahooExchangeRate(fakeFetch('{"chart":{"result":[{"meta":{}}]}}'))).rejects.toThrow(SourceError);
+    await expect(yahooExchangeRate(fakeFetch('{"chart":{"result":[{"meta":{"regularMarketPrice":0}}]}}'))).rejects.toThrow(SourceError);
+    await expect(yahooExchangeRate(failingFetch())).rejects.toThrow(SourceError);
+  });
+});
+
+describe("the BCB's PTAX", () => {
+  it("is the selling PTAX of the last day published up to the date, asked over the two weeks before it", async () => {
+    // Sunday 20/09: the last PTAX is Friday 18/09's.
+    const fetch = fakeFetch(recorded("bcb-ptax-until-2026-09-20.json"));
+
+    expect(await bcbSellingPtax("2026-09-20", fetch)).toEqual({ rate: exchangeRate(5.1575), date: "2026-09-18" });
+    expect(fetch.asked).toEqual([
+      "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)" +
+        "?@dataInicial='09-06-2026'&@dataFinalCotacao='09-20-2026'&$format=json&$select=cotacaoVenda,dataHoraCotacao",
+    ]);
+  });
+
+  it("on a day with its own PTAX, it is that day's", async () => {
+    const until17 = JSON.parse(recorded("bcb-ptax-until-2026-09-20.json"));
+    until17.value = until17.value.slice(0, -1);
+
+    expect(await bcbSellingPtax("2026-09-17", fakeFetch(JSON.stringify(until17)))).toEqual({ rate: exchangeRate(5.1521), date: "2026-09-17" });
+  });
+
+  it("no PTAX in the window, an error status, a changed format or a network failure is a failure", async () => {
+    await expect(bcbSellingPtax("2026-09-20", fakeFetch(recorded("bcb-ptax-weekend.json")))).rejects.toThrow(SourceError);
+    await expect(bcbSellingPtax("2026-09-20", fakeFetch("Service Unavailable", 503))).rejects.toThrow(SourceError);
+    await expect(bcbSellingPtax("2026-09-20", fakeFetch('{"value":[{"cotacaoVenda":"5,1","dataHoraCotacao":"2026-09-18 13:03"}]}'))).rejects.toThrow(
+      SourceError,
+    );
+    await expect(bcbSellingPtax("2026-09-20", fakeFetch('{"error":{}}'))).rejects.toThrow(SourceError);
+    await expect(bcbSellingPtax("2026-09-20", failingFetch())).rejects.toThrow(SourceError);
   });
 });
 

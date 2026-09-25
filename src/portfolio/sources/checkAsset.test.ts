@@ -96,11 +96,34 @@ describe("checking a ticker at the source, in the B3's classes", () => {
       ok: false,
       error: "Já existe um ativo PETR4 na carteira.",
     });
-    expect(await check(state, { ticker: "AAPL", assetClass: "international-stocks" }, sources)).toEqual({
+    expect(await check(state, { ticker: "CDB INTER", assetClass: "fixed-income" }, sources)).toEqual({
       ok: false,
-      error: "As Ações Internacionais chegam com o dólar e ainda não podem ser cadastradas.",
+      error: "Os títulos de Renda Fixa têm cadastro próprio, que ainda não existe.",
     });
     expect(sources.asked).toEqual([]);
+  });
+});
+
+describe("checking an American ticker at Yahoo", () => {
+  it("a ticker Yahoo knows is registered, with no id at the source", async () => {
+    const sources = fakeSources({ known: ["KO"] });
+
+    expect(await check(emptyPortfolio(), { ticker: "ko", assetClass: "international-stocks" }, sources)).toEqual({
+      ok: true,
+      asset: { ticker: "KO", assetClass: "international-stocks", sourceId: null },
+    });
+    expect(sources.asked).toEqual(["KO"]);
+  });
+
+  it("a ticker Yahoo doesn't know is refused, and with Yahoo down the registration is accepted", async () => {
+    expect(await check(emptyPortfolio(), { ticker: "KOO", assetClass: "international-stocks" }, fakeSources({ known: [] }))).toEqual({
+      ok: false,
+      error: "O Yahoo Finance não conhece o código KOO: confira se ele foi digitado certo.",
+    });
+    expect(await check(emptyPortfolio(), { ticker: "KO", assetClass: "international-stocks" }, fakeSources({ known: "down" }))).toEqual({
+      ok: true,
+      asset: { ticker: "KO", assetClass: "international-stocks", sourceId: null },
+    });
   });
 });
 
@@ -220,6 +243,12 @@ function fakeSources({ known = [], isins = {}, coins = {} }: Answers): Sources &
       asked.push(ticker);
       if (coins === "down") throw down();
       return coins[ticker] ?? [];
+    },
+    async currentExchangeRate() {
+      throw new Error("The check doesn't ask for the exchange rate.");
+    },
+    async sellingPtax() {
+      throw new Error("The check doesn't ask for the PTAX.");
     },
   };
 }

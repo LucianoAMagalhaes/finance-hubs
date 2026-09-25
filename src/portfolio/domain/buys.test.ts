@@ -19,7 +19,7 @@ describe("buying an asset", () => {
     const state = buyOk(withAssets(["BTC", "crypto"]), buy("BTC", "2026-03-10", "0.00321", "612000"));
 
     expect(state.trades).toEqual([
-      { id: 1, asset: assetId(state, "BTC"), kind: "buy", date: "2026-03-10", quantity: 321000, unitPrice: 612000_00000000 },
+      { id: 1, asset: assetId(state, "BTC"), kind: "buy", date: "2026-03-10", quantity: 321000, unitPrice: 612000_00000000, exchangeRate: null },
     ]);
   });
 

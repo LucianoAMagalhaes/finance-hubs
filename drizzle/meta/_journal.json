@@ -92,6 +92,13 @@
       "when": 1790362614109,
       "tag": "0012_portfolio_asset_source_id",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1790363735051,
+      "tag": "0013_portfolio_exchange_rate",
+      "breakpoints": true
     }
   ]
 }

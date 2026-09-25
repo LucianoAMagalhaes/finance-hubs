@@ -11,6 +11,7 @@ import {
   type AssetClass,
   type AssetTag,
   type Cents,
+  type Currency,
   type Decimal,
   type IsoDate,
   type IsoDateTime,
@@ -30,12 +31,35 @@ const SHARE = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 /** A share of the portfolio: "18,2%", "25%", "0%". */
 export const formatShare = (percent: number) => `${SHARE.format(percent)}%`;
 
+const USD = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" });
+
+/**
+ * "US$ 1.234,56", or "− US$ 297,90" when negative, like `formatReais`: the
+ * amount may carry a fraction of a cent and is only rounded here.
+ */
+export function formatDollars(value: Cents): string {
+  const cents = Math.round(Math.abs(value));
+  const text = USD.format(cents / 100);
+  return value < 0 && cents > 0 ? `− ${text}` : text;
+}
+
+/** An amount in its currency. */
+export const formatMoney = (cents: Cents, currency: Currency) => (currency === "USD" ? formatDollars(cents) : formatReais(cents));
+
 /** A gain: green with + when positive, red with − when negative. */
-export function Gain({ cents }: { cents: Cents }) {
+export function Gain({ cents, currency = "BRL" }: { cents: Cents; currency?: Currency }) {
   const rounded = Math.round(cents);
-  if (rounded > 0) return <span className="val income">+ {formatReais(cents)}</span>;
-  if (rounded < 0) return <span className="deficit">{formatReais(cents)}</span>;
-  return <span className="val">{formatReais(0)}</span>;
+  if (rounded > 0) return <span className="val income">+ {formatMoney(cents, currency)}</span>;
+  if (rounded < 0) return <span className="deficit">{formatMoney(cents, currency)}</span>;
+  return <span className="val">{formatMoney(0, currency)}</span>;
+}
+
+/** The total gain as a percentage of the cost: "+ 18,3%", "− 4%". */
+export function formatGainPercent(percent: number): string {
+  const rounded = Math.round(percent * 10) / 10;
+  if (rounded > 0) return `+ ${formatShare(rounded)}`;
+  if (rounded < 0) return `− ${formatShare(-rounded)}`;
+  return formatShare(0);
 }
 
 /**
@@ -51,16 +75,21 @@ export function ToTarget({ toTarget, share, target }: { toTarget: Cents; share: 
 }
 
 const QUANTITY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: DECIMAL_PLACES });
-const UNIT_PRICE = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: DECIMAL_PLACES });
+const UNIT_PRICE: Record<Currency, Intl.NumberFormat> = {
+  BRL: new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: DECIMAL_PLACES }),
+  USD: new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD", maximumFractionDigits: DECIMAL_PLACES }),
+};
 
 /** A quantity, with as many places as it has: "100", "0,00321". */
 export const formatQuantity = (quantity: Decimal) => QUANTITY.format(decimalToNumber(quantity));
 
 /**
- * A price per unit, in cents. From R$ 1 up it rounds to the cent like any
- * amount; below it keeps up to 8 places, for the price of a tiny crypto.
+ * A price per unit, in cents of its currency. From R$ 1 (or US$ 1) up it
+ * rounds to the cent like any amount; below it keeps up to 8 places, for the
+ * price of a tiny crypto.
  */
-export const formatUnitPrice = (cents: Cents) => (Math.abs(cents) >= 100 ? formatReais(cents) : UNIT_PRICE.format(cents / 100));
+export const formatUnitPrice = (cents: Cents, currency: Currency = "BRL") =>
+  Math.abs(cents) >= 100 ? formatMoney(cents, currency) : UNIT_PRICE[currency].format(cents / 100);
 
 export const KIND_NAMES: Record<TradeKind, string> = { buy: "Compra", sell: "Venda" };
 
@@ -132,6 +161,7 @@ export function AssetSelect({ assets, value, change }: { assets: Asset[]; value:
 /** The tag's words on the row; null for a tag the row shows in another way (the zero position is dimmed). */
 const TAG_NAMES: Record<AssetTag, string | null> = {
   "no-quote": "sem cotação",
+  "no-exchange-rate": "sem câmbio",
   "stale-quote": "cotação antiga",
   "zero-position": null,
 };

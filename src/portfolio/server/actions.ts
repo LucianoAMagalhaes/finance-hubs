@@ -1,9 +1,10 @@
 "use server";
 
-import type { AssetToSave, PortfolioCommand, PortfolioState, Result } from "@/portfolio/domain";
+import type { AssetToSave, IsoDate, PortfolioCommand, PortfolioState, Result } from "@/portfolio/domain";
 import { executePortfolioOnDatabase, loadPortfolio } from "@/portfolio/persistence";
-import { checkAsset, liveSources, refresh as refreshFromSources, type AssetCheck } from "@/portfolio/sources";
+import { checkAsset, liveSources, refresh as refreshFromSources, type AssetCheck, type Ptax } from "@/portfolio/sources";
 import { appDatabase, localNow, localToday } from "@/server/app";
+import { isValidDate } from "@/shared";
 
 /**
  * The thin shell between the portfolio's screen and the database. Returns the
@@ -42,4 +43,19 @@ export async function refresh(force: boolean): Promise<PortfolioState> {
     if (!result.ok) console.warn(`The refresh couldn't record ${command.type}: ${result.error}`);
   }
   return loadPortfolio(database);
+}
+
+/**
+ * The exchange rate the sheet suggests for a trade in dollars on that date:
+ * the BCB's selling PTAX of the date, or the last one before it. Null with the
+ * BCB down, so the field comes empty and the person types the rate.
+ */
+export async function suggestExchangeRate(date: IsoDate): Promise<Ptax | null> {
+  if (typeof date !== "string" || !isValidDate(date)) return null;
+  try {
+    return await liveSources().sellingPtax(date);
+  } catch (error) {
+    console.warn(`No PTAX for ${date}:`, error);
+    return null;
+  }
 }

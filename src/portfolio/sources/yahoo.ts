@@ -1,13 +1,16 @@
-import type { Decimal } from "@/portfolio/domain";
-import { getJson, priceFrom } from "./http";
+import type { Decimal, ExchangeRate } from "@/portfolio/domain";
+import { getJson, priceFrom, rateFrom } from "./http";
 import type { SourcedAsset } from "./port";
 
 // Yahoo Finance's chart JSON, with no key. Not an official API, and its terms
 // forbid automated access: a risk accepted in the map (#59), which is why it
 // sits behind this adapter.
 
-/** The asset as Yahoo names it: the B3's tickers take ".SA". */
-const symbolOf = ({ ticker }: SourcedAsset) => `${ticker}.SA`;
+/** The asset as Yahoo names it: the B3's tickers take ".SA", the American ones are bare. */
+const symbolOf = ({ ticker, assetClass }: SourcedAsset) => (assetClass === "international-stocks" ? ticker : `${ticker}.SA`);
+
+/** The dollar in reais, as Yahoo quotes it. */
+const DOLLAR_IN_REAIS = "USDBRL=X";
 
 const chartUrl = (symbol: string) =>
   `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
@@ -20,6 +23,12 @@ export async function yahooQuote(asset: SourcedAsset, fetchFn: typeof fetch = fe
   const symbol = symbolOf(asset);
   const answer = (await getJson(chartUrl(symbol), fetchFn, HEADERS)) as YahooChart;
   return priceFrom(answer?.chart?.result?.[0]?.meta?.regularMarketPrice, `Yahoo ${symbol}`);
+}
+
+/** The current exchange rate: USDBRL=X's last price, in reais per dollar, to 4 places. */
+export async function yahooExchangeRate(fetchFn: typeof fetch = fetch): Promise<ExchangeRate> {
+  const answer = (await getJson(chartUrl(DOLLAR_IN_REAIS), fetchFn, HEADERS)) as YahooChart;
+  return rateFrom(answer?.chart?.result?.[0]?.meta?.regularMarketPrice, `Yahoo ${DOLLAR_IN_REAIS}`);
 }
 
 /**

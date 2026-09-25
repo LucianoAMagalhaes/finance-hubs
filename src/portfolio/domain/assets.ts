@@ -14,11 +14,8 @@ export type Asset = { id: number; ticker: string; assetClass: AssetClass; source
 /** Without `id`, a new asset; with it, the correction of that one. */
 export type AssetToSave = { id?: number; ticker: string; assetClass: AssetClass; sourceId?: string | null };
 
-/**
- * The classes `+ Ativo` offers today. Renda Fixa has its own registration,
- * and Ações Internacionais arrive with the dollar.
- */
-export const REGISTRABLE_CLASSES: readonly AssetClass[] = ["domestic-stocks", "real-estate-funds", "crypto"];
+/** The classes `+ Ativo` offers today: Renda Fixa has its own registration. */
+export const REGISTRABLE_CLASSES: readonly AssetClass[] = ["domestic-stocks", "international-stocks", "real-estate-funds", "crypto"];
 
 export const normalizeTicker = (ticker: string) => ticker.trim().toUpperCase();
 
@@ -43,9 +40,6 @@ export function saveAsset(state: PortfolioState, data: AssetToSave): Result<Port
   }
   if (!existing && data.assetClass === "fixed-income") {
     return { ok: false, error: "Os títulos de Renda Fixa têm cadastro próprio, que ainda não existe." };
-  }
-  if (!existing && data.assetClass === "international-stocks") {
-    return { ok: false, error: "As Ações Internacionais chegam com o dólar e ainda não podem ser cadastradas." };
   }
   if (state.assets.some((a) => a.ticker === ticker && a.id !== existing?.id)) {
     return { ok: false, error: `Já existe um ativo ${ticker} na carteira.` };

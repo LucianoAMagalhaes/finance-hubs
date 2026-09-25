@@ -199,6 +199,30 @@ describe("the portfolio's persistence", () => {
     expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
   });
 
+  it("the exchange rate of a trade and the current exchange rate come back identical from the database", () => {
+    const database = open();
+    executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "AAPL", assetClass: "international-stocks" } },
+      { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-03-10", quantity: decimal(10), unitPrice: decimal(200), exchangeRate: 54213 } },
+      { type: "save-trade", trade: { asset: 2, kind: "buy", date: "2026-03-10", quantity: decimal(100), unitPrice: decimal(30) } },
+      { type: "record-quotes", quotes: [{ asset: 1, price: decimal(230.5), at: "2026-09-25T10:00:00" }], exchangeRate: { rate: 53000, at: "2026-09-25T10:00:00" } },
+    );
+
+    const state = executeOk(
+      database,
+      { type: "save-trade", trade: { asset: 1, kind: "sell", date: "2026-05-10", quantity: decimal(4), unitPrice: decimal(250), exchangeRate: 51575 } },
+      { type: "record-quotes", quotes: [], exchangeRate: { rate: 51885, at: "2026-09-25T14:32:07" } },
+    );
+
+    const reloaded = loadPortfolio(open());
+    expect(reloaded).toEqual(state);
+    expect(reloaded.trades.map((t) => t.exchangeRate)).toEqual([54213, null, 51575]);
+    expect(reloaded.exchangeRate).toEqual({ rate: 51885, at: "2026-09-25T14:32:07" });
+    expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
+  });
+
   it("the portfolio and the budget don't touch each other's state", () => {
     const database = open();
     const percentages = { "fixed-costs": 40, "financial-freedom": 20, comfort: 15, goals: 10, knowledge: 10, pleasures: 5 };

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  exchangeRateToNumber,
   formatReais,
   projectPortfolio,
   type Asset,
@@ -15,7 +16,7 @@ import {
   type PortfolioView,
   type TradeKind,
 } from "@/portfolio/domain";
-import { execute, refresh, saveAsset } from "@/portfolio/server/actions";
+import { execute, refresh, saveAsset, suggestExchangeRate } from "@/portfolio/server/actions";
 import type { CryptoCandidate } from "@/portfolio/sources";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { AssetForm } from "./AssetForm";
@@ -60,13 +61,14 @@ export function PortfolioScreen({ initialState, today }: Props) {
 
   /**
    * Asks the server for what is old, or for everything when forced, and takes
-   * only the quotes it brings back: a command run meanwhile keeps its result.
+   * only the quotes and the exchange rate it brings back: a command run
+   * meanwhile keeps its result.
    */
   async function refreshQuotes(force: boolean) {
     setRefreshing(true);
     try {
       const fresh = await refresh(force);
-      setState((s) => ({ ...s, quotes: fresh.quotes, lastFetch: fresh.lastFetch }));
+      setState((s) => ({ ...s, quotes: fresh.quotes, exchangeRate: fresh.exchangeRate, lastFetch: fresh.lastFetch }));
     } catch (error) {
       console.warn("The quotes' refresh failed:", error);
     } finally {
@@ -128,6 +130,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
         <h1 className="portfolio-title">Carteira</h1>
         <div className="status">
           <QuotesChip view={view} today={today} />
+          <ExchangeRateChip view={view} today={today} />
         </div>
         <div className="actions">
           <ThemeToggle />
@@ -219,6 +222,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
           kind={sheet.tradeKind}
           today={today}
           payoutInstead={fromTopBar(sheet) ? () => setSheet({ kind: "payout", asset: null, payout: null }) : undefined}
+          suggestExchangeRate={suggestExchangeRate}
           save={(trade) => run({ type: "save-trade", trade }, () => showAsset(trade.asset))}
           delete={() => run({ type: "delete-trade", id: sheet.trade! })}
           close={() => setSheet(null)}
@@ -255,6 +259,27 @@ function QuotesChip({ view, today }: { view: PortfolioView; today: IsoDate }) {
   return (
     <span className="chip stale" title="Um ativo com posição tem cotação de mais de 5 dias úteis. Ela continua valendo para o valor atual.">
       {text} · cotação antiga
+    </span>
+  );
+}
+
+/**
+ * "US$ 1 = R$ 5,42": the current exchange rate, once there is an asset in
+ * dollars; warns when it is stale, and says when there never was one.
+ */
+function ExchangeRateChip({ view, today }: { view: PortfolioView; today: IsoDate }) {
+  const rate = view.exchangeRate;
+  if (!rate) {
+    const inDollars = view.classes.some((c) => c.assets.some((a) => a.currency === "USD"));
+    return inDollars && <span className="chip stale">sem câmbio</span>;
+  }
+  // To the cent, like any amount: the rate's 4 places are in the trades.
+  const text = `US$ 1 = ${formatReais(exchangeRateToNumber(rate.rate) * 100)}`;
+  const when = `câmbio de ${formatMoment(rate.at, today)}`;
+  if (!view.staleExchangeRate) return <span className="chip" title={when}>{text}</span>;
+  return (
+    <span className="chip stale" title={`${when}: mais de 5 dias úteis. Ele continua valendo para o valor atual.`}>
+      {text} · câmbio antigo
     </span>
   );
 }
