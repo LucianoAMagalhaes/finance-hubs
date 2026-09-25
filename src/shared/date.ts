@@ -9,3 +9,6 @@ export function isValidDate(text: string): text is IsoDate {
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return month >= 1 && month <= 12 && day >= 1 && day <= lastDay;
 }
+
+/** "10/03/2026", as the person reads a date. */
+export const formatDate = (date: IsoDate) => `${date.slice(8)}/${date.slice(5, 7)}/${date.slice(0, 4)}`;

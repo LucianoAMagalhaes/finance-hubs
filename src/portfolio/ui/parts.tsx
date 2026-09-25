@@ -7,7 +7,7 @@ import {
   type AssetTag,
   type Cents,
   type Decimal,
-  type IsoDate,
+  type TradeKind,
 } from "@/portfolio/domain";
 
 /**
@@ -54,16 +54,19 @@ export const formatQuantity = (quantity: Decimal) => QUANTITY.format(decimalToNu
  */
 export const formatUnitPrice = (cents: Cents) => (Math.abs(cents) >= 100 ? formatReais(cents) : UNIT_PRICE.format(cents / 100));
 
-/** "10/03/2026". */
-export const formatDate = (date: IsoDate) => `${date.slice(8)}/${date.slice(5, 7)}/${date.slice(0, 4)}`;
+export const KIND_NAMES: Record<TradeKind, string> = { buy: "Compra", sell: "Venda" };
 
-const TAG_NAMES: Record<AssetTag, string> = { "no-quote": "sem cotação" };
+/** The tag's words on the row; null for a tag the row shows in another way (the zero position is dimmed). */
+const TAG_NAMES: Record<AssetTag, string | null> = { "no-quote": "sem cotação", "zero-position": null };
 
 /** What the row says about the asset beyond its numbers. */
 export function Tags({ tags }: { tags: AssetTag[] }) {
-  return tags.map((t) => (
-    <span key={t} className="asset-tag">
-      {TAG_NAMES[t]}
-    </span>
-  ));
+  return tags.map(
+    (t) =>
+      TAG_NAMES[t] && (
+        <span key={t} className="asset-tag">
+          {TAG_NAMES[t]}
+        </span>
+      ),
+  );
 }

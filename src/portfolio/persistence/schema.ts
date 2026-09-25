@@ -24,15 +24,16 @@ export const asset = sqliteTable("asset", {
 });
 
 /**
- * A buy of an asset. Quantity and unit price are exact decimals, stored as
- * integers scaled to 8 places. The id is also the order of entry.
+ * A buy or a sale of an asset. Quantity and unit price are exact decimals,
+ * stored as integers scaled to 8 places. The id is also the order of entry.
+ * Deleted for good: there is no trash mark.
  */
 export const trade = sqliteTable("trade", {
   id: integer("id").primaryKey(),
   asset: integer("asset")
     .notNull()
     .references(() => asset.id),
-  /** "buy". */
+  /** "buy" or "sell". */
   kind: text("kind").notNull(),
   date: text("date").notNull(),
   quantity: integer("quantity").notNull(),

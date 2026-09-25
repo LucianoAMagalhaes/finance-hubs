@@ -1408,6 +1408,29 @@ dialog.sheet.trash {
   border-radius: 999px;
   background: var(--sunken);
 }
+.trade-kind.sell {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.ops .clickable {
+  cursor: pointer;
+}
+.ops .clickable:hover > td {
+  background: var(--sunken);
+}
+.realized-gain {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.history-actions {
+  display: flex;
+  gap: 6px;
+}
+/* A zero position stays in its class, dimmed and last, with its total gain. */
+.asset-table .zero-position > td {
+  opacity: 0.6;
+}
 @media (max-width: 640px) {
   .portfolio-title {
     flex: 1;

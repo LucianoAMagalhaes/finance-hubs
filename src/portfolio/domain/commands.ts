@@ -1,8 +1,8 @@
 import type { IsoDate, Result } from "@/shared";
-import { saveAsset, type AssetToSave } from "./assets";
+import { deleteAsset, saveAsset, type AssetToSave } from "./assets";
 import { validateTargets, type Targets } from "./classes";
 import type { PortfolioState } from "./state";
-import { saveTrade, type TradeToSave } from "./trades";
+import { deleteTrade, saveTrade, type TradeToSave } from "./trades";
 
 /**
  * Everything the person can ask of the portfolio. Each command arrives with the ticket that uses it.
@@ -10,7 +10,9 @@ import { saveTrade, type TradeToSave } from "./trades";
 export type PortfolioCommand =
   | { type: "save-targets"; targets: Targets }
   | { type: "save-asset"; asset: AssetToSave }
-  | { type: "save-trade"; trade: TradeToSave };
+  | { type: "delete-asset"; id: number }
+  | { type: "save-trade"; trade: TradeToSave }
+  | { type: "delete-trade"; id: number };
 
 /**
  * Applies a command and returns the new state or the refusal, in Portuguese.
@@ -26,8 +28,12 @@ export function apply(state: PortfolioState, command: PortfolioCommand, today: I
     }
     case "save-asset":
       return saveAsset(state, command.asset);
+    case "delete-asset":
+      return deleteAsset(state, command.id);
     case "save-trade":
       return saveTrade(state, command.trade, today);
+    case "delete-trade":
+      return deleteTrade(state, command.id);
     default:
       return { ok: false, error: "Não sei fazer isso." };
   }

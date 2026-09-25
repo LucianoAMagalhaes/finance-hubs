@@ -107,6 +107,33 @@ describe("the portfolio's persistence", () => {
     expect(corrected.assets).toEqual([{ id: 1, ticker: "AXIA3", assetClass: "domestic-stocks" }]);
   });
 
+  it("a sale, a corrected trade and the deletions come back from the database as the domain left them", () => {
+    const database = open();
+    executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
+      { type: "save-asset", asset: { ticker: "VALE3", assetClass: "domestic-stocks" } },
+      { type: "save-asset", asset: { ticker: "BTC", assetClass: "crypto" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-03-10", quantity: decimal(100), unitPrice: decimal(30) } },
+      { type: "save-trade", trade: { asset: 1, kind: "sell", date: "2026-04-10", quantity: decimal(40), unitPrice: decimal(35) } },
+      { type: "save-trade", trade: { asset: 2, kind: "buy", date: "2026-04-10", quantity: decimal(5), unitPrice: decimal(60) } },
+    );
+
+    const state = executeOk(
+      database,
+      { type: "save-trade", trade: { id: 2, asset: 1, kind: "sell", date: "2026-04-11", quantity: decimal(50), unitPrice: decimal(36) } },
+      { type: "delete-trade", id: 3 },
+      { type: "delete-asset", id: 3 },
+    );
+
+    expect(loadPortfolio(open())).toEqual(state);
+    expect(state.assets.map((a) => a.ticker)).toEqual(["PETR4", "VALE3"]);
+    expect(state.trades.map((t) => [t.id, t.kind, t.date])).toEqual([
+      [1, "buy", "2026-03-10"],
+      [2, "sell", "2026-04-11"],
+    ]);
+  });
+
   it("the portfolio and the budget don't touch each other's state", () => {
     const database = open();
     const percentages = { "fixed-costs": 40, "financial-freedom": 20, comfort: 15, goals: 10, knowledge: 10, pleasures: 5 };

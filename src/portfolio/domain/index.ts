@@ -23,4 +23,4 @@ export {
   type AssetClass,
   type Targets,
 } from "./classes";
-export { formatReais, type Cents, type IsoDate, type Result } from "@/shared";
+export { formatDate, formatReais, type Cents, type IsoDate, type Result } from "@/shared";

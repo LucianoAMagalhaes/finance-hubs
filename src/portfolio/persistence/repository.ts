@@ -6,6 +6,7 @@ import {
   type Targets,
   type Trade,
 } from "@/portfolio/domain";
+import { notInArray } from "drizzle-orm";
 import type { Connection, Database } from "@/persistence/database";
 import { asset, classTarget, trade } from "./schema";
 
@@ -39,8 +40,14 @@ export function load(db: Connection): PortfolioState {
   };
 }
 
-/** Saves the state the command returned, inside the caller's transaction. Rows are only inserted or rewritten. */
+/**
+ * Saves the state the command returned, inside the caller's transaction. Rows
+ * are inserted or rewritten, and a trade or asset the state no longer has is
+ * deleted for good: the portfolio has no trash.
+ */
 export function save(tx: Connection, state: PortfolioState): void {
+  tx.delete(trade).where(notInArray(trade.id, state.trades.map((t) => t.id))).run();
+  tx.delete(asset).where(notInArray(asset.id, state.assets.map((a) => a.id))).run();
   for (const { id } of ASSET_CLASSES) {
     const row = { assetClass: id, target: state.targets[id] };
     tx.insert(classTarget).values(row).onConflictDoUpdate({ target: classTarget.assetClass, set: row }).run();

@@ -10,7 +10,7 @@ import type { Trade, TradeKind } from "./trades";
 // it is only rounded for display, like the budget's limits.
 
 /** What the table's row says about the asset beyond its numbers. Each tag arrives with the ticket that sets it. */
-export type AssetTag = "no-quote";
+export type AssetTag = "no-quote" | "zero-position";
 
 /** A trade as the expanded row lists it. */
 export type TradeView = {
@@ -21,6 +21,8 @@ export type TradeView = {
   unitPrice: Decimal;
   /** quantity × unit price. */
   total: Cents;
+  /** The sale's result, fixed with the average price of its day; null on a buy. */
+  realizedGain: Cents | null;
 };
 
 /** An asset as its class's table shows it, with its trades for the expanded row. */
@@ -36,6 +38,9 @@ export type AssetView = {
   quote: Cents | null;
   /** quantity × quote; the cost while there is no quote. */
   currentValue: Cents;
+  /** The sum of the sales' results. */
+  realizedGain: Cents;
+  /** Unrealized gain + the sales' results; it outlives the position. */
   totalGain: Cents;
   tags: AssetTag[];
   /** Newest first; on the same date, the last entered first. */
@@ -56,7 +61,7 @@ export type ClassView = {
   totalGain: Cents;
   /** How many assets the class has, with or without position. */
   assetCount: number;
-  /** By ticker. */
+  /** By ticker, the zero positions last. */
   assets: AssetView[];
 };
 
@@ -73,8 +78,9 @@ export type PortfolioView = {
 export function projectPortfolio(state: PortfolioState, today: IsoDate): PortfolioView {
   void today; // Every trade is dated up to today; quotes will be dated against it.
   const assets = state.assets.map((a) => projectAsset(a, state.trades.filter((t) => t.asset === a.id)));
+  const zeroLast = (a: AssetView) => (a.tags.includes("zero-position") ? 1 : 0);
   const byClass = (id: AssetClass) =>
-    assets.filter((a) => a.assetClass === id).sort((a, b) => a.ticker.localeCompare(b.ticker));
+    assets.filter((a) => a.assetClass === id).sort((a, b) => zeroLast(a) - zeroLast(b) || a.ticker.localeCompare(b.ticker));
   const sum = (list: AssetView[], amount: (a: AssetView) => Cents) => list.reduce((s, a) => s + amount(a), 0);
 
   const currentValue = sum(assets, (a) => a.currentValue);
@@ -98,9 +104,11 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
 }
 
 function projectAsset(asset: Asset, trades: Trade[]): AssetView {
-  const position = replay(trades);
+  const { position, realizedGain, realizedGainBySale } = replay(trades);
   // No source brings quotes yet: every asset is worth its cost, tagged as such.
   const currentValue = position.cost;
+  const tags: AssetTag[] = ["no-quote"];
+  if (position.quantity === 0) tags.push("zero-position");
   return {
     id: asset.id,
     ticker: asset.ticker,
@@ -108,10 +116,19 @@ function projectAsset(asset: Asset, trades: Trade[]): AssetView {
     ...position,
     quote: null,
     currentValue,
-    totalGain: currentValue - position.cost,
-    tags: ["no-quote"],
+    realizedGain,
+    totalGain: currentValue - position.cost + realizedGain,
+    tags,
     trades: inHistoryOrder(trades)
       .reverse()
-      .map((t) => ({ id: t.id, date: t.date, kind: t.kind, quantity: t.quantity, unitPrice: t.unitPrice, total: tradeTotal(t) })),
+      .map((t) => ({
+        id: t.id,
+        date: t.date,
+        kind: t.kind,
+        quantity: t.quantity,
+        unitPrice: t.unitPrice,
+        total: tradeTotal(t),
+        realizedGain: realizedGainBySale.get(t.id) ?? null,
+      })),
   };
 }

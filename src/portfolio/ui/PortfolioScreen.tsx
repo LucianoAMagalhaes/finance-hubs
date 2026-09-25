@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import {
   formatReais,
   projectPortfolio,
+  type Asset,
   type AssetClass,
   type ClassView,
   type IsoDate,
@@ -15,6 +16,7 @@ import {
 import { execute } from "@/portfolio/server/actions";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { AssetForm } from "./AssetForm";
+import { DeleteAssetForm } from "./DeleteAssetForm";
 import { ClassDetail } from "./ClassDetail";
 import { TargetsForm } from "./TargetsForm";
 import { TradeForm } from "./TradeForm";
@@ -22,8 +24,16 @@ import { classColor, formatShare, Gain, ToTarget } from "./parts";
 
 type Props = { initialState: PortfolioState; today: IsoDate };
 
-/** The sheet open over the dashboard; a buy carries the asset whose row it came from, or null from the top bar. */
-type OpenSheet = { kind: "targets" } | { kind: "asset" } | { kind: "trade"; asset: number | null };
+/**
+ * The sheet open over the dashboard. A trade carries the one being corrected,
+ * or null when new; a new trade also carries the asset whose row it came from,
+ * or null from the top bar.
+ */
+type OpenSheet =
+  | { kind: "targets" }
+  | { kind: "asset" }
+  | { kind: "delete-asset"; asset: Asset }
+  | { kind: "trade"; asset: number | null; trade: number | null };
 
 /**
  * The portfolio's dashboard (variation E of the prototype, #71): the band with
@@ -75,7 +85,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
             className="btn primary"
             disabled={state.assets.length === 0}
             title={state.assets.length === 0 ? "Cadastre um ativo antes de lançar" : undefined}
-            onClick={() => setSheet({ kind: "trade", asset: null })}
+            onClick={() => setSheet({ kind: "trade", asset: null, trade: null })}
           >
             + Lançar
           </button>
@@ -109,7 +119,12 @@ export function PortfolioScreen({ initialState, today }: Props) {
             expanded={expanded}
             expand={setExpanded}
             close={() => openClassDetail(null)}
-            buy={(asset) => setSheet({ kind: "trade", asset })}
+            newTrade={(asset) => setSheet({ kind: "trade", asset, trade: null })}
+            editTrade={(trade) => setSheet({ kind: "trade", asset: null, trade })}
+            deleteAsset={(id) => {
+              const asset = state.assets.find((a) => a.id === id);
+              if (asset) setSheet({ kind: "delete-asset", asset });
+            }}
           />
         </div>
       ) : (
@@ -127,19 +142,28 @@ export function PortfolioScreen({ initialState, today }: Props) {
           close={() => setSheet(null)}
         />
       )}
+      {sheet?.kind === "delete-asset" && (
+        <DeleteAssetForm
+          asset={sheet.asset}
+          delete={() => run({ type: "delete-asset", id: sheet.asset.id }, () => setExpanded(null))}
+          close={() => setSheet(null)}
+        />
+      )}
       {sheet?.kind === "trade" && (
         <TradeForm
           assets={state.assets}
           asset={state.assets.find((a) => a.id === sheet.asset) ?? null}
+          trade={state.trades.find((t) => t.id === sheet.trade) ?? null}
           today={today}
           save={(trade) =>
             run({ type: "save-trade", trade }, () => {
-              // The bought asset opens expanded, with the new trade on top.
-              const bought = state.assets.find((a) => a.id === trade.asset);
-              if (bought && openClass !== bought.assetClass) setOpenClassRaw(bought.assetClass);
+              // The trade's asset opens expanded, with the trade in its place.
+              const traded = state.assets.find((a) => a.id === trade.asset);
+              if (traded && openClass !== traded.assetClass) setOpenClassRaw(traded.assetClass);
               setExpanded(trade.asset);
             })
           }
+          delete={() => run({ type: "delete-trade", id: sheet.trade! })}
           close={() => setSheet(null)}
         />
       )}

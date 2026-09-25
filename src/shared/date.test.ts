@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidDate } from "@/shared";
+import { formatDate, isValidDate } from "@/shared";
 
 describe("ISO date", () => {
   it("recognizes only dates that exist in the calendar", () => {
@@ -10,5 +10,9 @@ describe("ISO date", () => {
     expect(isValidDate("2026-09-00")).toBe(false);
     expect(isValidDate("30/09/2026")).toBe(false);
     expect(isValidDate("")).toBe(false);
+  });
+
+  it("reads as the person writes a date", () => {
+    expect(formatDate("2026-03-10")).toBe("10/03/2026");
   });
 });

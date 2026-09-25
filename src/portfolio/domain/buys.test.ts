@@ -61,7 +61,6 @@ describe("buying an asset", () => {
     });
     expect(tryBuy(state, { ...good, date: "2026-02-30" as IsoDate })).toEqual({ ok: false, error: "Informe uma data válida." });
     expect(tryBuy(state, { ...good, asset: 99 })).toEqual({ ok: false, error: "Esse ativo não existe." });
-    expect(tryBuy(state, { ...good, kind: "sell" } as never)).toEqual({ ok: false, error: "Por enquanto, só compras." });
   });
 
   it("refuses a date after today", () => {
@@ -177,11 +176,11 @@ describe("without a quote", () => {
     });
   });
 
-  it("an asset with no trade is also without a quote, and worth nothing", () => {
+  it("an asset with no trade is also without a quote, worth nothing, and a zero position", () => {
     expect(asset(withAssets(["PETR4", "domestic-stocks"]), "PETR4")).toMatchObject({
       quantity: 0,
       currentValue: 0,
-      tags: ["no-quote"],
+      tags: ["no-quote", "zero-position"],
     });
   });
 });

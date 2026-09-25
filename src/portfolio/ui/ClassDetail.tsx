@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment } from "react";
-import { decimalToNumber, formatReais, type AssetView, type ClassView, type TradeKind } from "@/portfolio/domain";
-import { classColor, formatDate, formatQuantity, formatShare, formatUnitPrice, Gain, Tags, ToTarget } from "./parts";
+import { decimalToNumber, formatDate, formatReais, type AssetView, type ClassView } from "@/portfolio/domain";
+import { classColor, formatQuantity, KIND_NAMES, formatShare, formatUnitPrice, Gain, Tags, ToTarget } from "./parts";
 
 type Props = {
   c: ClassView;
@@ -10,15 +10,20 @@ type Props = {
   expanded: number | null;
   expand: (asset: number | null) => void;
   close: () => void;
-  /** Opens a new buy of the asset. */
-  buy: (asset: number) => void;
+  /** Opens a new trade of the asset. */
+  newTrade: (asset: number) => void;
+  /** Opens the correction of the trade. */
+  editTrade: (trade: number) => void;
+  /** Opens the deletion of the asset. */
+  deleteAsset: (asset: number) => void;
 };
 
 /**
  * The open class beside the column of cards (variation E): its header, and
- * its assets in a table whose rows expand in place with the trades.
+ * its assets in a table whose rows expand in place with the trades. A zero
+ * position stays, dimmed and last, with its total gain.
  */
-export function ClassDetail({ c, expanded, expand, close, buy }: Props) {
+export function ClassDetail({ c, expanded, expand, close, newTrade, editTrade, deleteAsset }: Props) {
   return (
     <section className="detail class-detail" aria-label={c.name} style={classColor(c.key)}>
       <header>
@@ -59,7 +64,15 @@ export function ClassDetail({ c, expanded, expand, close, buy }: Props) {
             </thead>
             <tbody>
               {c.assets.map((a) => (
-                <AssetRow key={a.id} a={a} open={expanded === a.id} toggle={() => expand(expanded === a.id ? null : a.id)} buy={() => buy(a.id)} />
+                <AssetRow
+                  key={a.id}
+                  a={a}
+                  open={expanded === a.id}
+                  toggle={() => expand(expanded === a.id ? null : a.id)}
+                  newTrade={() => newTrade(a.id)}
+                  editTrade={editTrade}
+                  deleteAsset={() => deleteAsset(a.id)}
+                />
               ))}
             </tbody>
           </table>
@@ -69,10 +82,20 @@ export function ClassDetail({ c, expanded, expand, close, buy }: Props) {
   );
 }
 
-function AssetRow({ a, open, toggle, buy }: { a: AssetView; open: boolean; toggle: () => void; buy: () => void }) {
+type RowProps = {
+  a: AssetView;
+  open: boolean;
+  toggle: () => void;
+  newTrade: () => void;
+  editTrade: (trade: number) => void;
+  deleteAsset: () => void;
+};
+
+function AssetRow({ a, open, toggle, newTrade, editTrade, deleteAsset }: RowProps) {
+  const zero = a.tags.includes("zero-position");
   return (
     <Fragment>
-      <tr className={`clickable ${open ? "expanded" : ""}`} onClick={toggle} aria-expanded={open}>
+      <tr className={`clickable ${open ? "expanded" : ""} ${zero ? "zero-position" : ""}`} onClick={toggle} aria-expanded={open}>
         <td>
           <span className="caret" aria-hidden>
             {open ? "▾" : "▸"}
@@ -82,16 +105,16 @@ function AssetRow({ a, open, toggle, buy }: { a: AssetView; open: boolean; toggl
             <Tags tags={a.tags} />
           </span>
         </td>
-        <td className="right num">{formatQuantity(a.quantity)}</td>
+        <td className="right num">{zero ? "—" : formatQuantity(a.quantity)}</td>
         <td className="right num">{a.averagePrice === null ? "—" : formatUnitPrice(a.averagePrice)}</td>
         <td className="right num">{a.quote === null ? "—" : formatUnitPrice(a.quote)}</td>
-        <td className="right num">{formatReais(a.currentValue)}</td>
-        <td className="right num">{Math.round(a.totalGain) === 0 ? "—" : <Gain cents={a.totalGain} />}</td>
+        <td className="right num">{zero ? "—" : formatReais(a.currentValue)}</td>
+        <td className="right num">{!zero && Math.round(a.totalGain) === 0 ? "—" : <Gain cents={a.totalGain} />}</td>
       </tr>
       {open && (
         <tr className="inline-row">
           <td colSpan={6}>
-            <History a={a} buy={buy} />
+            <History a={a} newTrade={newTrade} editTrade={editTrade} deleteAsset={deleteAsset} />
           </td>
         </tr>
       )}
@@ -99,17 +122,20 @@ function AssetRow({ a, open, toggle, buy }: { a: AssetView; open: boolean; toggl
   );
 }
 
-const KIND_NAMES: Record<TradeKind, string> = { buy: "Compra" };
-
-/** The asset's trades, newest first. */
-function History({ a, buy }: { a: AssetView; buy: () => void }) {
+/** The asset's trades, newest first; clicking one opens its correction. */
+function History({ a, newTrade, editTrade, deleteAsset }: Omit<RowProps, "open" | "toggle">) {
   return (
     <div className="history">
       <div className="history-head">
         <h3>Operações</h3>
-        <button type="button" className="btn" onClick={buy}>
-          + Operação
-        </button>
+        <span className="history-actions">
+          <button type="button" className="btn" onClick={deleteAsset}>
+            Apagar ativo
+          </button>
+          <button type="button" className="btn" onClick={newTrade}>
+            + Operação
+          </button>
+        </span>
       </div>
       {a.trades.length === 0 ? (
         <p className="history-empty">Nenhuma operação. O ativo existe com quantidade zero.</p>
@@ -126,14 +152,21 @@ function History({ a, buy }: { a: AssetView; buy: () => void }) {
           </thead>
           <tbody>
             {a.trades.map((t) => (
-              <tr key={t.id}>
+              <tr key={t.id} className="clickable" onClick={() => editTrade(t.id)} title="Corrigir ou apagar">
                 <td className="num">{formatDate(t.date)}</td>
                 <td>
                   <span className={`trade-kind ${t.kind}`}>{KIND_NAMES[t.kind]}</span>
                 </td>
                 <td className="right num">{formatQuantity(t.quantity)}</td>
                 <td className="right num">{formatUnitPrice(decimalToNumber(t.unitPrice) * 100)}</td>
-                <td className="right num">{formatReais(t.total)}</td>
+                <td className="right num">
+                  {formatReais(t.total)}
+                  {t.realizedGain !== null && (
+                    <small className="realized-gain">
+                      resultado <Gain cents={t.realizedGain} />
+                    </small>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
