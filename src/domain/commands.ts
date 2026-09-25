@@ -1,4 +1,4 @@
-import { isValidDate, type Cents, type IsoDate } from "@/shared";
+import { isValidDate, type Cents, type IsoDate, type Result } from "@/shared";
 import { isIncomeSource, type IncomeToSave } from "./incomes";
 import { findPrepayment, purchases, type State } from "./state";
 import {
@@ -43,7 +43,7 @@ export type Command =
   | { type: "delete"; record: RecordType; id: number }
   | { type: "restore"; record: RecordType; id: number };
 
-export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+export type { Result };
 
 /**
  * Applies a command and returns the new state or the validation error. Pure:

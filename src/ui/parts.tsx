@@ -33,19 +33,7 @@ export function RecordButtons({
   );
 }
 
-/**
- * Why what was asked for did not happen, announced to a screen reader the
- * moment it shows up. Takes the refusal instead of being guarded by the
- * caller: without one there is nothing to say.
- */
-export function Refusal({ refusal }: { refusal: string | null }) {
-  if (!refusal) return null;
-  return (
-    <p className="notice bad" role="alert">
-      {refusal}
-    </p>
-  );
-}
+export { Refusal } from "./Refusal";
 
 /** "1 ocorrência", "3 ocorrências": the number with the noun it counts. */
 export const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;

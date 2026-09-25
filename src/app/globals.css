@@ -39,6 +39,12 @@
   --jar-goals: #5f8a1c;
   --jar-knowledge: #b0409c;
   --jar-pleasures: #8b6b4a;
+  /* the portfolio's five classes: identity, like the jars */
+  --class-domestic-stocks: #2f6fd6;
+  --class-international-stocks: #0b8f9c;
+  --class-fixed-income: #b98900;
+  --class-real-estate-funds: #b0409c;
+  --class-crypto: #8b6b4a;
   /* tag: saturation and lightness; the hue comes from the name (--hue) */
   --tag-color: 60% 45%;
   --tag-bg: 75% 93%;
@@ -76,6 +82,11 @@
     --jar-goals: #9cc653;
     --jar-knowledge: #e27ccf;
     --jar-pleasures: #c7a07a;
+    --class-domestic-stocks: #6f9cf0;
+    --class-international-stocks: #3cc4cf;
+    --class-fixed-income: #e0b33a;
+    --class-real-estate-funds: #e27ccf;
+    --class-crypto: #c7a07a;
     --tag-color: 70% 65%;
     --tag-bg: 60% 60% / 0.16;
     --tag-ink: 75% 76%;
@@ -110,6 +121,11 @@
   --jar-goals: #9cc653;
   --jar-knowledge: #e27ccf;
   --jar-pleasures: #c7a07a;
+  --class-domestic-stocks: #6f9cf0;
+  --class-international-stocks: #3cc4cf;
+  --class-fixed-income: #e0b33a;
+  --class-real-estate-funds: #e27ccf;
+  --class-crypto: #c7a07a;
   --tag-color: 70% 65%;
   --tag-bg: 60% 60% / 0.16;
   --tag-ink: 75% 76%;
@@ -187,6 +203,12 @@ button {
 }
 .btn:hover {
   border-color: var(--ink-3);
+}
+/* a link that looks like a button: the way between the budget and the portfolio */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 .btn.arrow {
   width: 32px;
@@ -1198,5 +1220,76 @@ dialog.sheet.trash {
   }
   .table .row > :nth-child(2) {
     overflow-wrap: anywhere;
+  }
+}
+
+/* ============ portfolio: the band, where it is × where it should be ============ */
+.portfolio-title {
+  font-size: 24px;
+  letter-spacing: -0.015em;
+}
+.band.portfolio-band {
+  grid-template-columns: 1fr 1fr;
+}
+.allocation {
+  gap: 10px;
+}
+.stack-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.stack-label {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+/* the track shows even when the portfolio is worth nothing */
+.stack {
+  display: flex;
+  height: 30px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  gap: 2px;
+  background: var(--sunken);
+}
+.stack i {
+  background: var(--class);
+  color: #fff;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* shrinks a little so the gaps between the slices fit */
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.to-target {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.to-target.short {
+  color: var(--warn);
+}
+.to-target.over {
+  color: var(--ink-2);
+}
+.targets-sum {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.targets-sum.off {
+  color: var(--warn);
+}
+@media (max-width: 640px) {
+  .portfolio-title {
+    flex: 1;
+    font-size: 21px;
+  }
+  .stack i {
+    font-size: 10.5px;
   }
 }

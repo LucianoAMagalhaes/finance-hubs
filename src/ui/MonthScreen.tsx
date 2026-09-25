@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import {
   proposedDate,
@@ -76,6 +77,9 @@ export function MonthScreen({ initialState, today }: Props) {
           )}
         </div>
         <div className="actions">
+          <Link href="/portfolio" className="btn" title="Os investimentos, numa tela à parte">
+            Carteira
+          </Link>
           <ThemeToggle />
           <button type="button" className="btn" onClick={flow.openTrash} title="O que foi apagado, para restaurar">
             Lixeira{trash.length > 0 && <span className="count num">{trash.length}</span>}

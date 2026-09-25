@@ -57,6 +57,13 @@
       "when": 1790079917335,
       "tag": "0007_english",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790344749015,
+      "tag": "0008_portfolio_targets",
+      "breakpoints": true
     }
   ]
 }
