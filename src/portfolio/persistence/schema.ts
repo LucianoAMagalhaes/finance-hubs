@@ -13,3 +13,28 @@ export const classTarget = sqliteTable("class_target", {
   /** An integer from 0 to 100; the five add up to 100. */
   target: integer("target").notNull(),
 });
+
+/** An asset, by its ticker and class. */
+export const asset = sqliteTable("asset", {
+  id: integer("id").primaryKey(),
+  /** Unique in the portfolio; can be corrected, keeping the history. */
+  ticker: text("ticker").notNull().unique(),
+  /** The class's id, as the domain names it; never changes. */
+  assetClass: text("asset_class").notNull(),
+});
+
+/**
+ * A buy of an asset. Quantity and unit price are exact decimals, stored as
+ * integers scaled to 8 places. The id is also the order of entry.
+ */
+export const trade = sqliteTable("trade", {
+  id: integer("id").primaryKey(),
+  asset: integer("asset")
+    .notNull()
+    .references(() => asset.id),
+  /** "buy". */
+  kind: text("kind").notNull(),
+  date: text("date").notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPrice: integer("unit_price").notNull(),
+});

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { executeOnDatabase, loadState, openDatabase, type Database } from "@/persistence";
 import {
   ASSET_CLASSES,
+  decimal,
   DEFAULT_TARGETS,
   emptyPortfolio,
   projectPortfolio,
@@ -70,6 +71,40 @@ describe("the portfolio's persistence", () => {
 
     expect(result).toEqual({ ok: false, error: "Os alvos somam 105%: passam de 100 em 5 pontos." });
     expect(loadPortfolio(open())).toEqual(before);
+  });
+
+  it("assets and trades come back identical from the database, and the dashboard with them", () => {
+    const database = open();
+    const state = executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
+      { type: "save-asset", asset: { ticker: "BTC", assetClass: "crypto" } },
+      { type: "save-asset", asset: { ticker: "HGLG11", assetClass: "real-estate-funds" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-03-10", quantity: decimal(100), unitPrice: decimal(36.8) } },
+      { type: "save-trade", trade: { asset: 2, kind: "buy", date: "2026-01-02", quantity: 321000, unitPrice: 12345 } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-02-10", quantity: decimal(0.5), unitPrice: decimal(612000) } },
+    );
+
+    const reloaded = loadPortfolio(open());
+
+    expect(reloaded).toEqual(state);
+    expect(reloaded.assets.map((a) => a.ticker)).toEqual(["PETR4", "BTC", "HGLG11"]);
+    expect(reloaded.trades).toHaveLength(3);
+    expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
+  });
+
+  it("a corrected ticker is rewritten, keeping the asset and its trades", () => {
+    const database = open();
+    executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "ELET3", assetClass: "domestic-stocks" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-03-10", quantity: decimal(10), unitPrice: decimal(40) } },
+    );
+
+    const corrected = executeOk(database, { type: "save-asset", asset: { id: 1, ticker: "AXIA3", assetClass: "domestic-stocks" } });
+
+    expect(loadPortfolio(open())).toEqual(corrected);
+    expect(corrected.assets).toEqual([{ id: 1, ticker: "AXIA3", assetClass: "domestic-stocks" }]);
   });
 
   it("the portfolio and the budget don't touch each other's state", () => {

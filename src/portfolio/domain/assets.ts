@@ -1,0 +1,49 @@
+import type { Result } from "@/shared";
+import { ASSET_CLASSES, type AssetClass } from "./classes";
+import { nextId, type PortfolioState } from "./state";
+
+/**
+ * Something the person invests in or wants to, by its ticker and class. It
+ * exists before the first buy. The class is chosen once and never changes.
+ */
+export type Asset = { id: number; ticker: string; assetClass: AssetClass };
+
+/** Without `id`, a new asset; with it, the correction of that one. */
+export type AssetToSave = { id?: number; ticker: string; assetClass: AssetClass };
+
+/**
+ * The classes `+ Ativo` offers today. Renda Fixa has its own registration,
+ * and Ações Internacionais arrive with the dollar.
+ */
+export const REGISTRABLE_CLASSES: readonly AssetClass[] = ["domestic-stocks", "real-estate-funds", "crypto"];
+
+const normalizeTicker = (ticker: string) => ticker.trim().toUpperCase();
+
+/**
+ * Creates the asset, or corrects its ticker. Checks every field, because the
+ * command comes from the browser.
+ */
+export function saveAsset(state: PortfolioState, data: AssetToSave): Result<PortfolioState> {
+  const ticker = typeof data?.ticker === "string" ? normalizeTicker(data.ticker) : "";
+  if (!ticker) return { ok: false, error: "Informe o código do ativo." };
+  if (!ASSET_CLASSES.some((c) => c.id === data.assetClass)) return { ok: false, error: "Escolha a classe do ativo." };
+
+  const existing = data.id === undefined ? null : state.assets.find((a) => a.id === data.id);
+  if (existing === undefined) return { ok: false, error: "Esse ativo não existe." };
+  if (existing && existing.assetClass !== data.assetClass) {
+    return { ok: false, error: "A classe de um ativo não muda depois do cadastro." };
+  }
+  if (!existing && data.assetClass === "fixed-income") {
+    return { ok: false, error: "Os títulos de Renda Fixa têm cadastro próprio, que ainda não existe." };
+  }
+  if (!existing && data.assetClass === "international-stocks") {
+    return { ok: false, error: "As Ações Internacionais chegam com o dólar e ainda não podem ser cadastradas." };
+  }
+  if (state.assets.some((a) => a.ticker === ticker && a.id !== existing?.id)) {
+    return { ok: false, error: `Já existe um ativo ${ticker} na carteira.` };
+  }
+
+  const asset: Asset = { id: existing?.id ?? nextId(state.assets), ticker, assetClass: data.assetClass };
+  const assets = existing ? state.assets.map((a) => (a.id === asset.id ? asset : a)) : [...state.assets, asset];
+  return { ok: true, value: { ...state, assets } };
+}

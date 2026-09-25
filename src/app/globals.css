@@ -1284,6 +1284,130 @@ dialog.sheet.trash {
 .targets-sum.off {
   color: var(--warn);
 }
+.trade-total {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+/* ============ portfolio: the open class, its assets and the expanded row ============ */
+.asset-scroll {
+  overflow-x: auto;
+}
+.asset-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.asset-table th,
+.asset-table td {
+  padding: 8px 10px;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+}
+.asset-table th:first-child,
+.asset-table td:first-child {
+  padding-left: 22px;
+}
+.asset-table th:last-child,
+.asset-table td:last-child {
+  padding-right: 22px;
+}
+.asset-table thead th {
+  border-top: 0;
+  background: var(--sunken);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  font-weight: 500;
+  text-align: left;
+}
+.asset-table .right {
+  text-align: right;
+}
+.asset-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.asset-tag {
+  font-size: 11px;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.asset-table .clickable {
+  cursor: pointer;
+}
+.asset-table .clickable:hover > td,
+.asset-table .expanded > td {
+  background: var(--sunken);
+}
+.caret {
+  display: inline-block;
+  width: 14px;
+  color: var(--ink-3);
+  font-size: 11px;
+}
+.asset-table .inline-row > td {
+  background: var(--bg);
+  border-top: 0;
+  padding: 6px 22px 14px 36px;
+}
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0 4px;
+}
+.history h3 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.history .btn {
+  padding: 3px 10px;
+  font-size: 12.5px;
+}
+.history-empty {
+  margin: 4px 0;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.ops {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.ops th {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-3);
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.ops td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.ops .right {
+  text-align: right;
+}
+.trade-kind {
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--sunken);
+}
 @media (max-width: 640px) {
   .portfolio-title {
     flex: 1;

@@ -64,6 +64,13 @@
       "when": 1790344749015,
       "tag": "0008_portfolio_targets",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1790355764900,
+      "tag": "0009_portfolio_assets_and_trades",
+      "breakpoints": true
     }
   ]
 }
