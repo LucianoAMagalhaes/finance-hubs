@@ -1,0 +1,102 @@
+{
+    "chart": {
+        "result": [
+            {
+                "meta": {
+                    "currency": "BRL",
+                    "symbol": "HGLG11.SA",
+                    "exchangeName": "SAO",
+                    "fullExchangeName": "S\u00e3o Paulo",
+                    "instrumentType": "EQUITY",
+                    "firstTradeDate": 1299070800,
+                    "regularMarketTime": 1790358170,
+                    "hasPrePostMarketData": false,
+                    "gmtoffset": -10800,
+                    "timezone": "BRT",
+                    "exchangeTimezoneName": "America/Sao_Paulo",
+                    "regularMarketPrice": 147.83,
+                    "regularMarketChangePercent": -0.068,
+                    "fulldayPrice": 147.83,
+                    "fulldayChange": -0.1,
+                    "fulldayChangePercent": -0.068,
+                    "fiftyTwoWeekHigh": 163.3,
+                    "fiftyTwoWeekLow": 143.39,
+                    "regularMarketDayHigh": 148.15,
+                    "regularMarketDayLow": 147.47,
+                    "regularMarketVolume": 72606,
+                    "longName": "Cshg Logistica - Fundo De Investimento Imobiliario",
+                    "shortName": "FII HGLG PAXCI",
+                    "chartPreviousClose": 147.93,
+                    "priceHint": 2,
+                    "currentTradingPeriod": {
+                        "pre": {
+                            "timezone": "BRT",
+                            "end": 1790341200,
+                            "start": 1790340300,
+                            "gmtoffset": -10800
+                        },
+                        "regular": {
+                            "timezone": "BRT",
+                            "end": 1790366400,
+                            "start": 1790341200,
+                            "gmtoffset": -10800
+                        },
+                        "post": {
+                            "timezone": "BRT",
+                            "end": 1790370000,
+                            "start": 1790366400,
+                            "gmtoffset": -10800
+                        }
+                    },
+                    "dataGranularity": "1d",
+                    "range": "1d",
+                    "validRanges": [
+                        "1d",
+                        "5d",
+                        "1mo",
+                        "3mo",
+                        "6mo",
+                        "1y",
+                        "2y",
+                        "5y",
+                        "10y",
+                        "ytd",
+                        "max"
+                    ]
+                },
+                "timestamp": [
+                    1790358170
+                ],
+                "indicators": {
+                    "quote": [
+                        {
+                            "close": [
+                                147.8300018310547
+                            ],
+                            "open": [
+                                147.92999267578125
+                            ],
+                            "high": [
+                                148.14999389648438
+                            ],
+                            "volume": [
+                                72606
+                            ],
+                            "low": [
+                                147.47000122070312
+                            ]
+                        }
+                    ],
+                    "adjclose": [
+                        {
+                            "adjclose": [
+                                147.8300018310547
+                            ]
+                        }
+                    ]
+                }
+            }
+        ],
+        "error": null
+    }
+}

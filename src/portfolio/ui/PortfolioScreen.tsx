@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   formatReais,
   projectPortfolio,
@@ -14,7 +14,7 @@ import {
   type PortfolioView,
   type TradeKind,
 } from "@/portfolio/domain";
-import { execute } from "@/portfolio/server/actions";
+import { execute, refresh } from "@/portfolio/server/actions";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { AssetForm } from "./AssetForm";
 import { DeleteAssetForm } from "./DeleteAssetForm";
@@ -22,7 +22,7 @@ import { ClassDetail } from "./ClassDetail";
 import { PayoutForm } from "./PayoutForm";
 import { TargetsForm } from "./TargetsForm";
 import { TradeForm } from "./TradeForm";
-import { classColor, formatShare, Gain, ToTarget } from "./parts";
+import { classColor, formatMoment, formatShare, Gain, ToTarget } from "./parts";
 
 type Props = { initialState: PortfolioState; today: IsoDate };
 
@@ -52,6 +52,31 @@ export function PortfolioScreen({ initialState, today }: Props) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const view = useMemo(() => projectPortfolio(state, today), [state, today]);
   const opened = view.classes.find((c) => c.key === openClass);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshedOnOpen = useRef(false);
+
+  /**
+   * Asks the server for what is old, or for everything when forced, and takes
+   * only the quotes it brings back: a command run meanwhile keeps its result.
+   */
+  async function refreshQuotes(force: boolean) {
+    setRefreshing(true);
+    try {
+      const fresh = await refresh(force);
+      setState((s) => ({ ...s, quotes: fresh.quotes, lastFetch: fresh.lastFetch }));
+    } catch (error) {
+      console.warn("The quotes' refresh failed:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  // The dashboard opens at once with the last values, and swaps them when the refresh comes back.
+  useEffect(() => {
+    if (refreshedOnOpen.current) return;
+    refreshedOnOpen.current = true;
+    void refreshQuotes(false);
+  }, []);
 
   const openClassDetail = (key: AssetClass | null) => {
     setOpenClassRaw(key);
@@ -83,6 +108,9 @@ export function PortfolioScreen({ initialState, today }: Props) {
     <main className="wrap">
       <header className="topbar">
         <h1 className="portfolio-title">Carteira</h1>
+        <div className="status">
+          <QuotesChip view={view} today={today} />
+        </div>
         <div className="actions">
           <ThemeToggle />
           <Link href="/" className="btn">
@@ -99,6 +127,9 @@ export function PortfolioScreen({ initialState, today }: Props) {
             onClick={() => setSheet({ kind: "trade", asset: null, trade: null, tradeKind: "buy" })}
           >
             + Lançar
+          </button>
+          <button type="button" className="btn" disabled={refreshing} onClick={() => refreshQuotes(true)}>
+            {refreshing ? "Atualizando…" : "Atualizar"}
           </button>
         </div>
       </header>
@@ -127,6 +158,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
           <div className="sheet-backdrop" onClick={() => openClassDetail(null)} aria-hidden />
           <ClassDetail
             c={opened}
+            today={today}
             expanded={expanded}
             expand={setExpanded}
             close={() => openClassDetail(null)}
@@ -189,7 +221,24 @@ export function PortfolioScreen({ initialState, today }: Props) {
           close={() => setSheet(null)}
         />
       )}
+      <p className="attribution">
+        Cotações de cripto:{" "}
+        <a href="https://www.coingecko.com" target="_blank" rel="noreferrer">
+          Powered by CoinGecko
+        </a>
+      </p>
     </main>
+  );
+}
+
+/** "cotações de hoje, 14:32": the last time quotes came; warns when an asset with position has a stale one. */
+function QuotesChip({ view, today }: { view: PortfolioView; today: IsoDate }) {
+  const text = view.quotesAt === null ? "sem cotações" : `cotações de ${formatMoment(view.quotesAt, today)}`;
+  if (!view.staleQuote) return <span className="chip">{text}</span>;
+  return (
+    <span className="chip stale" title="Um ativo com posição tem cotação de mais de 5 dias úteis. Ela continua valendo para o valor atual.">
+      {text} · cotação antiga
+    </span>
   );
 }
 

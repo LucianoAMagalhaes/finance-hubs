@@ -1,0 +1,102 @@
+{
+    "chart": {
+        "result": [
+            {
+                "meta": {
+                    "currency": "BRL",
+                    "symbol": "PETR4.SA",
+                    "exchangeName": "SAO",
+                    "fullExchangeName": "S\u00e3o Paulo",
+                    "instrumentType": "EQUITY",
+                    "firstTradeDate": 946900800,
+                    "regularMarketTime": 1790358168,
+                    "hasPrePostMarketData": false,
+                    "gmtoffset": -10800,
+                    "timezone": "BRT",
+                    "exchangeTimezoneName": "America/Sao_Paulo",
+                    "regularMarketPrice": 48.06,
+                    "regularMarketChangePercent": -2.436,
+                    "fulldayPrice": 48.06,
+                    "fulldayChange": -1.2,
+                    "fulldayChangePercent": -2.436,
+                    "fiftyTwoWeekHigh": 50.7,
+                    "fiftyTwoWeekLow": 29.31,
+                    "regularMarketDayHigh": 48.87,
+                    "regularMarketDayLow": 47.92,
+                    "regularMarketVolume": 24700100,
+                    "longName": "Petr\u00f3leo Brasileiro S.A. - Petrobras",
+                    "shortName": "PETROBRAS   PN      N2",
+                    "chartPreviousClose": 49.26,
+                    "priceHint": 2,
+                    "currentTradingPeriod": {
+                        "pre": {
+                            "timezone": "BRT",
+                            "end": 1790341200,
+                            "start": 1790340300,
+                            "gmtoffset": -10800
+                        },
+                        "regular": {
+                            "timezone": "BRT",
+                            "end": 1790366400,
+                            "start": 1790341200,
+                            "gmtoffset": -10800
+                        },
+                        "post": {
+                            "timezone": "BRT",
+                            "end": 1790370000,
+                            "start": 1790366400,
+                            "gmtoffset": -10800
+                        }
+                    },
+                    "dataGranularity": "1d",
+                    "range": "1d",
+                    "validRanges": [
+                        "1d",
+                        "5d",
+                        "1mo",
+                        "3mo",
+                        "6mo",
+                        "1y",
+                        "2y",
+                        "5y",
+                        "10y",
+                        "ytd",
+                        "max"
+                    ]
+                },
+                "timestamp": [
+                    1790358168
+                ],
+                "indicators": {
+                    "quote": [
+                        {
+                            "open": [
+                                48.79999923706055
+                            ],
+                            "high": [
+                                48.869998931884766
+                            ],
+                            "close": [
+                                48.060001373291016
+                            ],
+                            "volume": [
+                                24700100
+                            ],
+                            "low": [
+                                47.91999816894531
+                            ]
+                        }
+                    ],
+                    "adjclose": [
+                        {
+                            "adjclose": [
+                                48.060001373291016
+                            ]
+                        }
+                    ]
+                }
+            }
+        ],
+        "error": null
+    }
+}

@@ -16,6 +16,7 @@ export { REGISTRABLE_CLASSES, type Asset, type AssetToSave } from "./assets";
 export type { Trade, TradeKind, TradeToSave } from "./trades";
 export { PAYOUT_KINDS, type Payout, type PayoutKind, type PayoutToSave } from "./payouts";
 export { tradeAmount } from "./position";
+export type { FetchKind, LastFetch, Quote, QuoteToRecord } from "./quotes";
 export { DECIMAL_PLACES, decimal, decimalToField, decimalToNumber, parseDecimal, type Decimal } from "./decimal";
 export {
   ASSET_CLASSES,
@@ -25,4 +26,16 @@ export {
   type AssetClass,
   type Targets,
 } from "./classes";
-export { centsToField, formatDate, formatReais, reaisToCents, type Cents, type IsoDate, type Result } from "@/shared";
+export {
+  centsToField,
+  dateOf,
+  formatDate,
+  formatReais,
+  formatTime,
+  minutesBetween,
+  reaisToCents,
+  type Cents,
+  type IsoDate,
+  type IsoDateTime,
+  type Result,
+} from "@/shared";

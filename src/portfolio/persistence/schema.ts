@@ -55,3 +55,23 @@ export const payout = sqliteTable("payout", {
   kind: text("kind").notNull(),
   amount: integer("amount").notNull(),
 });
+
+/**
+ * The last quote of an asset, one row per asset that ever had one, rewritten
+ * by each fetch. The price is an exact decimal, scaled to 8 places.
+ */
+export const quote = sqliteTable("quote", {
+  asset: integer("asset")
+    .primaryKey()
+    .references(() => asset.id),
+  price: integer("price").notNull(),
+  /** When it was obtained, "YYYY-MM-DDTHH:MM:SS" on the machine's clock. */
+  at: text("at").notNull(),
+});
+
+/** The time of the last successful fetch of each kind, one row per kind ever fetched. */
+export const lastFetch = sqliteTable("last_fetch", {
+  /** "quotes". */
+  kind: text("kind").primaryKey(),
+  at: text("at").notNull(),
+});

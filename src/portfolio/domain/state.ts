@@ -1,6 +1,7 @@
 import type { Asset } from "./assets";
 import { DEFAULT_TARGETS, type Targets } from "./classes";
 import type { Payout } from "./payouts";
+import type { LastFetch, Quote } from "./quotes";
 import type { Trade } from "./trades";
 
 /**
@@ -13,11 +14,14 @@ export type PortfolioState = {
   assets: Asset[];
   trades: Trade[];
   payouts: Payout[];
+  /** The last quote of each asset that ever had one. */
+  quotes: Quote[];
+  lastFetch: LastFetch;
 };
 
 /** The portfolio of the first use: the default targets and no asset. */
 export function emptyPortfolio(): PortfolioState {
-  return { targets: { ...DEFAULT_TARGETS }, assets: [], trades: [], payouts: [] };
+  return { targets: { ...DEFAULT_TARGETS }, assets: [], trades: [], payouts: [], quotes: [], lastFetch: {} };
 }
 
 export const nextId = (list: { id: number }[]) => Math.max(0, ...list.map((r) => r.id)) + 1;

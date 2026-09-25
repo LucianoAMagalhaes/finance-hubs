@@ -78,6 +78,13 @@
       "when": 1790358426329,
       "tag": "0010_portfolio_payouts",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1790359252755,
+      "tag": "0011_portfolio_quotes",
+      "breakpoints": true
     }
   ]
 }

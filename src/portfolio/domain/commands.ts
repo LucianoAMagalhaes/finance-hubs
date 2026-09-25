@@ -1,12 +1,14 @@
-import type { IsoDate, Result } from "@/shared";
+import type { IsoDate, IsoDateTime, Result } from "@/shared";
 import { deleteAsset, saveAsset, type AssetToSave } from "./assets";
 import { validateTargets, type Targets } from "./classes";
 import { deletePayout, savePayout, type PayoutToSave } from "./payouts";
+import { recordFetch, recordQuotes, type FetchKind, type QuoteToRecord } from "./quotes";
 import type { PortfolioState } from "./state";
 import { deleteTrade, saveTrade, type TradeToSave } from "./trades";
 
 /**
- * Everything the person can ask of the portfolio. Each command arrives with the ticket that uses it.
+ * Everything the person can ask of the portfolio, and what the sources bring.
+ * Each command arrives with the ticket that uses it.
  */
 export type PortfolioCommand =
   | { type: "save-targets"; targets: Targets }
@@ -15,7 +17,10 @@ export type PortfolioCommand =
   | { type: "save-trade"; trade: TradeToSave }
   | { type: "delete-trade"; id: number }
   | { type: "save-payout"; payout: PayoutToSave }
-  | { type: "delete-payout"; id: number };
+  | { type: "delete-payout"; id: number }
+  // What the sources bring, which `refresh` turns into commands; never typed by the person.
+  | { type: "record-quotes"; quotes: QuoteToRecord[] }
+  | { type: "record-fetch"; kind: FetchKind; at: IsoDateTime };
 
 /**
  * Applies a command and returns the new state or the refusal, in Portuguese.
@@ -41,6 +46,10 @@ export function apply(state: PortfolioState, command: PortfolioCommand, today: I
       return savePayout(state, command.payout, today);
     case "delete-payout":
       return deletePayout(state, command.id);
+    case "record-quotes":
+      return recordQuotes(state, command.quotes);
+    case "record-fetch":
+      return recordFetch(state, command.kind, command.at);
     default:
       return { ok: false, error: "Não sei fazer isso." };
   }

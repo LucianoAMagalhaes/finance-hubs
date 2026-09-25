@@ -161,6 +161,41 @@ describe("the portfolio's persistence", () => {
     expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
   });
 
+  it("quotes and the time of the last fetch come back identical from the database", () => {
+    const database = open();
+    executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
+      { type: "save-asset", asset: { ticker: "SHIB", assetClass: "crypto" } },
+      { type: "save-asset", asset: { ticker: "VALE3", assetClass: "domestic-stocks" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-03-10", quantity: decimal(100), unitPrice: decimal(30) } },
+      {
+        type: "record-quotes",
+        quotes: [
+          { asset: 1, price: decimal(36.8), at: "2026-09-25T10:00:00" },
+          { asset: 2, price: 12345, at: "2026-09-25T10:00:00" },
+          { asset: 3, price: decimal(60), at: "2026-09-25T10:00:00" },
+        ],
+      },
+    );
+
+    const state = executeOk(
+      database,
+      { type: "record-quotes", quotes: [{ asset: 1, price: decimal(38.5), at: "2026-09-25T14:32:07" }] },
+      { type: "record-fetch", kind: "quotes", at: "2026-09-25T14:32:07" },
+      { type: "delete-asset", id: 3 },
+    );
+
+    const reloaded = loadPortfolio(open());
+    expect(reloaded).toEqual(state);
+    expect(reloaded.quotes).toEqual([
+      { asset: 1, price: decimal(38.5), at: "2026-09-25T14:32:07" },
+      { asset: 2, price: 12345, at: "2026-09-25T10:00:00" },
+    ]);
+    expect(reloaded.lastFetch).toEqual({ quotes: "2026-09-25T14:32:07" });
+    expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
+  });
+
   it("the portfolio and the budget don't touch each other's state", () => {
     const database = open();
     const percentages = { "fixed-costs": 40, "financial-freedom": 20, comfort: 15, goals: 10, knowledge: 10, pleasures: 5 };

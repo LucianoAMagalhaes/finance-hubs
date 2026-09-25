@@ -2,13 +2,18 @@ import type { CSSProperties } from "react";
 import {
   ASSET_CLASSES,
   DECIMAL_PLACES,
+  dateOf,
   decimalToNumber,
+  formatDate,
   formatReais,
+  formatTime,
   type Asset,
   type AssetClass,
   type AssetTag,
   type Cents,
   type Decimal,
+  type IsoDate,
+  type IsoDateTime,
   type PayoutKind,
   type TradeKind,
 } from "@/portfolio/domain";
@@ -125,7 +130,11 @@ export function AssetSelect({ assets, value, change }: { assets: Asset[]; value:
 }
 
 /** The tag's words on the row; null for a tag the row shows in another way (the zero position is dimmed). */
-const TAG_NAMES: Record<AssetTag, string | null> = { "no-quote": "sem cotação", "zero-position": null };
+const TAG_NAMES: Record<AssetTag, string | null> = {
+  "no-quote": "sem cotação",
+  "stale-quote": "cotação antiga",
+  "zero-position": null,
+};
 
 /** What the row says about the asset beyond its numbers. */
 export function Tags({ tags }: { tags: AssetTag[] }) {
@@ -137,4 +146,10 @@ export function Tags({ tags }: { tags: AssetTag[] }) {
         </span>
       ),
   );
+}
+
+/** When a quote was obtained: "hoje, 14:32", or "24/09, 14:32" on another day. */
+export function formatMoment(at: IsoDateTime, today: IsoDate): string {
+  const date = dateOf(at);
+  return `${date === today ? "hoje" : formatDate(date).slice(0, 5)}, ${formatTime(at)}`;
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import { Fragment } from "react";
-import { decimalToNumber, formatDate, formatReais, type AssetView, type ClassView } from "@/portfolio/domain";
+import { decimalToNumber, formatDate, formatReais, type AssetView, type ClassView, type IsoDate } from "@/portfolio/domain";
 import {
   classColor,
+  formatMoment,
   formatQuantity,
   formatShare,
   formatUnitPrice,
@@ -16,6 +17,7 @@ import {
 
 type Props = {
   c: ClassView;
+  today: IsoDate;
   /** The asset whose row is expanded, or null. */
   expanded: number | null;
   expand: (asset: number | null) => void;
@@ -37,7 +39,7 @@ type Props = {
  * its assets in a table whose rows expand in place with the trades and
  * payouts. A zero position stays, dimmed and last, with its total gain.
  */
-export function ClassDetail({ c, expanded, expand, close, newTrade, editTrade, newPayout, editPayout, deleteAsset }: Props) {
+export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, newPayout, editPayout, deleteAsset }: Props) {
   return (
     <section className="detail class-detail" aria-label={c.name} style={classColor(c.key)}>
       <header>
@@ -81,6 +83,7 @@ export function ClassDetail({ c, expanded, expand, close, newTrade, editTrade, n
                 <AssetRow
                   key={a.id}
                   a={a}
+                  today={today}
                   open={expanded === a.id}
                   toggle={() => expand(expanded === a.id ? null : a.id)}
                   newTrade={() => newTrade(a.id)}
@@ -100,6 +103,7 @@ export function ClassDetail({ c, expanded, expand, close, newTrade, editTrade, n
 
 type RowProps = {
   a: AssetView;
+  today: IsoDate;
   open: boolean;
   toggle: () => void;
   newTrade: () => void;
@@ -109,7 +113,7 @@ type RowProps = {
   deleteAsset: () => void;
 };
 
-function AssetRow({ a, open, toggle, ...actions }: RowProps) {
+function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
   const zero = a.tags.includes("zero-position");
   return (
     <Fragment>
@@ -125,7 +129,9 @@ function AssetRow({ a, open, toggle, ...actions }: RowProps) {
         </td>
         <td className="right num">{zero ? "—" : formatQuantity(a.quantity)}</td>
         <td className="right num">{a.averagePrice === null ? "—" : formatUnitPrice(a.averagePrice)}</td>
-        <td className="right num">{a.quote === null ? "—" : formatUnitPrice(a.quote)}</td>
+        <td className="right num" title={a.quoteAt ? `cotação de ${formatMoment(a.quoteAt, today)}` : undefined}>
+          {a.quote === null ? "—" : formatUnitPrice(a.quote)}
+        </td>
         <td className="right num">{zero ? "—" : formatReais(a.currentValue)}</td>
         <td className="right num">{!zero && Math.round(a.totalGain) === 0 ? "—" : <Gain cents={a.totalGain} />}</td>
       </tr>
@@ -141,7 +147,7 @@ function AssetRow({ a, open, toggle, ...actions }: RowProps) {
 }
 
 /** The asset's trades and payouts, newest first; clicking one opens its correction. */
-function History({ a, newTrade, editTrade, newPayout, editPayout, deleteAsset }: Omit<RowProps, "open" | "toggle">) {
+function History({ a, newTrade, editTrade, newPayout, editPayout, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
   return (
     <div className="history">
       <div className="history-head">

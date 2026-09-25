@@ -2,14 +2,17 @@ import {
   ASSET_CLASSES,
   type Asset,
   type AssetClass,
+  type FetchKind,
+  type LastFetch,
   type Payout,
   type PortfolioState,
+  type Quote,
   type Targets,
   type Trade,
 } from "@/portfolio/domain";
 import { notInArray } from "drizzle-orm";
 import type { Connection, Database } from "@/persistence/database";
-import { asset, classTarget, payout, trade } from "./schema";
+import { asset, classTarget, lastFetch, payout, quote, trade } from "./schema";
 
 // No business rule here: validating and deriving belong to the domain. This
 // module only translates the portfolio's state into rows and back.
@@ -17,6 +20,7 @@ import { asset, classTarget, payout, trade } from "./schema";
 type AssetRow = typeof asset.$inferSelect;
 type TradeRow = typeof trade.$inferSelect;
 type PayoutRow = typeof payout.$inferSelect;
+type QuoteRow = typeof quote.$inferSelect;
 
 const toAsset = (row: AssetRow): Asset => ({ id: row.id, ticker: row.ticker, assetClass: row.assetClass as AssetClass });
 
@@ -37,28 +41,35 @@ const toPayout = (row: PayoutRow): Payout => ({
   amount: row.amount,
 });
 
+const toQuote = (row: QuoteRow): Quote => ({ asset: row.asset, price: row.price, at: row.at as Quote["at"] });
+
 export const loadPortfolio = ({ db }: Database): PortfolioState => load(db);
 
 /** The migration creates the five target rows, so every class always has its target. */
 export function load(db: Connection): PortfolioState {
   const targets = {} as Targets;
   for (const row of db.select().from(classTarget).all()) targets[row.assetClass as AssetClass] = row.target;
+  const fetched: LastFetch = {};
+  for (const row of db.select().from(lastFetch).all()) fetched[row.kind as FetchKind] = row.at as LastFetch[FetchKind];
   return {
     targets,
     assets: db.select().from(asset).orderBy(asset.id).all().map(toAsset),
     trades: db.select().from(trade).orderBy(trade.id).all().map(toTrade),
     payouts: db.select().from(payout).orderBy(payout.id).all().map(toPayout),
+    quotes: db.select().from(quote).orderBy(quote.asset).all().map(toQuote),
+    lastFetch: fetched,
   };
 }
 
 /**
  * Saves the state the command returned, inside the caller's transaction. Rows
- * are inserted or rewritten, and a trade, payout or asset the state no longer has is
+ * are inserted or rewritten, and a trade, payout, quote or asset the state no longer has is
  * deleted for good: the portfolio has no trash.
  */
 export function save(tx: Connection, state: PortfolioState): void {
   tx.delete(trade).where(notInArray(trade.id, state.trades.map((t) => t.id))).run();
   tx.delete(payout).where(notInArray(payout.id, state.payouts.map((p) => p.id))).run();
+  tx.delete(quote).where(notInArray(quote.asset, state.quotes.map((q) => q.asset))).run();
   tx.delete(asset).where(notInArray(asset.id, state.assets.map((a) => a.id))).run();
   for (const { id } of ASSET_CLASSES) {
     const row = { assetClass: id, target: state.targets[id] };
@@ -75,5 +86,13 @@ export function save(tx: Connection, state: PortfolioState): void {
   for (const p of state.payouts) {
     const row: PayoutRow = { ...p };
     tx.insert(payout).values(row).onConflictDoUpdate({ target: payout.id, set: row }).run();
+  }
+  for (const q of state.quotes) {
+    const row: QuoteRow = { ...q };
+    tx.insert(quote).values(row).onConflictDoUpdate({ target: quote.asset, set: row }).run();
+  }
+  for (const [kind, at] of Object.entries(state.lastFetch)) {
+    const row = { kind, at };
+    tx.insert(lastFetch).values(row).onConflictDoUpdate({ target: lastFetch.kind, set: row }).run();
   }
 }

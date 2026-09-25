@@ -225,7 +225,8 @@ a.btn {
   color: var(--ink-2);
   white-space: nowrap;
 }
-.chip.unborn {
+.chip.unborn,
+.chip.stale {
   color: var(--warn);
   background: var(--warn-bg);
   border-color: transparent;
@@ -1227,6 +1228,15 @@ dialog.sheet.trash {
 .portfolio-title {
   font-size: 24px;
   letter-spacing: -0.015em;
+}
+.attribution {
+  margin-top: 28px;
+  font-size: 12px;
+  color: var(--ink-3);
+  text-align: center;
+}
+.attribution a {
+  color: inherit;
 }
 .band.portfolio-band {
   grid-template-columns: 1fr 1fr;
