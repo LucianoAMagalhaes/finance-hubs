@@ -1381,6 +1381,10 @@ dialog.sheet.trash {
   color: var(--ink-3);
   font-size: 12.5px;
 }
+/* The payouts come after the trades, with room between them. */
+.history > * + .history-head {
+  margin-top: 16px;
+}
 .ops {
   width: 100%;
   border-collapse: collapse;

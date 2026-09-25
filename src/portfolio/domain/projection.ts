@@ -2,6 +2,7 @@ import type { Cents, IsoDate } from "@/shared";
 import type { Asset } from "./assets";
 import { ASSET_CLASSES, type AssetClass } from "./classes";
 import type { Decimal } from "./decimal";
+import type { Payout, PayoutKind } from "./payouts";
 import { inHistoryOrder, replay, tradeTotal } from "./position";
 import type { PortfolioState } from "./state";
 import type { Trade, TradeKind } from "./trades";
@@ -25,7 +26,10 @@ export type TradeView = {
   realizedGain: Cents | null;
 };
 
-/** An asset as its class's table shows it, with its trades for the expanded row. */
+/** A payout as the expanded row lists it. */
+export type PayoutView = { id: number; date: IsoDate; kind: PayoutKind; amount: Cents };
+
+/** An asset as its class's table shows it, with its trades and payouts for the expanded row. */
 export type AssetView = {
   id: number;
   ticker: string;
@@ -40,11 +44,15 @@ export type AssetView = {
   currentValue: Cents;
   /** The sum of the sales' results. */
   realizedGain: Cents;
-  /** Unrealized gain + the sales' results; it outlives the position. */
+  /** The sum of the payouts. */
+  payoutsReceived: Cents;
+  /** Unrealized gain + the sales' results + the payouts; it outlives the position. */
   totalGain: Cents;
   tags: AssetTag[];
   /** Newest first; on the same date, the last entered first. */
   trades: TradeView[];
+  /** Newest first; on the same date, the last entered first. */
+  payouts: PayoutView[];
 };
 
 /** A class as the dashboard shows it: its card, its slice of the bars and its detail's header. */
@@ -71,13 +79,19 @@ export type PortfolioView = {
   cost: Cents;
   totalGain: Cents;
   /** How much of the total gain came from payouts. */
-  payouts: Cents;
+  payoutsReceived: Cents;
   classes: ClassView[];
 };
 
 export function projectPortfolio(state: PortfolioState, today: IsoDate): PortfolioView {
   void today; // Every trade is dated up to today; quotes will be dated against it.
-  const assets = state.assets.map((a) => projectAsset(a, state.trades.filter((t) => t.asset === a.id)));
+  const assets = state.assets.map((a) =>
+    projectAsset(
+      a,
+      state.trades.filter((t) => t.asset === a.id),
+      state.payouts.filter((p) => p.asset === a.id),
+    ),
+  );
   const zeroLast = (a: AssetView) => (a.tags.includes("zero-position") ? 1 : 0);
   const byClass = (id: AssetClass) =>
     assets.filter((a) => a.assetClass === id).sort((a, b) => zeroLast(a) - zeroLast(b) || a.ticker.localeCompare(b.ticker));
@@ -100,15 +114,22 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
       assets: own,
     };
   });
-  return { currentValue, cost: sum(assets, (a) => a.cost), totalGain: sum(assets, (a) => a.totalGain), payouts: 0, classes };
+  return {
+    currentValue,
+    cost: sum(assets, (a) => a.cost),
+    totalGain: sum(assets, (a) => a.totalGain),
+    payoutsReceived: sum(assets, (a) => a.payoutsReceived),
+    classes,
+  };
 }
 
-function projectAsset(asset: Asset, trades: Trade[]): AssetView {
+function projectAsset(asset: Asset, trades: Trade[], payouts: Payout[]): AssetView {
   const { position, realizedGain, realizedGainBySale } = replay(trades);
   // No source brings quotes yet: every asset is worth its cost, tagged as such.
   const currentValue = position.cost;
   const tags: AssetTag[] = ["no-quote"];
   if (position.quantity === 0) tags.push("zero-position");
+  const payoutsReceived = payouts.reduce((s, p) => s + p.amount, 0);
   return {
     id: asset.id,
     ticker: asset.ticker,
@@ -117,7 +138,8 @@ function projectAsset(asset: Asset, trades: Trade[]): AssetView {
     quote: null,
     currentValue,
     realizedGain,
-    totalGain: currentValue - position.cost + realizedGain,
+    payoutsReceived,
+    totalGain: currentValue - position.cost + realizedGain + payoutsReceived,
     tags,
     trades: inHistoryOrder(trades)
       .reverse()
@@ -130,5 +152,8 @@ function projectAsset(asset: Asset, trades: Trade[]): AssetView {
         total: tradeTotal(t),
         realizedGain: realizedGainBySale.get(t.id) ?? null,
       })),
+    payouts: inHistoryOrder(payouts)
+      .reverse()
+      .map(({ id, date, kind, amount }) => ({ id, date, kind, amount })),
   };
 }

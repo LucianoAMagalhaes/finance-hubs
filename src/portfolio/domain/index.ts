@@ -7,12 +7,14 @@ export {
   type AssetTag,
   type AssetView,
   type ClassView,
+  type PayoutView,
   type PortfolioView,
   type TradeView,
 } from "./projection";
 export { emptyPortfolio, type PortfolioState } from "./state";
 export { REGISTRABLE_CLASSES, type Asset, type AssetToSave } from "./assets";
 export type { Trade, TradeKind, TradeToSave } from "./trades";
+export { PAYOUT_KINDS, type Payout, type PayoutKind, type PayoutToSave } from "./payouts";
 export { tradeAmount } from "./position";
 export { DECIMAL_PLACES, decimal, decimalToField, decimalToNumber, parseDecimal, type Decimal } from "./decimal";
 export {
@@ -23,4 +25,4 @@ export {
   type AssetClass,
   type Targets,
 } from "./classes";
-export { formatDate, formatReais, type Cents, type IsoDate, type Result } from "@/shared";
+export { centsToField, formatDate, formatReais, reaisToCents, type Cents, type IsoDate, type Result } from "@/shared";

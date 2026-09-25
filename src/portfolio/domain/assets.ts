@@ -50,13 +50,16 @@ export function saveAsset(state: PortfolioState, data: AssetToSave): Result<Port
 
 /**
  * Deletes for good an asset registered by mistake. An asset with any trade
- * is never deleted nor hidden: the gain it gave stays in the portfolio.
+ * or payout is never deleted nor hidden: the gain it gave stays in the portfolio.
  */
 export function deleteAsset(state: PortfolioState, id: number): Result<PortfolioState> {
   const asset = state.assets.find((a) => a.id === id);
   if (!asset) return { ok: false, error: "Esse ativo não existe." };
   if (state.trades.some((t) => t.asset === id)) {
     return { ok: false, error: `${asset.ticker} tem operações: um ativo com histórico fica na carteira para sempre.` };
+  }
+  if (state.payouts.some((p) => p.asset === id)) {
+    return { ok: false, error: `${asset.ticker} tem proventos: um ativo com histórico fica na carteira para sempre.` };
   }
   return { ok: true, value: { ...state, assets: state.assets.filter((a) => a.id !== id) } };
 }

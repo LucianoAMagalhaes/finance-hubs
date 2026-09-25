@@ -125,7 +125,7 @@ describe("the empty portfolio", () => {
   it("is worth nothing, has gained nothing and received no payouts", () => {
     const view = projectPortfolio(emptyPortfolio(), TODAY);
 
-    expect(view).toMatchObject({ currentValue: 0, cost: 0, totalGain: 0, payouts: 0 });
+    expect(view).toMatchObject({ currentValue: 0, cost: 0, totalGain: 0, payoutsReceived: 0 });
   });
 
   it("shows the five classes zeroed: no value, no share, no gain, no assets and nothing to reach the target", () => {

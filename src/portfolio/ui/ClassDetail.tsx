@@ -2,7 +2,17 @@
 
 import { Fragment } from "react";
 import { decimalToNumber, formatDate, formatReais, type AssetView, type ClassView } from "@/portfolio/domain";
-import { classColor, formatQuantity, KIND_NAMES, formatShare, formatUnitPrice, Gain, Tags, ToTarget } from "./parts";
+import {
+  classColor,
+  formatQuantity,
+  formatShare,
+  formatUnitPrice,
+  Gain,
+  KIND_NAMES,
+  PAYOUT_KIND_NAMES,
+  Tags,
+  ToTarget,
+} from "./parts";
 
 type Props = {
   c: ClassView;
@@ -14,16 +24,20 @@ type Props = {
   newTrade: (asset: number) => void;
   /** Opens the correction of the trade. */
   editTrade: (trade: number) => void;
+  /** Opens a new payout of the asset. */
+  newPayout: (asset: number) => void;
+  /** Opens the correction of the payout. */
+  editPayout: (payout: number) => void;
   /** Opens the deletion of the asset. */
   deleteAsset: (asset: number) => void;
 };
 
 /**
  * The open class beside the column of cards (variation E): its header, and
- * its assets in a table whose rows expand in place with the trades. A zero
- * position stays, dimmed and last, with its total gain.
+ * its assets in a table whose rows expand in place with the trades and
+ * payouts. A zero position stays, dimmed and last, with its total gain.
  */
-export function ClassDetail({ c, expanded, expand, close, newTrade, editTrade, deleteAsset }: Props) {
+export function ClassDetail({ c, expanded, expand, close, newTrade, editTrade, newPayout, editPayout, deleteAsset }: Props) {
   return (
     <section className="detail class-detail" aria-label={c.name} style={classColor(c.key)}>
       <header>
@@ -71,6 +85,8 @@ export function ClassDetail({ c, expanded, expand, close, newTrade, editTrade, d
                   toggle={() => expand(expanded === a.id ? null : a.id)}
                   newTrade={() => newTrade(a.id)}
                   editTrade={editTrade}
+                  newPayout={() => newPayout(a.id)}
+                  editPayout={editPayout}
                   deleteAsset={() => deleteAsset(a.id)}
                 />
               ))}
@@ -88,10 +104,12 @@ type RowProps = {
   toggle: () => void;
   newTrade: () => void;
   editTrade: (trade: number) => void;
+  newPayout: () => void;
+  editPayout: (payout: number) => void;
   deleteAsset: () => void;
 };
 
-function AssetRow({ a, open, toggle, newTrade, editTrade, deleteAsset }: RowProps) {
+function AssetRow({ a, open, toggle, ...actions }: RowProps) {
   const zero = a.tags.includes("zero-position");
   return (
     <Fragment>
@@ -114,7 +132,7 @@ function AssetRow({ a, open, toggle, newTrade, editTrade, deleteAsset }: RowProp
       {open && (
         <tr className="inline-row">
           <td colSpan={6}>
-            <History a={a} newTrade={newTrade} editTrade={editTrade} deleteAsset={deleteAsset} />
+            <History a={a} {...actions} />
           </td>
         </tr>
       )}
@@ -122,8 +140,8 @@ function AssetRow({ a, open, toggle, newTrade, editTrade, deleteAsset }: RowProp
   );
 }
 
-/** The asset's trades, newest first; clicking one opens its correction. */
-function History({ a, newTrade, editTrade, deleteAsset }: Omit<RowProps, "open" | "toggle">) {
+/** The asset's trades and payouts, newest first; clicking one opens its correction. */
+function History({ a, newTrade, editTrade, newPayout, editPayout, deleteAsset }: Omit<RowProps, "open" | "toggle">) {
   return (
     <div className="history">
       <div className="history-head">
@@ -166,6 +184,36 @@ function History({ a, newTrade, editTrade, deleteAsset }: Omit<RowProps, "open" 
                       resultado <Gain cents={t.realizedGain} />
                     </small>
                   )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="history-head">
+        <h3>Proventos</h3>
+        <button type="button" className="btn" onClick={newPayout}>
+          + Provento
+        </button>
+      </div>
+      {a.payouts.length === 0 ? (
+        <p className="history-empty">Nenhum provento.</p>
+      ) : (
+        <table className="ops">
+          <thead>
+            <tr>
+              <th>Pagamento</th>
+              <th>Tipo</th>
+              <th className="right">Valor líquido</th>
+            </tr>
+          </thead>
+          <tbody>
+            {a.payouts.map((p) => (
+              <tr key={p.id} className="clickable" onClick={() => editPayout(p.id)} title="Corrigir ou apagar">
+                <td className="num">{formatDate(p.date)}</td>
+                <td>{PAYOUT_KIND_NAMES[p.kind]}</td>
+                <td className="right num">
+                  <span className="val income">{formatReais(p.amount)}</span>
                 </td>
               </tr>
             ))}

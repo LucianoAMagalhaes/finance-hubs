@@ -39,3 +39,19 @@ export const trade = sqliteTable("trade", {
   quantity: integer("quantity").notNull(),
   unitPrice: integer("unit_price").notNull(),
 });
+
+/**
+ * Money an asset paid, on its payment date: the amount received in reais, net,
+ * in cents. Deleted for good: there is no trash mark.
+ */
+export const payout = sqliteTable("payout", {
+  id: integer("id").primaryKey(),
+  asset: integer("asset")
+    .notNull()
+    .references(() => asset.id),
+  /** The payment date. */
+  date: text("date").notNull(),
+  /** "dividend", "interest-on-equity", "fund-income" or "interest"; only informative. */
+  kind: text("kind").notNull(),
+  amount: integer("amount").notNull(),
+});

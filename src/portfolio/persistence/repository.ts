@@ -2,19 +2,21 @@ import {
   ASSET_CLASSES,
   type Asset,
   type AssetClass,
+  type Payout,
   type PortfolioState,
   type Targets,
   type Trade,
 } from "@/portfolio/domain";
 import { notInArray } from "drizzle-orm";
 import type { Connection, Database } from "@/persistence/database";
-import { asset, classTarget, trade } from "./schema";
+import { asset, classTarget, payout, trade } from "./schema";
 
 // No business rule here: validating and deriving belong to the domain. This
 // module only translates the portfolio's state into rows and back.
 
 type AssetRow = typeof asset.$inferSelect;
 type TradeRow = typeof trade.$inferSelect;
+type PayoutRow = typeof payout.$inferSelect;
 
 const toAsset = (row: AssetRow): Asset => ({ id: row.id, ticker: row.ticker, assetClass: row.assetClass as AssetClass });
 
@@ -27,6 +29,14 @@ const toTrade = (row: TradeRow): Trade => ({
   unitPrice: row.unitPrice,
 });
 
+const toPayout = (row: PayoutRow): Payout => ({
+  id: row.id,
+  asset: row.asset,
+  date: row.date as Payout["date"],
+  kind: row.kind as Payout["kind"],
+  amount: row.amount,
+});
+
 export const loadPortfolio = ({ db }: Database): PortfolioState => load(db);
 
 /** The migration creates the five target rows, so every class always has its target. */
@@ -37,16 +47,18 @@ export function load(db: Connection): PortfolioState {
     targets,
     assets: db.select().from(asset).orderBy(asset.id).all().map(toAsset),
     trades: db.select().from(trade).orderBy(trade.id).all().map(toTrade),
+    payouts: db.select().from(payout).orderBy(payout.id).all().map(toPayout),
   };
 }
 
 /**
  * Saves the state the command returned, inside the caller's transaction. Rows
- * are inserted or rewritten, and a trade or asset the state no longer has is
+ * are inserted or rewritten, and a trade, payout or asset the state no longer has is
  * deleted for good: the portfolio has no trash.
  */
 export function save(tx: Connection, state: PortfolioState): void {
   tx.delete(trade).where(notInArray(trade.id, state.trades.map((t) => t.id))).run();
+  tx.delete(payout).where(notInArray(payout.id, state.payouts.map((p) => p.id))).run();
   tx.delete(asset).where(notInArray(asset.id, state.assets.map((a) => a.id))).run();
   for (const { id } of ASSET_CLASSES) {
     const row = { assetClass: id, target: state.targets[id] };
@@ -59,5 +71,9 @@ export function save(tx: Connection, state: PortfolioState): void {
   for (const t of state.trades) {
     const row: TradeRow = { ...t };
     tx.insert(trade).values(row).onConflictDoUpdate({ target: trade.id, set: row }).run();
+  }
+  for (const p of state.payouts) {
+    const row: PayoutRow = { ...p };
+    tx.insert(payout).values(row).onConflictDoUpdate({ target: payout.id, set: row }).run();
   }
 }

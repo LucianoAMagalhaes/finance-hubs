@@ -12,12 +12,14 @@ import {
   type PortfolioCommand,
   type PortfolioState,
   type PortfolioView,
+  type TradeKind,
 } from "@/portfolio/domain";
 import { execute } from "@/portfolio/server/actions";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { AssetForm } from "./AssetForm";
 import { DeleteAssetForm } from "./DeleteAssetForm";
 import { ClassDetail } from "./ClassDetail";
+import { PayoutForm } from "./PayoutForm";
 import { TargetsForm } from "./TargetsForm";
 import { TradeForm } from "./TradeForm";
 import { classColor, formatShare, Gain, ToTarget } from "./parts";
@@ -25,15 +27,17 @@ import { classColor, formatShare, Gain, ToTarget } from "./parts";
 type Props = { initialState: PortfolioState; today: IsoDate };
 
 /**
- * The sheet open over the dashboard. A trade carries the one being corrected,
- * or null when new; a new trade also carries the asset whose row it came from,
- * or null from the top bar.
+ * The sheet open over the dashboard. A trade or payout carries the one being
+ * corrected, or null when new; a new one also carries the asset whose row it
+ * came from, or null from the top bar, where the sheet can still turn from a
+ * trade into a payout and back.
  */
 type OpenSheet =
   | { kind: "targets" }
   | { kind: "asset" }
   | { kind: "delete-asset"; asset: Asset }
-  | { kind: "trade"; asset: number | null; trade: number | null };
+  | { kind: "trade"; asset: number | null; trade: number | null; tradeKind: TradeKind }
+  | { kind: "payout"; asset: number | null; payout: number | null };
 
 /**
  * The portfolio's dashboard (variation E of the prototype, #71): the band with
@@ -64,6 +68,13 @@ export function PortfolioScreen({ initialState, today }: Props) {
     return null;
   }
 
+  /** The asset opens expanded, in its class, with what was just launched in its place. */
+  function showAsset(id: number) {
+    const shown = state.assets.find((a) => a.id === id);
+    if (shown && openClass !== shown.assetClass) setOpenClassRaw(shown.assetClass);
+    setExpanded(id);
+  }
+
   const cards = view.classes.map((c) => (
     <ClassCard key={c.key} c={c} open={openClass === c.key} toggle={() => openClassDetail(openClass === c.key ? null : c.key)} />
   ));
@@ -85,7 +96,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
             className="btn primary"
             disabled={state.assets.length === 0}
             title={state.assets.length === 0 ? "Cadastre um ativo antes de lançar" : undefined}
-            onClick={() => setSheet({ kind: "trade", asset: null, trade: null })}
+            onClick={() => setSheet({ kind: "trade", asset: null, trade: null, tradeKind: "buy" })}
           >
             + Lançar
           </button>
@@ -119,8 +130,10 @@ export function PortfolioScreen({ initialState, today }: Props) {
             expanded={expanded}
             expand={setExpanded}
             close={() => openClassDetail(null)}
-            newTrade={(asset) => setSheet({ kind: "trade", asset, trade: null })}
-            editTrade={(trade) => setSheet({ kind: "trade", asset: null, trade })}
+            newTrade={(asset) => setSheet({ kind: "trade", asset, trade: null, tradeKind: "buy" })}
+            editTrade={(trade) => setSheet({ kind: "trade", asset: null, trade, tradeKind: "buy" })}
+            newPayout={(asset) => setSheet({ kind: "payout", asset, payout: null })}
+            editPayout={(payout) => setSheet({ kind: "payout", asset: null, payout })}
             deleteAsset={(id) => {
               const asset = state.assets.find((a) => a.id === id);
               if (asset) setSheet({ kind: "delete-asset", asset });
@@ -154,22 +167,35 @@ export function PortfolioScreen({ initialState, today }: Props) {
           assets={state.assets}
           asset={state.assets.find((a) => a.id === sheet.asset) ?? null}
           trade={state.trades.find((t) => t.id === sheet.trade) ?? null}
+          kind={sheet.tradeKind}
           today={today}
-          save={(trade) =>
-            run({ type: "save-trade", trade }, () => {
-              // The trade's asset opens expanded, with the trade in its place.
-              const traded = state.assets.find((a) => a.id === trade.asset);
-              if (traded && openClass !== traded.assetClass) setOpenClassRaw(traded.assetClass);
-              setExpanded(trade.asset);
-            })
-          }
+          payoutInstead={fromTopBar(sheet) ? () => setSheet({ kind: "payout", asset: null, payout: null }) : undefined}
+          save={(trade) => run({ type: "save-trade", trade }, () => showAsset(trade.asset))}
           delete={() => run({ type: "delete-trade", id: sheet.trade! })}
+          close={() => setSheet(null)}
+        />
+      )}
+      {sheet?.kind === "payout" && (
+        <PayoutForm
+          assets={state.assets}
+          asset={state.assets.find((a) => a.id === sheet.asset) ?? null}
+          payout={state.payouts.find((p) => p.id === sheet.payout) ?? null}
+          today={today}
+          tradeInstead={
+            fromTopBar(sheet) ? (tradeKind) => setSheet({ kind: "trade", asset: null, trade: null, tradeKind }) : undefined
+          }
+          save={(payout) => run({ type: "save-payout", payout }, () => showAsset(payout.asset))}
+          delete={() => run({ type: "delete-payout", id: sheet.payout! })}
           close={() => setSheet(null)}
         />
       )}
     </main>
   );
 }
+
+/** A new launch from the top bar's + Lançar, which can still turn from a trade into a payout and back. */
+const fromTopBar = (sheet: { asset: number | null; trade?: number | null; payout?: number | null }) =>
+  sheet.asset === null && (sheet.trade ?? sheet.payout ?? null) === null;
 
 function Band({ view }: { view: PortfolioView }) {
   return (
@@ -184,7 +210,7 @@ function Band({ view }: { view: PortfolioView }) {
         <span className="v num">
           <Gain cents={view.totalGain} />
         </span>
-        <span className="h">dos quais {formatReais(view.payouts)} em proventos</span>
+        <span className="h">dos quais {formatReais(view.payoutsReceived)} em proventos</span>
       </div>
     </div>
   );

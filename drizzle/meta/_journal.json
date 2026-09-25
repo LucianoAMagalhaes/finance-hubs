@@ -71,6 +71,13 @@
       "when": 1790355764900,
       "tag": "0009_portfolio_assets_and_trades",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790358426329,
+      "tag": "0010_portfolio_payouts",
+      "breakpoints": true
     }
   ]
 }

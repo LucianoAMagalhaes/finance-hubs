@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ASSET_CLASSES, formatReais, type Asset, type IsoDate, type Trade, type TradeKind, type TradeToSave } from "@/portfolio/domain";
+import { formatReais, type Asset, type IsoDate, type Trade, type TradeKind, type TradeToSave } from "@/portfolio/domain";
 import { Refusal } from "@/ui/Refusal";
 import { Sheet } from "@/ui/Sheet";
 import { useAction } from "@/ui/useAction";
-import { KIND_NAMES } from "./parts";
+import { AssetSelect, KIND_NAMES, LaunchPicker } from "./parts";
 import { checkTradeDraft, emptyTradeDraft, tradeDraftFrom, type TradeDraft } from "./tradeDraft";
 
 type Props = {
@@ -15,7 +15,11 @@ type Props = {
   asset: Asset | null;
   /** The trade being corrected; null for a new one. */
   trade: Trade | null;
+  /** The kind a new trade opens with. */
+  kind: TradeKind;
   today: IsoDate;
+  /** From the top bar, turns the sheet into a payout; absent otherwise. */
+  payoutInstead?: () => void;
   /** Returns the refusal, or null if it saved. */
   save: (trade: TradeToSave) => Promise<string | null>;
   /** Deletes the trade being corrected for good. Returns the refusal, or null if it deleted. */
@@ -23,15 +27,15 @@ type Props = {
   close: () => void;
 };
 
-const KINDS: TradeKind[] = ["buy", "sell"];
-
 /**
  * A buy or a sale: date, quantity and unit price. No fee field: the price is
  * what was paid or received. A saved trade opens here to have any field
  * corrected, or to be deleted for good.
  */
-export function TradeForm({ assets, asset, trade, today, save, delete: remove, close }: Props) {
-  const [draft, setDraft] = useState<TradeDraft>(() => (trade ? tradeDraftFrom(trade) : emptyTradeDraft(today, asset?.id ?? null)));
+export function TradeForm({ assets, asset, trade, kind: initialKind, today, payoutInstead, save, delete: remove, close }: Props) {
+  const [draft, setDraft] = useState<TradeDraft>(() =>
+    trade ? tradeDraftFrom(trade) : { ...emptyTradeDraft(today, asset?.id ?? null), kind: initialKind },
+  );
   const { run, running, refusal, refuse, clearRefusal } = useAction();
   const checked = checkTradeDraft(draft);
   const edit = (change: Partial<TradeDraft>) => {
@@ -59,37 +63,12 @@ export function TradeForm({ assets, asset, trade, today, save, delete: remove, c
           <p className="hint">O preço é o que foi pago ou recebido por unidade, sem campo de taxa. A quantidade aceita frações.</p>
         </header>
         <div className="content">
-          <div className="shape-picker" role="group" aria-label="Tipo da operação">
-            {KINDS.map((k) => (
-              <button type="button" key={k} aria-pressed={k === draft.kind} onClick={() => edit({ kind: k })}>
-                {KIND_NAMES[k]}
-              </button>
-            ))}
-          </div>
-          {!asset && (
-            <label className="field">
-              <span>Ativo</span>
-              <select required value={draft.asset} onChange={(e) => edit({ asset: e.target.value })}>
-                <option value="" disabled>
-                  Escolha o ativo
-                </option>
-                {ASSET_CLASSES.map((c) => {
-                  const own = assets.filter((a) => a.assetClass === c.id).sort((a, b) => a.ticker.localeCompare(b.ticker));
-                  return (
-                    own.length > 0 && (
-                      <optgroup key={c.id} label={c.name}>
-                        {own.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.ticker}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )
-                  );
-                })}
-              </select>
-            </label>
-          )}
+          <LaunchPicker
+            chosen={draft.kind}
+            choose={(k) => (k === "payout" ? payoutInstead?.() : edit({ kind: k }))}
+            offerPayout={payoutInstead !== undefined}
+          />
+          {!asset && <AssetSelect assets={assets} value={draft.asset} change={(a) => edit({ asset: a })} />}
           <label className="field">
             <span>Data</span>
             <input type="date" required max={today} value={draft.date} onChange={(e) => edit({ date: e.target.value })} />

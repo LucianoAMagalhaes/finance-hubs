@@ -1,12 +1,15 @@
 import type { CSSProperties } from "react";
 import {
+  ASSET_CLASSES,
   DECIMAL_PLACES,
   decimalToNumber,
   formatReais,
+  type Asset,
   type AssetClass,
   type AssetTag,
   type Cents,
   type Decimal,
+  type PayoutKind,
   type TradeKind,
 } from "@/portfolio/domain";
 
@@ -55,6 +58,71 @@ export const formatQuantity = (quantity: Decimal) => QUANTITY.format(decimalToNu
 export const formatUnitPrice = (cents: Cents) => (Math.abs(cents) >= 100 ? formatReais(cents) : UNIT_PRICE.format(cents / 100));
 
 export const KIND_NAMES: Record<TradeKind, string> = { buy: "Compra", sell: "Venda" };
+
+export const PAYOUT_KIND_NAMES: Record<PayoutKind, string> = {
+  dividend: "Dividendo",
+  "interest-on-equity": "JCP",
+  "fund-income": "Rendimento",
+  interest: "Juros",
+};
+
+/** What a launch can be. */
+export type LaunchKind = TradeKind | "payout";
+
+const LAUNCH_NAMES: Record<LaunchKind, string> = { ...KIND_NAMES, payout: "Provento" };
+
+/**
+ * Buy, sale or, when offered, payout: the top of a launch's sheet. The payout
+ * is offered from the top bar's + Lançar, which doesn't know yet what comes.
+ */
+export function LaunchPicker({
+  chosen,
+  choose,
+  offerPayout = true,
+}: {
+  chosen: LaunchKind;
+  choose: (kind: LaunchKind) => void;
+  offerPayout?: boolean;
+}) {
+  const kinds: LaunchKind[] = offerPayout ? ["buy", "sell", "payout"] : ["buy", "sell"];
+  return (
+    <div className="shape-picker" role="group" aria-label="Tipo do lançamento">
+      {kinds.map((k) => (
+        <button type="button" key={k} aria-pressed={k === chosen} onClick={() => choose(k)}>
+          {LAUNCH_NAMES[k]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The asset of a launch opened from the top bar, grouped by class. */
+export function AssetSelect({ assets, value, change }: { assets: Asset[]; value: string; change: (asset: string) => void }) {
+  return (
+    <label className="field">
+      <span>Ativo</span>
+      <select required value={value} onChange={(e) => change(e.target.value)}>
+        <option value="" disabled>
+          Escolha o ativo
+        </option>
+        {ASSET_CLASSES.map((c) => {
+          const own = assets.filter((a) => a.assetClass === c.id).sort((a, b) => a.ticker.localeCompare(b.ticker));
+          return (
+            own.length > 0 && (
+              <optgroup key={c.id} label={c.name}>
+                {own.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.ticker}
+                  </option>
+                ))}
+              </optgroup>
+            )
+          );
+        })}
+      </select>
+    </label>
+  );
+}
 
 /** The tag's words on the row; null for a tag the row shows in another way (the zero position is dimmed). */
 const TAG_NAMES: Record<AssetTag, string | null> = { "no-quote": "sem cotação", "zero-position": null };

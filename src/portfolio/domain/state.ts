@@ -1,5 +1,6 @@
 import type { Asset } from "./assets";
 import { DEFAULT_TARGETS, type Targets } from "./classes";
+import type { Payout } from "./payouts";
 import type { Trade } from "./trades";
 
 /**
@@ -11,11 +12,12 @@ export type PortfolioState = {
   targets: Targets;
   assets: Asset[];
   trades: Trade[];
+  payouts: Payout[];
 };
 
 /** The portfolio of the first use: the default targets and no asset. */
 export function emptyPortfolio(): PortfolioState {
-  return { targets: { ...DEFAULT_TARGETS }, assets: [], trades: [] };
+  return { targets: { ...DEFAULT_TARGETS }, assets: [], trades: [], payouts: [] };
 }
 
 export const nextId = (list: { id: number }[]) => Math.max(0, ...list.map((r) => r.id)) + 1;

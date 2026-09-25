@@ -1,4 +1,4 @@
-import type { Cents } from "@/shared";
+import type { Cents, IsoDate } from "@/shared";
 import { decimalToNumber, type Decimal } from "./decimal";
 import type { Trade } from "./trades";
 
@@ -25,8 +25,8 @@ export type Replay = {
 };
 
 /** Date order, and within a date the order of entry. */
-export function inHistoryOrder(trades: Trade[]): Trade[] {
-  return [...trades].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id));
+export function inHistoryOrder<T extends { date: IsoDate; id: number }>(entries: T[]): T[] {
+  return [...entries].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id));
 }
 
 /**

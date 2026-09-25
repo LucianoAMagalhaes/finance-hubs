@@ -134,6 +134,33 @@ describe("the portfolio's persistence", () => {
     ]);
   });
 
+  it("payouts come back identical from the database, corrected and deleted as the domain left them", () => {
+    const database = open();
+    executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "ITSA4", assetClass: "domestic-stocks" } },
+      { type: "save-asset", asset: { ticker: "HGLG11", assetClass: "real-estate-funds" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-03-10", quantity: decimal(100), unitPrice: decimal(10) } },
+      { type: "save-payout", payout: { asset: 1, date: "2026-05-20", kind: "interest-on-equity", amount: 5_412 } },
+      { type: "save-payout", payout: { asset: 2, date: "2026-06-15", kind: "fund-income", amount: 1_100 } },
+      { type: "save-payout", payout: { asset: 1, date: "2026-08-20", kind: "dividend", amount: 3_000 } },
+    );
+
+    const state = executeOk(
+      database,
+      { type: "save-payout", payout: { id: 2, asset: 2, date: "2026-06-16", kind: "fund-income", amount: 1_150 } },
+      { type: "delete-payout", id: 3 },
+    );
+
+    const reloaded = loadPortfolio(open());
+    expect(reloaded).toEqual(state);
+    expect(reloaded.payouts).toEqual([
+      { id: 1, asset: 1, date: "2026-05-20", kind: "interest-on-equity", amount: 5_412 },
+      { id: 2, asset: 2, date: "2026-06-16", kind: "fund-income", amount: 1_150 },
+    ]);
+    expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
+  });
+
   it("the portfolio and the budget don't touch each other's state", () => {
     const database = open();
     const percentages = { "fixed-costs": 40, "financial-freedom": 20, comfort: 15, goals: 10, knowledge: 10, pleasures: 5 };
