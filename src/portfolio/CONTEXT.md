@@ -96,7 +96,8 @@ _Avoid_: Operação (é compra ou venda), split, desdobramento (é só um dos ti
 Dinheiro que um ativo pagou à pessoa: dividendo, JCP, rendimento de FII ou os juros semestrais de
 um título do Tesouro. Registra o ativo, a data
 de pagamento e o valor recebido em reais, já líquido. Não é uma operação: não muda a quantidade nem
-o custo do ativo. O tipo é só informativo. Vem da fonte na data de pagamento, pela quantidade ao fim
+o custo do ativo. O tipo é só informativo. A data de pagamento nunca é depois de hoje: o provento
+registra o que já foi recebido. Vem da fonte na data de pagamento, pela quantidade ao fim
 da data-com, ou é lançado pela pessoa. Depois de gravado, é da pessoa: a fonte não o corrige nem o
 recria. Pode ser corrigido livremente, e apagar remove de vez.
 _Code_: `Payout`
