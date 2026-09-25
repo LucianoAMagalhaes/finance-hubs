@@ -64,7 +64,8 @@ _Avoid_: Prazo, liquidez
 Um registro, feito pela pessoa, que muda a quantidade ou o custo de um ativo: uma compra ou uma
 venda, com data, quantidade e preço unitário na moeda do ativo. A operação de um ativo em dólar
 também guarda o câmbio daquele dia. A quantidade pode ser fracionária em qualquer classe.
-Não existe campo de taxa ou corretagem: o preço é o que foi pago ou recebido. As operações valem em
+Não existe campo de taxa ou corretagem: o preço é o que foi pago ou recebido. A data pode ser
+qualquer dia até hoje, nunca depois: a operação registra o que já aconteceu. As operações valem em
 ordem de data, e a quantidade nunca fica negativa em data nenhuma: uma venda sem quantidade
 suficiente é recusada, e também a correção ou exclusão de uma compra que deixaria uma venda
 posterior sem cobertura. Pode ser corrigida livremente, e apagar remove de vez, sem lixeira.
