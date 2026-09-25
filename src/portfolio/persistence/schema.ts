@@ -14,13 +14,15 @@ export const classTarget = sqliteTable("class_target", {
   target: integer("target").notNull(),
 });
 
-/** An asset, by its ticker and class. */
+/** An asset, by its ticker and class, and its id at the source. */
 export const asset = sqliteTable("asset", {
   id: integer("id").primaryKey(),
   /** Unique in the portfolio; can be corrected, keeping the history. */
   ticker: text("ticker").notNull().unique(),
   /** The class's id, as the domain names it; never changes. */
   assetClass: text("asset_class").notNull(),
+  /** How the source knows it: the ISIN in the B3's classes, the CoinGecko id in crypto; null when no source said. */
+  sourceId: text("source_id"),
 });
 
 /**

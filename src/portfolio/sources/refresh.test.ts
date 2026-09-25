@@ -72,7 +72,7 @@ describe("refreshing the quotes", () => {
   });
 
   it("a fixed income asset has no source to ask", async () => {
-    const state = { ...withAssets(["PETR4", "domestic-stocks"]), assets: [{ id: 1, ticker: "TESOURO", assetClass: "fixed-income" as const }] };
+    const state = { ...withAssets(["PETR4", "domestic-stocks"]), assets: [{ id: 1, ticker: "TESOURO", assetClass: "fixed-income" as const, sourceId: null }] };
     const sources = fakeSources({});
 
     expect(await refresh(state, sources, NOW, true)).toEqual([]);
@@ -116,7 +116,14 @@ function fakeSources(answers: Record<string, Decimal | Error>): Sources & { aske
       if (answer instanceof Error) throw answer;
       return answer;
     },
+    tickerExists: notAsked,
+    isin: notAsked,
+    searchCrypto: notAsked,
   };
+}
+
+async function notAsked(): Promise<never> {
+  throw new Error("The refresh only asks for quotes.");
 }
 
 function withAssets(...assets: [string, AssetClass][]): PortfolioState {

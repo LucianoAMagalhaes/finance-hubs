@@ -1,0 +1,25 @@
+{
+    "page": {
+        "pageNumber": 1,
+        "pageSize": 20,
+        "totalRecords": 1,
+        "totalPages": 1
+    },
+    "results": [
+        {
+            "codeCVM": "9512",
+            "issuingCompany": "PETR",
+            "companyName": "PETROLEO BRASILEIRO S.A. PETROBRAS",
+            "tradingName": "PETROBRAS",
+            "cnpj": "33000167000101",
+            "marketIndicator": "17",
+            "typeBDR": "",
+            "dateListing": "27/08/1968",
+            "status": "A",
+            "segment": "Exploração. Refino e Distribuição",
+            "segmentEng": "Exploration. Refining and Distribution",
+            "type": "1",
+            "market": "N2"
+        }
+    ]
+}

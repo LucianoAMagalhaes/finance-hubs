@@ -1,7 +1,10 @@
 import type { AssetClass, Decimal } from "@/portfolio/domain";
 
-/** What a source needs to know of an asset to find it. */
-export type SourcedAsset = { ticker: string; assetClass: AssetClass };
+/** What a source needs to know of an asset to find it; `sourceId` is its id there, when kept. */
+export type SourcedAsset = { ticker: string; assetClass: AssetClass; sourceId?: string | null };
+
+/** A coin CoinGecko has with a ticker as its symbol: its id, name and market cap rank, if it has one. */
+export type CryptoCandidate = { id: string; name: string; rank: number | null };
 
 /**
  * The port of sources: what the portfolio asks outside, each question behind
@@ -12,6 +15,12 @@ export type SourcedAsset = { ticker: string; assetClass: AssetClass };
 export type Sources = {
   /** The asset's last price per unit, in its currency, as an exact decimal. */
   latestQuote(asset: SourcedAsset): Promise<Decimal>;
+  /** Whether the source knows the ticker of an asset of the B3's classes. */
+  tickerExists(asset: SourcedAsset): Promise<boolean>;
+  /** The ISIN the B3 gives the ticker, or null when the B3 doesn't list it. */
+  isin(asset: SourcedAsset): Promise<string | null>;
+  /** The coins whose symbol is the ticker, in the source's order; none when it doesn't know it. */
+  searchCrypto(ticker: string): Promise<CryptoCandidate[]>;
 };
 
 /** A source that didn't answer, or answered something we can't read. The message is for the log. */

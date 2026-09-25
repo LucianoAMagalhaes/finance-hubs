@@ -7,6 +7,7 @@ import {
   projectPortfolio,
   type Asset,
   type AssetClass,
+  type AssetToSave,
   type ClassView,
   type IsoDate,
   type PortfolioCommand,
@@ -14,7 +15,8 @@ import {
   type PortfolioView,
   type TradeKind,
 } from "@/portfolio/domain";
-import { execute, refresh } from "@/portfolio/server/actions";
+import { execute, refresh, saveAsset } from "@/portfolio/server/actions";
+import type { CryptoCandidate } from "@/portfolio/sources";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { AssetForm } from "./AssetForm";
 import { DeleteAssetForm } from "./DeleteAssetForm";
@@ -27,14 +29,15 @@ import { classColor, formatMoment, formatShare, Gain, ToTarget } from "./parts";
 type Props = { initialState: PortfolioState; today: IsoDate };
 
 /**
- * The sheet open over the dashboard. A trade or payout carries the one being
+ * The sheet open over the dashboard. An asset carries the one whose ticker is
+ * being corrected, or null when new. A trade or payout carries the one being
  * corrected, or null when new; a new one also carries the asset whose row it
  * came from, or null from the top bar, where the sheet can still turn from a
  * trade into a payout and back.
  */
 type OpenSheet =
   | { kind: "targets" }
-  | { kind: "asset" }
+  | { kind: "asset"; asset: Asset | null }
   | { kind: "delete-asset"; asset: Asset }
   | { kind: "trade"; asset: number | null; trade: number | null; tradeKind: TradeKind }
   | { kind: "payout"; asset: number | null; payout: number | null };
@@ -93,6 +96,21 @@ export function PortfolioScreen({ initialState, today }: Props) {
     return null;
   }
 
+  /**
+   * Saves the asset after the source checks its ticker. A new asset's class
+   * opens, so the person sees it land, and its first quote is fetched.
+   */
+  async function checkAndSaveAsset(asset: AssetToSave): Promise<string | CryptoCandidate[] | null> {
+    const result = await saveAsset(asset);
+    if ("choose" in result) return result.choose;
+    if (!result.ok) return result.error;
+    setState(result.value);
+    setSheet(null);
+    if (asset.id === undefined) openClassDetail(asset.assetClass);
+    void refreshQuotes(false);
+    return null;
+  }
+
   /** The asset opens expanded, in its class, with what was just launched in its place. */
   function showAsset(id: number) {
     const shown = state.assets.find((a) => a.id === id);
@@ -116,7 +134,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
           <Link href="/" className="btn">
             ← Orçamento
           </Link>
-          <button type="button" className="btn" onClick={() => setSheet({ kind: "asset" })}>
+          <button type="button" className="btn" onClick={() => setSheet({ kind: "asset", asset: null })}>
             + Ativo
           </button>
           <button
@@ -166,6 +184,10 @@ export function PortfolioScreen({ initialState, today }: Props) {
             editTrade={(trade) => setSheet({ kind: "trade", asset: null, trade, tradeKind: "buy" })}
             newPayout={(asset) => setSheet({ kind: "payout", asset, payout: null })}
             editPayout={(payout) => setSheet({ kind: "payout", asset: null, payout })}
+            editAsset={(id) => {
+              const asset = state.assets.find((a) => a.id === id);
+              if (asset) setSheet({ kind: "asset", asset });
+            }}
             deleteAsset={(id) => {
               const asset = state.assets.find((a) => a.id === id);
               if (asset) setSheet({ kind: "delete-asset", asset });
@@ -180,12 +202,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
         <TargetsForm targets={state.targets} save={(targets) => run({ type: "save-targets", targets })} close={() => setSheet(null)} />
       )}
       {sheet?.kind === "asset" && (
-        <AssetForm
-          proposedClass={openClass}
-          // The new asset's class opens, so the person sees it land.
-          save={(asset) => run({ type: "save-asset", asset }, () => openClassDetail(asset.assetClass))}
-          close={() => setSheet(null)}
-        />
+        <AssetForm asset={sheet.asset} proposedClass={openClass} save={checkAndSaveAsset} close={() => setSheet(null)} />
       )}
       {sheet?.kind === "delete-asset" && (
         <DeleteAssetForm

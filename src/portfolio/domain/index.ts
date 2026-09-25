@@ -12,7 +12,7 @@ export {
   type TradeView,
 } from "./projection";
 export { emptyPortfolio, type PortfolioState } from "./state";
-export { REGISTRABLE_CLASSES, type Asset, type AssetToSave } from "./assets";
+export { normalizeTicker, REGISTRABLE_CLASSES, type Asset, type AssetToSave } from "./assets";
 export type { Trade, TradeKind, TradeToSave } from "./trades";
 export { PAYOUT_KINDS, type Payout, type PayoutKind, type PayoutToSave } from "./payouts";
 export { tradeAmount } from "./position";

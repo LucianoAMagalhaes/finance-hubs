@@ -1,0 +1,1 @@
+ALTER TABLE `asset` ADD `source_id` text;

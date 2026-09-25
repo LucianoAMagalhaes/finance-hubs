@@ -1,0 +1,452 @@
+{
+    "coins": [
+        {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "api_symbol": "bitcoin",
+            "symbol": "BTC",
+            "market_cap_rank": 1,
+            "thumb": "https://coin-images.coingecko.com/coins/images/1/thumb/bitcoin.png",
+            "large": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png"
+        },
+        {
+            "id": "bitget-wrapped-btc",
+            "name": "Bitget Wrapped BTC",
+            "api_symbol": "bitget-wrapped-btc",
+            "symbol": "BGBTC",
+            "market_cap_rank": 294,
+            "thumb": "https://coin-images.coingecko.com/coins/images/102172988/thumb/20260423-114744.png",
+            "large": "https://coin-images.coingecko.com/coins/images/102172988/large/20260423-114744.png"
+        },
+        {
+            "id": "bitcoin-usd-btcfi",
+            "name": "Bitcoin USD (BTCFi)",
+            "api_symbol": "bitcoin-usd-btcfi",
+            "symbol": "BTCUSD",
+            "market_cap_rank": 1391,
+            "thumb": "https://coin-images.coingecko.com/coins/images/37181/thumb/BtcUSD_Logo.png",
+            "large": "https://coin-images.coingecko.com/coins/images/37181/large/BtcUSD_Logo.png"
+        },
+        {
+            "id": "strkbtc",
+            "name": "strkBTC",
+            "api_symbol": "strkbtc",
+            "symbol": "STRKBTC",
+            "market_cap_rank": 1423,
+            "thumb": "https://coin-images.coingecko.com/coins/images/102173511/thumb/strkBTC_Logo.png",
+            "large": "https://coin-images.coingecko.com/coins/images/102173511/large/strkBTC_Logo.png"
+        },
+        {
+            "id": "bitcoin-pro",
+            "name": "Bitcoin Pro",
+            "api_symbol": "bitcoin-pro",
+            "symbol": "BTCP",
+            "market_cap_rank": 1515,
+            "thumb": "https://coin-images.coingecko.com/coins/images/3545/thumb/DSiD9ZhWsAE_8cS.png",
+            "large": "https://coin-images.coingecko.com/coins/images/3545/large/DSiD9ZhWsAE_8cS.png"
+        },
+        {
+            "id": "bitcoin-limited-edition",
+            "name": "Bitcoin Limited Edition",
+            "api_symbol": "bitcoin-limited-edition",
+            "symbol": "BTCLE",
+            "market_cap_rank": 1525,
+            "thumb": "https://coin-images.coingecko.com/coins/images/68354/thumb/600.png",
+            "large": "https://coin-images.coingecko.com/coins/images/68354/large/600.png"
+        },
+        {
+            "id": "minto",
+            "name": "Minto",
+            "api_symbol": "minto",
+            "symbol": "BTCMT",
+            "market_cap_rank": 1876,
+            "thumb": "https://coin-images.coingecko.com/coins/images/21819/thumb/MNVvqe2n_400x400.png",
+            "large": "https://coin-images.coingecko.com/coins/images/21819/large/MNVvqe2n_400x400.png"
+        },
+        {
+            "id": "bitcoin-bull-2",
+            "name": "Bitcoin Bull",
+            "api_symbol": "bitcoin-bull-2",
+            "symbol": "BTCBULL",
+            "market_cap_rank": 1923,
+            "thumb": "https://coin-images.coingecko.com/coins/images/67038/thumb/BTCBull_Logo_200x200.png",
+            "large": "https://coin-images.coingecko.com/coins/images/67038/large/BTCBull_Logo_200x200.png"
+        },
+        {
+            "id": "midas-btc-yield-token",
+            "name": "Midas mBTC",
+            "api_symbol": "midas-btc-yield-token",
+            "symbol": "MBTC",
+            "market_cap_rank": 2575,
+            "thumb": "https://coin-images.coingecko.com/coins/images/51055/thumb/mbtc.png",
+            "large": "https://coin-images.coingecko.com/coins/images/51055/large/mbtc.png"
+        },
+        {
+            "id": "bitcoin-dollar",
+            "name": "Bitcoin Dollar",
+            "api_symbol": "bitcoin-dollar",
+            "symbol": "BTCD",
+            "market_cap_rank": 2775,
+            "thumb": "https://coin-images.coingecko.com/coins/images/102176919/thumb/BTCD_Logo.png",
+            "large": "https://coin-images.coingecko.com/coins/images/102176919/large/BTCD_Logo.png"
+        },
+        {
+            "id": "wanbtc",
+            "name": "wanBTC",
+            "api_symbol": "wanbtc",
+            "symbol": "WANBTC",
+            "market_cap_rank": 2795,
+            "thumb": "https://coin-images.coingecko.com/coins/images/23615/thumb/download-4.png",
+            "large": "https://coin-images.coingecko.com/coins/images/23615/large/download-4.png"
+        },
+        {
+            "id": "bitcoin-5",
+            "name": "Bitcoin.ℏ",
+            "api_symbol": "bitcoin-5",
+            "symbol": "BTC.ℏ",
+            "market_cap_rank": 2845,
+            "thumb": "https://coin-images.coingecko.com/coins/images/55129/thumb/bitcoinHT_%281%29.png",
+            "large": "https://coin-images.coingecko.com/coins/images/55129/large/bitcoinHT_%281%29.png"
+        },
+        {
+            "id": "xbtc-2",
+            "name": "xBTC",
+            "api_symbol": "xbtc-2",
+            "symbol": "XBTC",
+            "market_cap_rank": 2863,
+            "thumb": "https://coin-images.coingecko.com/coins/images/71562/thumb/xBTC_logo_PNG_format.png",
+            "large": "https://coin-images.coingecko.com/coins/images/71562/large/xBTC_logo_PNG_format.png"
+        },
+        {
+            "id": "bitcoinbam",
+            "name": "BitcoinBam",
+            "api_symbol": "bitcoinbam",
+            "symbol": "BTCBAM",
+            "market_cap_rank": 3026,
+            "thumb": "https://coin-images.coingecko.com/coins/images/12854/thumb/logo.png",
+            "large": "https://coin-images.coingecko.com/coins/images/12854/large/logo.png"
+        },
+        {
+            "id": "bitcoin-2",
+            "name": "Bitcoin 2",
+            "api_symbol": "bitcoin-2",
+            "symbol": "BTC2",
+            "market_cap_rank": 3054,
+            "thumb": "https://coin-images.coingecko.com/coins/images/5925/thumb/bitcoin2_logo256.png",
+            "large": "https://coin-images.coingecko.com/coins/images/5925/large/bitcoin2_logo256.png"
+        },
+        {
+            "id": "bitcoin-on-base",
+            "name": "Bitcoin on Base",
+            "api_symbol": "bitcoin-on-base",
+            "symbol": "BTCB",
+            "market_cap_rank": 3056,
+            "thumb": "https://coin-images.coingecko.com/coins/images/38868/thumb/BTCB_Official_Logo_July_2024.png",
+            "large": "https://coin-images.coingecko.com/coins/images/38868/large/BTCB_Official_Logo_July_2024.png"
+        },
+        {
+            "id": "bitcoinx-3",
+            "name": "BitcoinX",
+            "api_symbol": "bitcoinx-3",
+            "symbol": "BTCX",
+            "market_cap_rank": 3298,
+            "thumb": "https://coin-images.coingecko.com/coins/images/102176947/thumb/ChatGPT_Image_Sep_7__2026__11_05_26_PM.png",
+            "large": "https://coin-images.coingecko.com/coins/images/102176947/large/ChatGPT_Image_Sep_7__2026__11_05_26_PM.png"
+        },
+        {
+            "id": "midas-mre7btc-2",
+            "name": "Midas mRe7BTC",
+            "api_symbol": "midas-mre7btc-2",
+            "symbol": "MRE7BTC",
+            "market_cap_rank": 3359,
+            "thumb": "https://coin-images.coingecko.com/coins/images/69666/thumb/mRe7BTC_icon.png",
+            "large": "https://coin-images.coingecko.com/coins/images/69666/large/mRe7BTC_icon.png"
+        },
+        {
+            "id": "bitcoin-silver-2",
+            "name": "Bitcoin Silver",
+            "api_symbol": "bitcoin-silver-2",
+            "symbol": "BTCS",
+            "market_cap_rank": 4179,
+            "thumb": "https://coin-images.coingecko.com/coins/images/102176623/thumb/logo_btcs.png",
+            "large": "https://coin-images.coingecko.com/coins/images/102176623/large/logo_btcs.png"
+        },
+        {
+            "id": "bitcoinz",
+            "name": "BitcoinZ",
+            "api_symbol": "bitcoinz",
+            "symbol": "BTCZ",
+            "market_cap_rank": 4223,
+            "thumb": "https://coin-images.coingecko.com/coins/images/1004/thumb/BTCZ_LOGO-1.png",
+            "large": "https://coin-images.coingecko.com/coins/images/1004/large/BTCZ_LOGO-1.png"
+        },
+        {
+            "id": "oxbitcoin",
+            "name": "0xBitcoin",
+            "api_symbol": "oxbitcoin",
+            "symbol": "0XBTC",
+            "market_cap_rank": 4280,
+            "thumb": "https://coin-images.coingecko.com/coins/images/4454/thumb/0xbtc.png",
+            "large": "https://coin-images.coingecko.com/coins/images/4454/large/0xbtc.png"
+        },
+        {
+            "id": "bitcoin-2-0",
+            "name": "Bitcoin 2.0",
+            "api_symbol": "bitcoin-2-0",
+            "symbol": "BTC2.0",
+            "market_cap_rank": 4408,
+            "thumb": "https://coin-images.coingecko.com/coins/images/30984/thumb/btc2-200x200.png",
+            "large": "https://coin-images.coingecko.com/coins/images/30984/large/btc2-200x200.png"
+        },
+        {
+            "id": "bitcoin20",
+            "name": "Bitcoin20",
+            "api_symbol": "bitcoin20",
+            "symbol": "BTC20",
+            "market_cap_rank": 4829,
+            "thumb": "https://coin-images.coingecko.com/coins/images/31284/thumb/BTC20_logo_%281%29.png",
+            "large": "https://coin-images.coingecko.com/coins/images/31284/large/BTC20_logo_%281%29.png"
+        },
+        {
+            "id": "99-bitcoins",
+            "name": "99 Bitcoins",
+            "api_symbol": "99-bitcoins",
+            "symbol": "99BTC",
+            "market_cap_rank": 5069,
+            "thumb": "https://coin-images.coingecko.com/coins/images/39633/thumb/99BTC_Logo_%282%29.png",
+            "large": "https://coin-images.coingecko.com/coins/images/39633/large/99BTC_Logo_%282%29.png"
+        },
+        {
+            "id": "bitcoin-2015-wrapper-meme",
+            "name": "bitcoin (2015 Wrapper) (Meme)",
+            "api_symbol": "bitcoin-2015-wrapper-meme",
+            "symbol": "BTCE",
+            "market_cap_rank": 5460,
+            "thumb": "https://coin-images.coingecko.com/coins/images/38321/thumb/btc_memecoin-09%282%29.png",
+            "large": "https://coin-images.coingecko.com/coins/images/38321/large/btc_memecoin-09%282%29.png"
+        }
+    ],
+    "exchanges": [
+        {
+            "id": "btcc",
+            "name": "BTCC",
+            "market_type": "spot",
+            "thumb": "https://coin-images.coingecko.com/markets/images/12/thumb/BTCC-LogoOnly_200x200.png",
+            "large": "https://coin-images.coingecko.com/markets/images/12/large/BTCC-LogoOnly_200x200.png"
+        },
+        {
+            "id": "hitbtc",
+            "name": "HitBTC",
+            "market_type": "spot",
+            "thumb": "https://coin-images.coingecko.com/markets/images/24/thumb/hitbtc.png",
+            "large": "https://coin-images.coingecko.com/markets/images/24/large/hitbtc.png"
+        },
+        {
+            "id": "btcturk",
+            "name": "BtcTurk | Kripto",
+            "market_type": "spot",
+            "thumb": "https://coin-images.coingecko.com/markets/images/223/thumb/btctrurk_kripto.png",
+            "large": "https://coin-images.coingecko.com/markets/images/223/large/btctrurk_kripto.png"
+        },
+        {
+            "id": "secondbtc",
+            "name": "SecondBTC",
+            "market_type": "spot",
+            "thumb": "https://coin-images.coingecko.com/markets/images/320/thumb/secondbtc.png",
+            "large": "https://coin-images.coingecko.com/markets/images/320/large/secondbtc.png"
+        },
+        {
+            "id": "btcmarkets",
+            "name": "BTCMarkets",
+            "market_type": "spot",
+            "thumb": "https://coin-images.coingecko.com/markets/images/237/thumb/BTCMarkets_logo2.png",
+            "large": "https://coin-images.coingecko.com/markets/images/237/large/BTCMarkets_logo2.png"
+        },
+        {
+            "id": "btcbox",
+            "name": "BTCBOX",
+            "market_type": "spot",
+            "thumb": "https://coin-images.coingecko.com/markets/images/154/thumb/btcbox.jpg",
+            "large": "https://coin-images.coingecko.com/markets/images/154/large/btcbox.jpg"
+        },
+        {
+            "id": "btc_trade_ua",
+            "name": "BTC Trade UA",
+            "market_type": "spot",
+            "thumb": "https://coin-images.coingecko.com/markets/images/169/thumb/btctradeua.png",
+            "large": "https://coin-images.coingecko.com/markets/images/169/large/btctradeua.png"
+        },
+        {
+            "id": "hitbtc_derivatives",
+            "name": "HitBTC (Derivatives)",
+            "market_type": "futures",
+            "thumb": "https://coin-images.coingecko.com/markets/images/979/thumb/hitbtc.jpeg",
+            "large": "https://coin-images.coingecko.com/markets/images/979/large/hitbtc.jpeg"
+        }
+    ],
+    "icos": [],
+    "categories": [
+        {
+            "id": "tokenized-btc",
+            "name": "Tokenized BTC"
+        },
+        {
+            "id": "bridged-wbtc",
+            "name": "Bridged WBTC"
+        },
+        {
+            "id": "liquid-staked-btc",
+            "name": "Liquid Staked BTC"
+        },
+        {
+            "id": "btcfi",
+            "name": "BTCfi Protocol"
+        }
+    ],
+    "nfts": [
+        {
+            "id": "bitdogs",
+            "name": "Bitdogs",
+            "symbol": "BITDOGS_BTC",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/4451/thumb/bitdogs.png"
+        },
+        {
+            "id": "bitcoin-mechanics",
+            "name": "Bitcoin Mechanics",
+            "symbol": "BTC_MECHANICS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3306/thumb/bitcoin-mechanics.png"
+        },
+        {
+            "id": "gizmo-the-cat",
+            "name": "Gizmo The Cat",
+            "symbol": "GIZMOTHECATBTC",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/15065/thumb/gizmo-the-cat.png"
+        },
+        {
+            "id": "bitcoin-frugs",
+            "name": "Bitcoin Frugs",
+            "symbol": "BTC-FRUGS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/15369/thumb/bitcoin-frugs.jpg"
+        },
+        {
+            "id": "ordinal-btc-cloaks",
+            "name": "Ordinal BTC Cloaks",
+            "symbol": "BTCCLOAK",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3020/thumb/ordinal-btc-cloaks.png"
+        },
+        {
+            "id": "btc-land",
+            "name": "BTC Land",
+            "symbol": "BTC-LAND",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3337/thumb/btc-land.png"
+        },
+        {
+            "id": "unordinals",
+            "name": "Unordinals",
+            "symbol": "BTC",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/2963/thumb/unordinals.png"
+        },
+        {
+            "id": "btc-mutant-virus",
+            "name": "BTC Mutant Virus",
+            "symbol": "BTC-MUTANT-VIRUS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3284/thumb/btc-mutant-virus.png"
+        },
+        {
+            "id": "aperunners-btc",
+            "name": "ApeRunners BTC",
+            "symbol": "APE-RUNNERS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3310/thumb/aperunners-btc.jpg"
+        },
+        {
+            "id": "aeons",
+            "name": "Aeons",
+            "symbol": "AEONSBTC",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/4743/thumb/aeons.jpg"
+        },
+        {
+            "id": "btcwc-toilet",
+            "name": "BTCWC.Toilet",
+            "symbol": "BTCWC-TOILET",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/4348/thumb/btcwc-toilet.gif"
+        },
+        {
+            "id": "btc-bulls",
+            "name": "BTC Bulls",
+            "symbol": "BULLS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/4304/thumb/btc-bulls.png"
+        },
+        {
+            "id": "btc-degods",
+            "name": "BTC DeGods",
+            "symbol": "DEGODS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3258/thumb/7644-dead-ezgif.com-avif-to-jpg-converter.jpg"
+        },
+        {
+            "id": "btc-frens",
+            "name": "BTC Frens",
+            "symbol": "BTC-FRENS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3328/thumb/btc-frens.png"
+        },
+        {
+            "id": "bitcoin-bro-bear",
+            "name": "Bitcoin Bro Bear",
+            "symbol": "BTCBROBEAR",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/15772/thumb/bitcoin-bro-bear.png"
+        },
+        {
+            "id": "bitcoin-babbies",
+            "name": "BITCOIN BABBIES",
+            "symbol": "BTCBABBIES",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/4181/thumb/bitcoin-babbies.gif"
+        },
+        {
+            "id": "btc-kings",
+            "name": "BTC Kings",
+            "symbol": "KINGS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3279/thumb/btc-kings.jpg"
+        },
+        {
+            "id": "btc-virus",
+            "name": "BTC Virus",
+            "symbol": "BTC-VIRUS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3305/thumb/btc-virus.png"
+        },
+        {
+            "id": "btc-scientist",
+            "name": "BTC Scientist",
+            "symbol": "BTC-SCIENTIST",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3315/thumb/btc-scientist.png"
+        },
+        {
+            "id": "btc-machines",
+            "name": "BTC Machines",
+            "symbol": "BTC-MACHINES",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3264/thumb/btc-machines.png"
+        },
+        {
+            "id": "game-of-blocks",
+            "name": "Game of Blocks",
+            "symbol": "GOB_BTC",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/4246/thumb/game-of-blocks.png"
+        },
+        {
+            "id": "btcname",
+            "name": "BtcName",
+            "symbol": "BTC-NAME",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3286/thumb/btcname.png"
+        },
+        {
+            "id": "btc-operators",
+            "name": "BTC OPERATORS",
+            "symbol": "BTCOPERATORS",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/3299/thumb/btc-operators.gif"
+        },
+        {
+            "id": "bitcoinorb",
+            "name": "BITCOINORB",
+            "symbol": "BTCORB",
+            "thumb": "https://coin-images.coingecko.com/nft_contracts/images/2944/thumb/bitcoinorb.png"
+        }
+    ]
+}

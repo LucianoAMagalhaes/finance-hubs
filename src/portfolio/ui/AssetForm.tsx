@@ -1,38 +1,66 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ASSET_CLASSES, REGISTRABLE_CLASSES, type AssetClass, type AssetToSave } from "@/portfolio/domain";
+import { ASSET_CLASSES, normalizeTicker, REGISTRABLE_CLASSES, type Asset, type AssetClass, type AssetToSave } from "@/portfolio/domain";
+import type { CryptoCandidate } from "@/portfolio/sources";
 import { Refusal } from "@/ui/Refusal";
 import { Sheet } from "@/ui/Sheet";
 import { useAction } from "@/ui/useAction";
 
 type Props = {
-  /** The class the sheet proposes: the open one, when it can be registered. */
+  /** The asset whose ticker is being corrected, or null for a new one. */
+  asset: Asset | null;
+  /** The class the sheet proposes to a new asset: the open one, when it can be registered. */
   proposedClass: AssetClass | null;
-  /** Returns the refusal, or null if it saved. */
-  save: (asset: AssetToSave) => Promise<string | null>;
+  /** Returns the refusal, the coins to choose from, or null if it saved. */
+  save: (asset: AssetToSave) => Promise<string | CryptoCandidate[] | null>;
   close: () => void;
 };
 
-/** A new asset, by its ticker and class, before or without any buy. */
-export function AssetForm({ proposedClass, save, close }: Props) {
-  const [ticker, setTicker] = useState("");
+/**
+ * A new asset, by its ticker and class, before or without any buy; or the
+ * correction of its ticker, when the company changes it. Either way the source
+ * checks the ticker, and a crypto ticker several coins share asks which one.
+ */
+export function AssetForm({ asset, proposedClass, save, close }: Props) {
+  const [ticker, setTicker] = useState(asset?.ticker ?? "");
   const [assetClass, setAssetClass] = useState<AssetClass>(
-    proposedClass && REGISTRABLE_CLASSES.includes(proposedClass) ? proposedClass : REGISTRABLE_CLASSES[0]!,
+    asset?.assetClass ?? (proposedClass && REGISTRABLE_CLASSES.includes(proposedClass) ? proposedClass : REGISTRABLE_CLASSES[0]!),
   );
-  const { run, running, refusal, clearRefusal } = useAction();
+  /** The coins sharing the ticker, once the source said there are several. */
+  const [coins, setCoins] = useState<CryptoCandidate[] | null>(null);
+  const [coin, setCoin] = useState<string | null>(null);
+  const { run, running, refusal, refuse, clearRefusal } = useAction();
+
+  function edit(change: () => void) {
+    clearRefusal();
+    setCoins(null);
+    setCoin(null);
+    change();
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    await run(() => save({ ticker, assetClass }));
+    if (coins && !coin) return refuse("Escolha uma das criptos.");
+    await run(async () => {
+      const outcome = await save({ id: asset?.id, ticker, assetClass, sourceId: coin });
+      if (!Array.isArray(outcome)) return outcome;
+      setCoins(outcome);
+      return null;
+    });
   }
 
   return (
     <Sheet labelledBy="asset-title" close={close}>
       <form onSubmit={submit}>
         <header>
-          <h2 id="asset-title">Novo ativo</h2>
-          <p className="hint">Pelo código de negociação. A classe não muda depois, e o ativo pode existir antes da primeira compra.</p>
+          <h2 id="asset-title">{asset ? `Corrigir o código de ${asset.ticker}` : "Novo ativo"}</h2>
+          <p className="hint">
+            {asset
+              ? "Quando a empresa troca de código. O ativo continua com as suas operações e proventos."
+              : "Pelo código de negociação. A classe não muda depois, e o ativo pode existir antes da primeira compra."}{" "}
+            A fonte confere o código.
+          </p>
         </header>
         <div className="content">
           <label className="field">
@@ -42,10 +70,7 @@ export function AssetForm({ proposedClass, save, close }: Props) {
               autoFocus
               autoCapitalize="characters"
               value={ticker}
-              onChange={(e) => {
-                clearRefusal();
-                setTicker(e.target.value);
-              }}
+              onChange={(e) => edit(() => setTicker(e.target.value))}
               placeholder="Ex.: PETR4, HGLG11, BTC"
             />
           </label>
@@ -53,18 +78,38 @@ export function AssetForm({ proposedClass, save, close }: Props) {
             <span>Classe</span>
             <select
               value={assetClass}
-              onChange={(e) => {
-                clearRefusal();
-                setAssetClass(e.target.value as AssetClass);
-              }}
+              disabled={asset !== null}
+              title={asset ? "A classe não muda depois do cadastro" : undefined}
+              onChange={(e) => edit(() => setAssetClass(e.target.value as AssetClass))}
             >
-              {ASSET_CLASSES.filter((c) => REGISTRABLE_CLASSES.includes(c.id)).map((c) => (
+              {ASSET_CLASSES.filter((c) => c.id === assetClass || (!asset && REGISTRABLE_CLASSES.includes(c.id))).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
             </select>
           </label>
+          {coins && (
+            <fieldset className="coin-choice">
+              <legend>Mais de uma cripto usa o código {normalizeTicker(ticker)}. Qual é a sua?</legend>
+              {coins.map((c) => (
+                <label key={c.id}>
+                  <input
+                    type="radio"
+                    name="coin"
+                    value={c.id}
+                    checked={coin === c.id}
+                    onChange={() => {
+                      clearRefusal();
+                      setCoin(c.id);
+                    }}
+                  />
+                  <span>{c.name}</span>
+                  <span className="rank num">{c.rank === null ? "sem posição no ranking" : `nº ${c.rank} no ranking`}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
           <Refusal refusal={refusal} />
         </div>
         <footer>
@@ -72,7 +117,7 @@ export function AssetForm({ proposedClass, save, close }: Props) {
             Cancelar
           </button>
           <button type="submit" className="btn primary" disabled={running}>
-            Cadastrar
+            {running ? "Conferindo…" : asset ? "Salvar" : "Cadastrar"}
           </button>
         </footer>
       </form>

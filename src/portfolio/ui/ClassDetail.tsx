@@ -30,6 +30,8 @@ type Props = {
   newPayout: (asset: number) => void;
   /** Opens the correction of the payout. */
   editPayout: (payout: number) => void;
+  /** Opens the correction of the asset's ticker. */
+  editAsset: (asset: number) => void;
   /** Opens the deletion of the asset. */
   deleteAsset: (asset: number) => void;
 };
@@ -39,7 +41,7 @@ type Props = {
  * its assets in a table whose rows expand in place with the trades and
  * payouts. A zero position stays, dimmed and last, with its total gain.
  */
-export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, newPayout, editPayout, deleteAsset }: Props) {
+export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, newPayout, editPayout, editAsset, deleteAsset }: Props) {
   return (
     <section className="detail class-detail" aria-label={c.name} style={classColor(c.key)}>
       <header>
@@ -90,6 +92,7 @@ export function ClassDetail({ c, today, expanded, expand, close, newTrade, editT
                   editTrade={editTrade}
                   newPayout={() => newPayout(a.id)}
                   editPayout={editPayout}
+                  editAsset={() => editAsset(a.id)}
                   deleteAsset={() => deleteAsset(a.id)}
                 />
               ))}
@@ -110,6 +113,7 @@ type RowProps = {
   editTrade: (trade: number) => void;
   newPayout: () => void;
   editPayout: (payout: number) => void;
+  editAsset: () => void;
   deleteAsset: () => void;
 };
 
@@ -147,12 +151,15 @@ function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
 }
 
 /** The asset's trades and payouts, newest first; clicking one opens its correction. */
-function History({ a, newTrade, editTrade, newPayout, editPayout, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
+function History({ a, newTrade, editTrade, newPayout, editPayout, editAsset, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
   return (
     <div className="history">
       <div className="history-head">
         <h3>Operações</h3>
         <span className="history-actions">
+          <button type="button" className="btn" onClick={editAsset} title="Quando a empresa troca de código">
+            Corrigir código
+          </button>
           <button type="button" className="btn" onClick={deleteAsset}>
             Apagar ativo
           </button>

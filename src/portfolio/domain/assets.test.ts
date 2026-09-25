@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   apply,
+  decimal,
   emptyPortfolio,
   projectPortfolio,
   type AssetToSave,
@@ -84,7 +85,44 @@ describe("registering an asset", () => {
 
     const corrected = saveOk(created, { id, ticker: "AXIA3", assetClass: "domestic-stocks" });
 
-    expect(corrected.assets).toEqual([{ id, ticker: "AXIA3", assetClass: "domestic-stocks" }]);
+    expect(corrected.assets).toEqual([{ id, ticker: "AXIA3", assetClass: "domestic-stocks", sourceId: null }]);
+  });
+
+  it("keeps the asset's id at its source: the ISIN in the B3's classes, the CoinGecko id in crypto", () => {
+    const state = saveOk(
+      emptyPortfolio(),
+      { ticker: "PETR4", assetClass: "domestic-stocks", sourceId: "BRPETRACNPR6" },
+      { ticker: "PEPE", assetClass: "crypto", sourceId: "pepe" },
+      { ticker: "HGLG11", assetClass: "real-estate-funds" },
+    );
+
+    expect(state.assets.map((a) => [a.ticker, a.sourceId])).toEqual([
+      ["PETR4", "BRPETRACNPR6"],
+      ["PEPE", "pepe"],
+      ["HGLG11", null],
+    ]);
+  });
+
+  it("a correction changes the ticker and the source's id, and keeps the trades and payouts", () => {
+    let state = saveOk(emptyPortfolio(), { ticker: "ELET3", assetClass: "domestic-stocks", sourceId: "BRELETACNOR6" });
+    const id = state.assets[0]!.id;
+    state = applyOk(state, { type: "save-trade", trade: { asset: id, kind: "buy", date: "2026-03-02", quantity: decimal(100), unitPrice: decimal(40) } });
+    state = applyOk(state, { type: "save-payout", payout: { asset: id, date: "2026-06-15", kind: "dividend", amount: 1250 } });
+
+    const corrected = saveOk(state, { id, ticker: "AXIA3", assetClass: "domestic-stocks", sourceId: "BRAXIAACNOR1" });
+
+    expect(corrected.assets).toEqual([{ id, ticker: "AXIA3", assetClass: "domestic-stocks", sourceId: "BRAXIAACNOR1" }]);
+    const axia = projectPortfolio(corrected, TODAY).classes.find((c) => c.key === "domestic-stocks")!.assets[0]!;
+    expect(axia).toEqual(expect.objectContaining({ ticker: "AXIA3", quantity: decimal(100), payoutsReceived: 1250 }));
+    expect(axia.trades).toHaveLength(1);
+    expect(axia.payouts).toHaveLength(1);
+  });
+
+  it("refuses a source's id that is not text", () => {
+    expect(save(emptyPortfolio(), { ticker: "BTC", assetClass: "crypto", sourceId: 42 } as never)).toEqual({
+      ok: false,
+      error: "O identificador do ativo na fonte é inválido.",
+    });
   });
 
   it("a correction keeping its own ticker is not a repeated ticker", () => {
@@ -124,6 +162,12 @@ describe("registering an asset", () => {
 
 function save(state: PortfolioState, asset: AssetToSave) {
   return apply(state, { type: "save-asset", asset } satisfies PortfolioCommand, TODAY);
+}
+
+function applyOk(state: PortfolioState, command: PortfolioCommand): PortfolioState {
+  const result = apply(state, command, TODAY);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
 }
 
 function saveOk(state: PortfolioState, ...assets: AssetToSave[]): PortfolioState {

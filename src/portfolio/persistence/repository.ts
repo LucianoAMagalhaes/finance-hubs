@@ -22,7 +22,12 @@ type TradeRow = typeof trade.$inferSelect;
 type PayoutRow = typeof payout.$inferSelect;
 type QuoteRow = typeof quote.$inferSelect;
 
-const toAsset = (row: AssetRow): Asset => ({ id: row.id, ticker: row.ticker, assetClass: row.assetClass as AssetClass });
+const toAsset = (row: AssetRow): Asset => ({
+  id: row.id,
+  ticker: row.ticker,
+  assetClass: row.assetClass as AssetClass,
+  sourceId: row.sourceId,
+});
 
 const toTrade = (row: TradeRow): Trade => ({
   id: row.id,
@@ -76,7 +81,7 @@ export function save(tx: Connection, state: PortfolioState): void {
     tx.insert(classTarget).values(row).onConflictDoUpdate({ target: classTarget.assetClass, set: row }).run();
   }
   for (const a of state.assets) {
-    const row: AssetRow = { id: a.id, ticker: a.ticker, assetClass: a.assetClass };
+    const row: AssetRow = { ...a };
     tx.insert(asset).values(row).onConflictDoUpdate({ target: asset.id, set: row }).run();
   }
   for (const t of state.trades) {

@@ -77,8 +77,8 @@ describe("the portfolio's persistence", () => {
     const database = open();
     const state = executeOk(
       database,
-      { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
-      { type: "save-asset", asset: { ticker: "BTC", assetClass: "crypto" } },
+      { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks", sourceId: "BRPETRACNPR6" } },
+      { type: "save-asset", asset: { ticker: "BTC", assetClass: "crypto", sourceId: "bitcoin" } },
       { type: "save-asset", asset: { ticker: "HGLG11", assetClass: "real-estate-funds" } },
       { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-03-10", quantity: decimal(100), unitPrice: decimal(36.8) } },
       { type: "save-trade", trade: { asset: 2, kind: "buy", date: "2026-01-02", quantity: 321000, unitPrice: 12345 } },
@@ -93,7 +93,7 @@ describe("the portfolio's persistence", () => {
     expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
   });
 
-  it("a corrected ticker is rewritten, keeping the asset and its trades", () => {
+  it("a corrected ticker and source's id are rewritten, keeping the asset and its trades", () => {
     const database = open();
     executeOk(
       database,
@@ -101,10 +101,13 @@ describe("the portfolio's persistence", () => {
       { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-03-10", quantity: decimal(10), unitPrice: decimal(40) } },
     );
 
-    const corrected = executeOk(database, { type: "save-asset", asset: { id: 1, ticker: "AXIA3", assetClass: "domestic-stocks" } });
+    const corrected = executeOk(database, {
+      type: "save-asset",
+      asset: { id: 1, ticker: "AXIA3", assetClass: "domestic-stocks", sourceId: "BRAXIAACNOR1" },
+    });
 
     expect(loadPortfolio(open())).toEqual(corrected);
-    expect(corrected.assets).toEqual([{ id: 1, ticker: "AXIA3", assetClass: "domestic-stocks" }]);
+    expect(corrected.assets).toEqual([{ id: 1, ticker: "AXIA3", assetClass: "domestic-stocks", sourceId: "BRAXIAACNOR1" }]);
   });
 
   it("a sale, a corrected trade and the deletions come back from the database as the domain left them", () => {

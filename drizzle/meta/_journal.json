@@ -85,6 +85,13 @@
       "when": 1790359252755,
       "tag": "0011_portfolio_quotes",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1790362614109,
+      "tag": "0012_portfolio_asset_source_id",
+      "breakpoints": true
     }
   ]
 }
