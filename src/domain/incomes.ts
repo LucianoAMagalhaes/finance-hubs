@@ -1,5 +1,4 @@
-import type { Cents } from "./money";
-import type { IsoDate } from "./month";
+import type { Cents, IsoDate } from "@/shared";
 import type { IncomeMethod } from "./payment-methods";
 
 // The fixed list of four sources (CONTEXT.md). The order is the screen's.

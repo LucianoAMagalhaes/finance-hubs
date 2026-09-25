@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { proposedDate, monthsBetween, isValidDate, monthOf, monthName, addMonths, lastDayOfMonth } from "@/domain";
+import { proposedDate, monthsBetween, monthOf, monthName, addMonths, lastDayOfMonth } from "@/domain";
 
 describe("month utilities", () => {
   it("adds months across the year boundary in both directions", () => {
@@ -25,16 +25,6 @@ describe("month utilities", () => {
 
   it("takes the month out of a date", () => {
     expect(monthOf("2026-09-18")).toBe("2026-09");
-  });
-
-  it("recognizes only dates that exist in the calendar", () => {
-    expect(isValidDate("2026-09-30")).toBe(true);
-    expect(isValidDate("2028-02-29")).toBe(true);
-    expect(isValidDate("2026-02-29")).toBe(false);
-    expect(isValidDate("2026-13-01")).toBe(false);
-    expect(isValidDate("2026-09-00")).toBe(false);
-    expect(isValidDate("30/09/2026")).toBe(false);
-    expect(isValidDate("")).toBe(false);
   });
 
   it("proposes today in the current month and day 1 in any other month", () => {

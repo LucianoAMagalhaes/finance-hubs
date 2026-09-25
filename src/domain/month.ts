@@ -1,8 +1,7 @@
+import type { IsoDate } from "@/shared";
+
 /** A calendar month, "YYYY-MM". Compares in time order as a string. */
 export type Month = `${number}-${number}`;
-
-/** A date, "YYYY-MM-DD". */
-export type IsoDate = `${number}-${number}-${number}`;
 
 const NAMES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -58,14 +57,6 @@ export function dayIn(day: number, month: Month): IsoDate {
 export function isValidMonth(text: string): text is Month {
   const m = /^\d{4}-(\d{2})$/.exec(text);
   return m !== null && Number(m[1]) >= 1 && Number(m[1]) <= 12;
-}
-
-/** Whether the text is a "YYYY-MM-DD" date that exists in the calendar. */
-export function isValidDate(text: string): text is IsoDate {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
-  if (!m) return false;
-  const [, , month, day] = m.map(Number) as [number, number, number, number];
-  return month >= 1 && month <= 12 && day >= 1 && day <= lastDayOfMonth(monthOf(text as IsoDate));
 }
 
 /** The date a form proposes: today in the current month, day 1 in any other month. */

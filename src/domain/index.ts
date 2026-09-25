@@ -15,7 +15,7 @@ export {
   type PrepaymentPreview,
   type Result,
 } from "./commands";
-export { centsToField, formatReais, reaisToCents, type Cents } from "./money";
+export { centsToField, formatReais, reaisToCents, isValidDate, type Cents, type IsoDate } from "@/shared";
 export {
   isIncomeSource,
   INCOME_SOURCES,
@@ -50,14 +50,12 @@ export {
 export {
   proposedDate,
   monthsBetween,
-  isValidDate,
   isValidMonth,
   monthOf,
   sameDayIn,
   monthName,
   addMonths,
   lastDayOfMonth,
-  type IsoDate,
   type Month,
 } from "./month";
 export {

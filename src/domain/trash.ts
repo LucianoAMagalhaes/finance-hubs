@@ -1,9 +1,9 @@
 import { incomeSourceName, type Income } from "./incomes";
 import { jarName } from "./jars";
-import type { Cents } from "./money";
+import type { Cents, IsoDate } from "@/shared";
 import { purchases, type State } from "./state";
 import { startOf, type Prepayment, type Purchase, type Expense } from "./expenses";
-import { monthName, monthOf, type IsoDate } from "./month";
+import { monthName, monthOf } from "./month";
 
 /** The three records the person creates, and therefore deletes and restores. */
 export type RecordType = "income" | "expense" | "prepayment";

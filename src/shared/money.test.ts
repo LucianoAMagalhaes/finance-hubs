@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatReais, reaisToCents } from "@/domain";
+import { formatReais, reaisToCents } from "@/shared";
 
 // Intl separates "R$" from the number with a non-breaking space; we normalize it to compare.
 const withoutNbsp = (s: string) => s.replace(/ /g, " ");

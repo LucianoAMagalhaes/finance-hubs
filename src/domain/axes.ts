@@ -1,4 +1,4 @@
-import type { Cents } from "./money";
+import type { Cents } from "@/shared";
 import type { Occurrence } from "./expenses";
 import { paymentMethodName, PAYMENT_METHODS } from "./payment-methods";
 import type { JarGroup, MonthView } from "./projection";

@@ -1,4 +1,4 @@
-import type { Cents } from "./money";
+import type { Cents } from "@/shared";
 import type { Income } from "./incomes";
 import type { State } from "./state";
 import { occurrencesIn, type Occurrence } from "./expenses";

@@ -1,4 +1,4 @@
-import type { Cents } from "./money";
+import { isValidDate, type Cents, type IsoDate } from "@/shared";
 import { isIncomeSource, type IncomeToSave } from "./incomes";
 import { findPrepayment, purchases, type State } from "./state";
 import {
@@ -21,7 +21,7 @@ import {
   type PeriodToSave,
 } from "./expenses";
 import { isRecordType, live, type RecordType } from "./trash";
-import { isValidDate, isValidMonth, monthOf, monthName, type IsoDate, type Month } from "./month";
+import { isValidMonth, monthOf, monthName, type Month } from "./month";
 import { isIncomeMethod, isPaymentMethod, type PaymentMethod } from "./payment-methods";
 import { isJar, validatePercentages, type Percentages } from "./jars";
 import { wouldInherit } from "./projection";

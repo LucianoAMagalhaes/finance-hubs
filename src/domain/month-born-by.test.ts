@@ -3,7 +3,7 @@ import { apply, monthBornBy } from "./commands";
 import type { Command } from "./commands";
 import { emptyState } from "./state";
 import type { State } from "./state";
-import type { IsoDate } from "./month";
+import type { IsoDate } from "@/shared";
 
 const TODAY = "2026-09-18" as IsoDate;
 
