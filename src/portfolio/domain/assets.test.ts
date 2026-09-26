@@ -58,10 +58,12 @@ describe("registering an asset", () => {
     });
   });
 
-  it("refuses Renda Fixa, whose bonds have their own registration", () => {
-    expect(save(emptyPortfolio(), { ticker: "CDB INTER", assetClass: "fixed-income" })).toEqual({
+  it("only an asset of Renda Fixa is a bond", () => {
+    const bond = { kind: "private-bond", bondType: "cdb", indexer: "fixed-rate", rate: decimal(12.5), maturityDate: "2028-01-02" } as const;
+
+    expect(save(emptyPortfolio(), { ticker: "PETR4", assetClass: "domestic-stocks", bond })).toEqual({
       ok: false,
-      error: "Os títulos de Renda Fixa têm cadastro próprio, que ainda não existe.",
+      error: "Só um ativo de Renda Fixa é um título.",
     });
   });
 

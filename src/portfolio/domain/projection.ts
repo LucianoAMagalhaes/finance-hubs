@@ -1,5 +1,6 @@
 import { dateOf, type Cents, type IsoDate, type IsoDateTime } from "@/shared";
 import type { Asset } from "./assets";
+import { isPrivateBond, type Bond } from "./bonds";
 import { businessDaysAfter } from "./businessDays";
 import { ASSET_CLASSES, type AssetClass } from "./classes";
 import type { CorporateAction, CorporateActionKind, Ratio } from "./corporateActions";
@@ -7,6 +8,7 @@ import { decimalToNumber, type Decimal } from "./decimal";
 import { currencyOf, exchangeRateToNumber, type Currency, type CurrentExchangeRate, type ExchangeRate } from "./exchangeRate";
 import type { Payout, PayoutKind } from "./payouts";
 import { inHistoryOrder, replay, tradeAmount, tradeTotal, tradeTotalInReais, type Replay } from "./position";
+import { pricedTrades } from "./privateBonds";
 import type { Quote } from "./quotes";
 import type { PortfolioState } from "./state";
 import type { Trade, TradeKind } from "./trades";
@@ -17,7 +19,7 @@ import type { Trade, TradeKind } from "./trades";
 // always in reais; the dollars are only to show.
 
 /** What the table's row says about the asset beyond its numbers. Each tag arrives with the ticket that sets it. */
-export type AssetTag = "no-quote" | "no-exchange-rate" | "stale-quote" | "pending-corporate-action" | "zero-position";
+export type AssetTag = "no-quote" | "no-rate-index" | "no-exchange-rate" | "stale-quote" | "pending-corporate-action" | "zero-position";
 
 /** A quote or a current exchange rate older than this many business days is stale: it still gives the current value. */
 const STALE_AFTER_BUSINESS_DAYS = 5;
@@ -27,8 +29,9 @@ export type TradeView = {
   id: number;
   date: IsoDate;
   kind: TradeKind;
+  /** In a private bond, the shares derived from the amount. */
   quantity: Decimal;
-  /** In the asset's currency. */
+  /** In the asset's currency; in a private bond, the accrued price of the date. */
   unitPrice: Decimal;
   /** The exchange rate of the trade, in dollars; null in reais. */
   exchangeRate: ExchangeRate | null;
@@ -69,14 +72,20 @@ export type AssetView = {
   id: number;
   ticker: string;
   assetClass: AssetClass;
+  /** The fixed-income part, for the row's line with the indexer and the maturity; null outside Renda Fixa. */
+  bond: Bond | null;
   currency: Currency;
   quantity: Decimal;
   /** Null while the quantity is zero. */
   averagePrice: Cents | null;
   cost: Cents;
-  /** The last quote, per unit, in the asset's currency; null while the asset never had one. */
+  /**
+   * The last quote, per unit, in the asset's currency; null while the asset
+   * never had one. In a private bond, today's accrued price; null before the
+   * first application and with no index.
+   */
   quote: Cents | null;
-  /** When the last quote was obtained; null while the asset never had one. */
+  /** When the last quote was obtained; null while the asset never had one, and always in a private bond. */
   quoteAt: IsoDateTime | null;
   /**
    * quantity × quote, and in dollars × the current exchange rate; the cost
@@ -202,19 +211,29 @@ function projectAsset(
   today: IsoDate,
 ): AssetView {
   const currency = currencyOf(asset.assetClass);
-  const inReais = replay(trades, corporateActions, tradeTotalInReais);
+  const priced = pricedTrades(asset, trades);
+  const inReais = replay(priced.trades, corporateActions, tradeTotalInReais);
   const { position, realizedGain, realizedGainBySale } = inReais;
-  const quoted = quote && tradeAmount(position.quantity, quote.price);
-  // An asset that never had a quote, or in dollars a current exchange rate, is
-  // worth its cost, so the portfolio loses no value for lack of a price.
+  const privateBond = isPrivateBond(asset);
+  // A private bond has no quote from any source: its price is accrued on its curve.
+  const accrued = privateBond ? priced.price(today) : null;
+  const price = privateBond ? accrued : (quote?.price ?? null);
+  const quoted = price === null ? null : tradeAmount(position.quantity, price);
+  // An asset that never had a quote, or in dollars a current exchange rate, or
+  // a private bond with no index, is worth its cost, so the portfolio loses no
+  // value for lack of a price.
   const currentValue =
     quoted === null ? position.cost : currency === "BRL" ? quoted : rate ? quoted * exchangeRateToNumber(rate.rate) : position.cost;
   const zero = position.quantity === 0;
   const unrealizedGain = zero ? null : currentValue - position.cost;
   const tags: AssetTag[] = [];
-  if (!quote) tags.push("no-quote");
-  if (currency === "USD" && !rate) tags.push("no-exchange-rate");
-  if (quote && isStale(quote.at, today)) tags.push("stale-quote");
+  if (privateBond) {
+    if (asset.bond!.indexer !== "fixed-rate") tags.push("no-rate-index");
+  } else {
+    if (!quote) tags.push("no-quote");
+    if (currency === "USD" && !rate) tags.push("no-exchange-rate");
+    if (quote && isStale(quote.at, today)) tags.push("stale-quote");
+  }
   const pending = corporateActions.filter((c) => c.status === "pending");
   if (pending.length > 0) tags.push("pending-corporate-action");
   if (zero) tags.push("zero-position");
@@ -224,19 +243,20 @@ function projectAsset(
     id: asset.id,
     ticker: asset.ticker,
     assetClass: asset.assetClass,
+    bond: asset.bond ?? null,
     currency,
     ...position,
-    quote: quote && decimalToNumber(quote.price) * 100,
-    quoteAt: quote?.at ?? null,
+    quote: price === null ? null : decimalToNumber(price) * 100,
+    quoteAt: privateBond ? null : (quote?.at ?? null),
     currentValue,
     unrealizedGain,
     realizedGain,
     payoutsReceived,
     totalGain,
     totalGainPercent: position.cost > 0 ? (totalGain / position.cost) * 100 : null,
-    inDollars: currency === "USD" ? inDollars(replay(trades, corporateActions, tradeTotal), quoted) : null,
+    inDollars: currency === "USD" ? inDollars(replay(priced.trades, corporateActions, tradeTotal), quoted) : null,
     tags,
-    trades: inHistoryOrder(trades)
+    trades: inHistoryOrder(priced.trades)
       .reverse()
       .map((t) => ({
         id: t.id,

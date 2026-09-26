@@ -13,6 +13,7 @@ import {
   type PortfolioCommand,
   type PortfolioState,
   type Targets,
+  type UnitTrade,
 } from "@/portfolio/domain";
 import { executePortfolioOnDatabase, loadPortfolio } from "@/portfolio/persistence";
 
@@ -91,6 +92,46 @@ describe("the portfolio's persistence", () => {
     expect(reloaded).toEqual(state);
     expect(reloaded.assets.map((a) => a.ticker)).toEqual(["PETR4", "BTC", "HGLG11"]);
     expect(reloaded.trades).toHaveLength(3);
+    expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
+  });
+
+  it("a private bond and its applications in reais come back identical, and the dashboard with them", () => {
+    const database = open();
+    const bond = { kind: "private-bond", bondType: "cdb", indexer: "fixed-rate", rate: decimal(12.5), maturityDate: "2028-01-02" } as const;
+    executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "CDB Inter 2028", assetClass: "fixed-income", bond } },
+      { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-01-02", amount: 1_000_000 } },
+      { type: "save-trade", trade: { asset: 2, kind: "buy", date: "2026-03-10", quantity: decimal(100), unitPrice: decimal(36.8) } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-05-04", amount: 500_000 } },
+    );
+    const state = executeOk(
+      database,
+      {
+        type: "save-asset",
+        asset: { id: 1, ticker: "CDB Inter 2028", assetClass: "fixed-income", bond: { ...bond, bondType: "lci", rate: decimal(11.75) } },
+      },
+      { type: "save-trade", trade: { id: 3, asset: 1, kind: "buy", date: "2026-05-05", amount: 450_050 } },
+    );
+
+    const reloaded = loadPortfolio(open());
+
+    expect(reloaded).toEqual(state);
+    expect(reloaded.assets).toEqual([
+      {
+        id: 1,
+        ticker: "CDB Inter 2028",
+        assetClass: "fixed-income",
+        sourceId: null,
+        bond: { ...bond, bondType: "lci", rate: decimal(11.75) },
+      },
+      { id: 2, ticker: "PETR4", assetClass: "domestic-stocks", sourceId: null },
+    ]);
+    expect(reloaded.trades.filter((t) => t.asset === 1)).toEqual([
+      { id: 1, asset: 1, kind: "buy", date: "2026-01-02", amount: 1_000_000 },
+      { id: 3, asset: 1, kind: "buy", date: "2026-05-05", amount: 450_050 },
+    ]);
     expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
   });
 
@@ -319,7 +360,7 @@ describe("the portfolio's persistence", () => {
 
     const reloaded = loadPortfolio(open());
     expect(reloaded).toEqual(state);
-    expect(reloaded.trades.map((t) => t.exchangeRate)).toEqual([54213, null, 51575]);
+    expect(reloaded.trades.map((t) => (t as UnitTrade).exchangeRate)).toEqual([54213, null, 51575]);
     expect(reloaded.exchangeRate).toEqual({ rate: 51885, at: "2026-09-25T14:32:07" });
     expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
   });

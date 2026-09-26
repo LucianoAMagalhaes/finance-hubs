@@ -35,7 +35,7 @@ escolhido numa lista de títulos ("Tesouro IPCA+ 2035"). Um **título privado** 
 debênture) não tem código de negociação: tem um nome livre e único ("CDB Inter 2028") no lugar do
 código, o tipo (só informativo), o indexador, a taxa e o vencimento. Uma aplicação com outra taxa é
 outro ativo.
-_Code_: `Asset`; o código, `ticker`; o título privado, `privateBond`; o tipo, `bondType`
+_Code_: `Asset`; o código, `ticker`; o título do Tesouro, `treasuryBond`; o título privado, `privateBond`; o tipo, `bondType`
 _Avoid_: Papel, título (sozinho), investimento, posição
 
 **Indexador**:
@@ -43,13 +43,15 @@ A regra pela qual um título privado rende: um percentual do CDI (110% do CDI), 
 (12,5% ao ano) ou IPCA mais uma taxa (IPCA + 6%). É um só por ativo, junto com a taxa. Pode ser
 corrigido, e a correção vale para o título inteiro desde a primeira aplicação.
 _Code_: `indexer`; os três, `cdi-percentage`, `fixed-rate`, `ipca-plus`; a taxa, `rate`
-_Avoid_: Índice (é o CDI, a Selic, o IPCA publicados), rentabilidade
+_Avoid_: Índice (é o CDI ou o IPCA publicados), rentabilidade
 
 **Índice**:
-O CDI, a Selic ou o IPCA como publicados por fonte oficial, dos quais sai o preço na curva de um
-título privado. É trazido de fora como uma cotação: continua valendo o último quando a fonte falha.
-Antes de o IPCA do mês sair, vale a sua projeção.
-_Code_: `rateIndex`
+O CDI ou o IPCA como publicados por fonte oficial, dos quais sai o preço na curva de um título
+privado. É trazido de fora como uma cotação: continua valendo o último quando a fonte falha.
+Antes de o IPCA do mês sair, vale a sua projeção. A Selic não é buscada: nenhum indexador a usa, e
+o Tesouro Selic tem cotação. Um título de % do CDI ou de IPCA + cujo índice nunca foi trazido vale
+o seu custo, e fica marcado como **sem índice**. O prefixado não depende de índice nenhum.
+_Code_: `rateIndex`; sem índice, `no-rate-index`
 _Avoid_: Indexador (é a regra do título), taxa
 
 **Vencimento**:
@@ -73,7 +75,7 @@ No título privado, a compra é uma **aplicação** e a venda um **resgate**, am
 as cotas são sempre derivadas do valor e do preço na curva do dia. O resgate parcial sai pelo preço
 na curva. O resgate total vende todas as cotas pelo valor que a pessoa recebeu de fato, e a
 diferença para a curva vai para o resultado da venda.
-_Code_: `Trade`; os tipos, `buy` e `sell`
+_Code_: `Trade`; os tipos, `buy` e `sell`; o resgate total, `redeemsAll`
 _Avoid_: Transação, lote, lançamento (é do orçamento), movimentação
 
 **Evento corporativo**:

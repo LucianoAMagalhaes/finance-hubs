@@ -1,6 +1,7 @@
 import { isValidDate, type IsoDate, type Result } from "@/shared";
 import type { AssetClass } from "./classes";
 import { replay } from "./position";
+import { tradesInUnits } from "./privateBonds";
 import { nextId, type PortfolioState } from "./state";
 import { whyUncovered } from "./trades";
 
@@ -144,7 +145,7 @@ export function recordSourceCorporateActions(state: PortfolioState, actions: Sou
     const origin = originOf(a);
     if (next.corporateActions.some((c) => c.asset === a.asset && (c.origin === origin || isTypedTwin(c, a)))) continue;
     const held = replay(
-      next.trades.filter((t) => t.asset === a.asset && t.date < a.date),
+      tradesInUnits(next, a.asset).filter((t) => t.date < a.date),
       next.corporateActions.filter((c) => c.asset === a.asset && c.date < a.date),
     ).position.quantity;
     if (held <= 0) continue;

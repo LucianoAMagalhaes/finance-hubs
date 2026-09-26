@@ -9,6 +9,7 @@ import {
   type Payout,
   type PayoutOrigin,
   type PortfolioState,
+  type PrivateBond,
   type Quote,
   type Targets,
   type Trade,
@@ -32,17 +33,38 @@ const toAsset = (row: AssetRow): Asset => ({
   ticker: row.ticker,
   assetClass: row.assetClass as AssetClass,
   sourceId: row.sourceId,
+  ...(row.bondKind === "private-bond" && {
+    bond: {
+      kind: "private-bond",
+      bondType: row.bondType as PrivateBond["bondType"],
+      indexer: row.indexer as PrivateBond["indexer"],
+      rate: row.rate!,
+      maturityDate: row.maturityDate as PrivateBond["maturityDate"],
+    },
+  }),
 });
 
-const toTrade = (row: TradeRow): Trade => ({
-  id: row.id,
-  asset: row.asset,
-  kind: row.kind as Trade["kind"],
-  date: row.date as Trade["date"],
-  quantity: row.quantity,
-  unitPrice: row.unitPrice,
-  exchangeRate: row.exchangeRate,
+/** A private bond's bond columns, or nulls. */
+const bondColumns = ({ bond }: Asset): Pick<AssetRow, "bondKind" | "bondType" | "indexer" | "rate" | "maturityDate"> => ({
+  bondKind: bond?.kind ?? null,
+  bondType: bond?.bondType ?? null,
+  indexer: bond?.indexer ?? null,
+  rate: bond?.rate ?? null,
+  maturityDate: bond?.maturityDate ?? null,
 });
+
+const toTrade = ({ id, asset, kind, date, quantity, unitPrice, exchangeRate, amount }: TradeRow): Trade => {
+  const base = { id, asset, kind: kind as Trade["kind"], date: date as Trade["date"] };
+  return amount !== null ? { ...base, amount } : { ...base, quantity: quantity!, unitPrice: unitPrice!, exchangeRate };
+};
+
+/** A trade's columns: the amount in reais, or the quantity, unit price and exchange rate. */
+const tradeColumns = (t: Trade): Omit<TradeRow, "redeemsAll"> => {
+  const { id, asset, kind, date } = t;
+  return "amount" in t
+    ? { id, asset, kind, date, quantity: null, unitPrice: null, exchangeRate: null, amount: t.amount }
+    : { id, asset, kind, date, quantity: t.quantity, unitPrice: t.unitPrice, exchangeRate: t.exchangeRate, amount: null };
+};
 
 const toCorporateAction = (row: CorporateActionRow): CorporateAction => ({
   id: row.id,
@@ -116,11 +138,11 @@ export function save(tx: Connection, state: PortfolioState): void {
     tx.insert(classTarget).values(row).onConflictDoUpdate({ target: classTarget.assetClass, set: row }).run();
   }
   for (const a of state.assets) {
-    const row: AssetRow = { ...a };
+    const row: AssetRow = { id: a.id, ticker: a.ticker, assetClass: a.assetClass, sourceId: a.sourceId, ...bondColumns(a) };
     tx.insert(asset).values(row).onConflictDoUpdate({ target: asset.id, set: row }).run();
   }
   for (const t of state.trades) {
-    const row: TradeRow = { ...t };
+    const row = tradeColumns(t);
     tx.insert(trade).values(row).onConflictDoUpdate({ target: trade.id, set: row }).run();
   }
   for (const { ratio, ...c } of state.corporateActions) {

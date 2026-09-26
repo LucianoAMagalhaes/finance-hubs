@@ -10,6 +10,7 @@ import {
   type IsoDate,
   type PortfolioState,
   type TradeToSave,
+  type UnitTrade,
 } from "@/portfolio/domain";
 
 const TODAY: IsoDate = "2026-09-25";
@@ -26,7 +27,7 @@ describe("buying an asset", () => {
   it("a unit price below a cent is kept whole", () => {
     const state = buyOk(withAssets(["SHIB", "crypto"]), buy("SHIB", "2026-03-10", "1000000", "0.00012345"));
 
-    expect(state.trades[0]!.unitPrice).toBe(12345);
+    expect((state.trades[0] as UnitTrade).unitPrice).toBe(12345);
     expect(asset(state, "SHIB").cost).toBeCloseTo(12_345, 6); // one million × R$ 0,00012345 = R$ 123,45
   });
 

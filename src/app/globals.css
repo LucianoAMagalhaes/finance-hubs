@@ -607,6 +607,21 @@ dialog.sheet::backdrop {
 .shape-picker {
   align-self: flex-start;
 }
+/* A field with what it says around the number: "IPCA + … %", "… % do CDI". */
+.field .affixed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.field .affixed input {
+  flex: 1;
+  min-width: 0;
+}
+.field .affix {
+  color: var(--ink-3);
+  font-size: 13px;
+  white-space: nowrap;
+}
 .shape-picker button:disabled {
   color: var(--ink-3);
   opacity: 0.6;
@@ -1379,6 +1394,10 @@ dialog.sheet.trash {
   align-items: baseline;
   gap: 6px;
   flex-wrap: wrap;
+}
+/* The bond's indexer and maturity, under its name, aligned past the caret. */
+.asset-table .bond-line {
+  padding-left: 14px;
 }
 .asset-tag {
   font-size: 11px;

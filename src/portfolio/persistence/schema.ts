@@ -14,22 +14,35 @@ export const classTarget = sqliteTable("class_target", {
   target: integer("target").notNull(),
 });
 
-/** An asset, by its ticker and class, and its id at the source. */
+/**
+ * An asset, by its ticker and class, and its id at the source. A fixed-income
+ * asset also has its bond's columns, null in every other class.
+ */
 export const asset = sqliteTable("asset", {
   id: integer("id").primaryKey(),
-  /** Unique in the portfolio; can be corrected, keeping the history. */
+  /** Unique in the portfolio; can be corrected, keeping the history. A bond's name, as typed. */
   ticker: text("ticker").notNull().unique(),
   /** The class's id, as the domain names it; never changes. */
   assetClass: text("asset_class").notNull(),
   /** How the source knows it: the ISIN in the B3's classes, the CoinGecko id in crypto; null when no source said. */
   sourceId: text("source_id"),
+  /** "treasury-bond" or "private-bond"; never changes. */
+  bondKind: text("bond_kind"),
+  /** "cdb", "lci", "lca" or "debenture"; only informative. */
+  bondType: text("bond_type"),
+  /** "cdi-percentage", "fixed-rate" or "ipca-plus". */
+  indexer: text("indexer"),
+  /** In percent, an exact decimal scaled to 8 places: 110% of the CDI is 110. */
+  rate: integer("rate"),
+  maturityDate: text("maturity_date"),
 });
 
 /**
  * A buy or a sale of an asset. Quantity and unit price are exact decimals,
  * stored as integers scaled to 8 places; the exchange rate, as an integer
- * scaled to 4. The id is also the order of entry. Deleted for good: there is
- * no trash mark.
+ * scaled to 4. A private bond's trade has the amount in reais instead, and
+ * neither quantity nor unit price: the domain says which. The id is also the
+ * order of entry. Deleted for good: there is no trash mark.
  */
 export const trade = sqliteTable("trade", {
   id: integer("id").primaryKey(),
@@ -39,10 +52,14 @@ export const trade = sqliteTable("trade", {
   /** "buy" or "sell". */
   kind: text("kind").notNull(),
   date: text("date").notNull(),
-  quantity: integer("quantity").notNull(),
-  unitPrice: integer("unit_price").notNull(),
+  quantity: integer("quantity"),
+  unitPrice: integer("unit_price"),
   /** Reais per dollar, scaled to 4 places, in a trade in dollars; null in reais. */
   exchangeRate: integer("exchange_rate"),
+  /** A private bond's trade, in cents; null in any other asset. */
+  amount: integer("amount"),
+  /** Whether a private bond's redemption takes every share, at the amount received. */
+  redeemsAll: integer("redeems_all", { mode: "boolean" }).notNull().default(false),
 });
 
 /**

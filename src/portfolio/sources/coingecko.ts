@@ -24,7 +24,7 @@ export async function coinGeckoQuote({ ticker, sourceId }: SourcedAsset, fetchFn
  * None is a ticker CoinGecko doesn't know.
  */
 export async function coinGeckoSearch(ticker: string, fetchFn: typeof fetch = fetch): Promise<CryptoCandidate[]> {
-  const symbol = normalizeTicker(ticker);
+  const symbol = normalizeTicker(ticker, "crypto");
   const answer = (await getJson(`${API}/search?query=${encodeURIComponent(symbol)}`, fetchFn)) as CoinGeckoSearch;
   const coins = answer?.coins;
   if (!Array.isArray(coins)) throw new SourceError(`CoinGecko search ${symbol}: no coins in the answer.`);

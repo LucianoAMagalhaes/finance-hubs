@@ -5,7 +5,7 @@ import { checkTradeDraft, emptyTradeDraft, tradeDraftFrom } from "./tradeDraft";
 describe("the trade's draft", () => {
   it("reads the typed quantity and price as exact decimals, with the total they make", () => {
     const checked = checkTradeDraft(
-      { id: null, asset: "3", kind: "buy", date: "2026-03-10", quantity: "0,00321", unitPrice: "612.000,00", exchangeRate: "" },
+      { id: null, asset: "3", kind: "buy", date: "2026-03-10", quantity: "0,00321", unitPrice: "612.000,00", exchangeRate: "", amount: "" },
       "BRL",
     );
 
@@ -26,6 +26,7 @@ describe("the trade's draft", () => {
       quantity: "",
       unitPrice: "",
       exchangeRate: "",
+      amount: "",
     });
     expect(emptyTradeDraft("2026-09-25", null).asset).toBe("");
   });
@@ -41,7 +42,7 @@ describe("the trade's draft", () => {
       exchangeRate: null,
     });
 
-    expect(draft).toEqual({ id: 7, asset: "3", kind: "sell", date: "2026-04-10", quantity: "0,5", unitPrice: "36,8", exchangeRate: "" });
+    expect(draft).toEqual({ id: 7, asset: "3", kind: "sell", date: "2026-04-10", quantity: "0,5", unitPrice: "36,8", exchangeRate: "", amount: "" });
     expect(checkTradeDraft(draft, "BRL").trade).toEqual({
       id: 7,
       asset: 3,
@@ -54,7 +55,7 @@ describe("the trade's draft", () => {
   });
 
   it("says what it cannot read, and has no total until both numbers read", () => {
-    const good = { id: null, asset: "3", kind: "buy", date: "2026-03-10", quantity: "10", unitPrice: "36,80", exchangeRate: "" } as const;
+    const good = { id: null, asset: "3", kind: "buy", date: "2026-03-10", quantity: "10", unitPrice: "36,80", exchangeRate: "", amount: "" } as const;
 
     expect(checkTradeDraft({ ...good, asset: "" }, "BRL")).toMatchObject({ error: "Escolha o ativo.", total: 36_800 });
     expect(checkTradeDraft({ ...good, quantity: "dez" }, "BRL")).toMatchObject({
@@ -68,7 +69,7 @@ describe("the trade's draft", () => {
   });
 
   it("in dollars, reads the exchange rate and shows the total in dollars and in reais", () => {
-    const draft = { id: null, asset: "5", kind: "buy", date: "2026-09-18", quantity: "10", unitPrice: "87,645", exchangeRate: "5,1575" } as const;
+    const draft = { id: null, asset: "5", kind: "buy", date: "2026-09-18", quantity: "10", unitPrice: "87,645", exchangeRate: "5,1575", amount: "" } as const;
 
     const checked = checkTradeDraft(draft, "USD");
 
@@ -76,11 +77,11 @@ describe("the trade's draft", () => {
     expect(checked.error).toBeNull();
     expect(checked.total).toBe(87_645);
     expect(checked.totalInReais).toBeCloseTo(452_029.0875, 6); // US$ 876,45 × 5,1575
-    expect(checkTradeDraft({ ...draft, exchangeRate: "5.1575" }, "USD").trade.exchangeRate).toBe(51575);
+    expect(checkTradeDraft({ ...draft, exchangeRate: "5.1575" }, "USD").trade).toMatchObject({ exchangeRate: 51575 });
   });
 
   it("in dollars, an empty or unreadable exchange rate is said, and there is no total in reais", () => {
-    const draft = { id: null, asset: "5", kind: "buy", date: "2026-09-18", quantity: "10", unitPrice: "87,645", exchangeRate: "" } as const;
+    const draft = { id: null, asset: "5", kind: "buy", date: "2026-09-18", quantity: "10", unitPrice: "87,645", exchangeRate: "", amount: "" } as const;
     const said = { error: "Informe o câmbio, como 5,4213, com até 4 casas decimais.", total: 87_645, totalInReais: null };
 
     expect(checkTradeDraft(draft, "USD")).toMatchObject(said);
@@ -88,8 +89,48 @@ describe("the trade's draft", () => {
   });
 
   it("an exchange rate left in the draft of an asset in reais is not sent", () => {
-    const draft = { id: null, asset: "3", kind: "buy", date: "2026-03-10", quantity: "10", unitPrice: "36,80", exchangeRate: "5,20" } as const;
+    const draft = { id: null, asset: "3", kind: "buy", date: "2026-03-10", quantity: "10", unitPrice: "36,80", exchangeRate: "5,20", amount: "" } as const;
 
     expect(checkTradeDraft(draft, "BRL")).toMatchObject({ error: null, trade: { exchangeRate: null } });
+  });
+
+  it("in a private bond, reads the amount in reais, with no quantity nor price", () => {
+    const draft = {
+      id: null,
+      asset: "2",
+      kind: "buy",
+      date: "2026-01-02",
+      quantity: "10",
+      unitPrice: "1",
+      exchangeRate: "",
+      amount: "10.000,50",
+    } as const;
+
+    expect(checkTradeDraft(draft, "private-bond")).toEqual({
+      trade: { asset: 2, kind: "buy", date: "2026-01-02", amount: 1_000_050 },
+      error: null,
+      total: 1_000_050,
+      totalInReais: null,
+    });
+    expect(checkTradeDraft({ ...draft, amount: "10000,501" }, "private-bond")).toMatchObject({
+      error: "Informe o valor, como 10.000,00, com até 2 casas decimais.",
+      total: null,
+    });
+  });
+
+  it("a saved application opens with its amount, and goes back as its correction", () => {
+    const draft = tradeDraftFrom({ id: 4, asset: 2, kind: "buy", date: "2026-01-02", amount: 1_000_050 });
+
+    expect(draft).toEqual({
+      id: 4,
+      asset: "2",
+      kind: "buy",
+      date: "2026-01-02",
+      quantity: "",
+      unitPrice: "",
+      exchangeRate: "",
+      amount: "10000,50",
+    });
+    expect(checkTradeDraft(draft, "private-bond").trade).toEqual({ id: 4, asset: 2, kind: "buy", date: "2026-01-02", amount: 1_000_050 });
   });
 });

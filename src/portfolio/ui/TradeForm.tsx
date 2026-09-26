@@ -6,6 +6,7 @@ import {
   exchangeRateToField,
   formatDate,
   formatReais,
+  isPrivateBond,
   type Asset,
   type IsoDate,
   type Trade,
@@ -17,7 +18,7 @@ import { isValidDate } from "@/shared";
 import { Refusal } from "@/ui/Refusal";
 import { Sheet } from "@/ui/Sheet";
 import { useAction } from "@/ui/useAction";
-import { AssetSelect, formatMoney, KIND_NAMES, LaunchPicker } from "./parts";
+import { AssetSelect, formatMoney, kindNamesOf, LaunchPicker } from "./parts";
 import { checkTradeDraft, emptyTradeDraft, tradeDraftFrom, type TradeDraft } from "./tradeDraft";
 
 type Props = {
@@ -53,7 +54,8 @@ type Suggestion = { date: string; ptax: Ptax | null | undefined };
  * when the sheet opens and at each change of date: a new trade takes the
  * suggestion until the person types a rate, and a saved trade only shows it
  * beside its own rate, which never changes by itself. A saved trade opens here
- * to have any field corrected, or to be deleted for good.
+ * to have any field corrected, or to be deleted for good. A private bond's
+ * application takes the amount in reais instead of quantity and price.
  */
 export function TradeForm({
   assets,
@@ -75,7 +77,8 @@ export function TradeForm({
   const chosen = assets.find((a) => String(a.id) === draft.asset);
   const currency = chosen ? currencyOf(chosen.assetClass) : "BRL";
   const dollar = currency === "USD";
-  const checked = checkTradeDraft(draft, currency);
+  const privateBond = isPrivateBond(chosen);
+  const checked = checkTradeDraft(draft, privateBond ? "private-bond" : currency);
   const edit = (change: Partial<TradeDraft>) => {
     clearRefusal();
     setDraft((d) => ({ ...d, ...change }));
@@ -99,7 +102,7 @@ export function TradeForm({
     };
   }, [dollar, draft.date, trade, suggestExchangeRate]);
 
-  const kind = KIND_NAMES[draft.kind];
+  const kind = kindNamesOf(chosen)[draft.kind];
   const title = trade ? `Corrigir ${kind.toLowerCase()}` : asset ? `${kind} de ${asset.ticker}` : `Nova ${kind.toLowerCase()}`;
 
   async function submit(event: FormEvent) {
@@ -116,43 +119,69 @@ export function TradeForm({
       <form onSubmit={submit}>
         <header>
           <h2 id="trade-title">{title}</h2>
-          <p className="hint">O preço é o que foi pago ou recebido por unidade, sem campo de taxa. A quantidade aceita frações.</p>
+          <p className="hint">
+            {privateBond
+              ? "O valor em reais, como no extrato do banco. O app converte em cotas pelo preço na curva do dia."
+              : "O preço é o que foi pago ou recebido por unidade, sem campo de taxa. A quantidade aceita frações."}
+          </p>
         </header>
         <div className="content">
           <LaunchPicker
             chosen={draft.kind}
             choose={(k) => (k === "payout" ? payoutInstead?.() : k === "corporate-action" ? actionInstead?.() : edit({ kind: k }))}
             offer={[...(payoutInstead ? (["payout"] as const) : []), ...(actionInstead ? (["corporate-action"] as const) : [])]}
+            privateBond={privateBond}
           />
-          {!asset && <AssetSelect assets={assets} value={draft.asset} change={(a) => edit({ asset: a })} />}
+          {!asset && (
+            <AssetSelect
+              assets={assets}
+              value={draft.asset}
+              // A private bond's redemption arrives with its ticket: its trade is an application.
+              change={(a) => edit({ asset: a, ...(isPrivateBond(assets.find((x) => String(x.id) === a)) && { kind: "buy" }) })}
+            />
+          )}
           <label className="field">
             <span>Data</span>
             <input type="date" required max={today} value={draft.date} onChange={(e) => edit({ date: e.target.value })} />
           </label>
-          <div className="cols-2">
+          {privateBond ? (
             <label className="field">
-              <span>Quantidade</span>
+              <span>Valor (R$)</span>
               <input
                 required
                 inputMode="decimal"
                 className="num"
-                value={draft.quantity}
-                onChange={(e) => edit({ quantity: e.target.value })}
-                placeholder="0"
-              />
-            </label>
-            <label className="field">
-              <span>Preço unitário ({dollar ? "US$" : "R$"})</span>
-              <input
-                required
-                inputMode="decimal"
-                className="num"
-                value={draft.unitPrice}
-                onChange={(e) => edit({ unitPrice: e.target.value })}
+                value={draft.amount}
+                onChange={(e) => edit({ amount: e.target.value })}
                 placeholder="0,00"
               />
             </label>
-          </div>
+          ) : (
+            <div className="cols-2">
+              <label className="field">
+                <span>Quantidade</span>
+                <input
+                  required
+                  inputMode="decimal"
+                  className="num"
+                  value={draft.quantity}
+                  onChange={(e) => edit({ quantity: e.target.value })}
+                  placeholder="0"
+                />
+              </label>
+              <label className="field">
+                <span>Preço unitário ({dollar ? "US$" : "R$"})</span>
+                <input
+                  required
+                  inputMode="decimal"
+                  className="num"
+                  value={draft.unitPrice}
+                  onChange={(e) => edit({ unitPrice: e.target.value })}
+                  placeholder="0,00"
+                />
+              </label>
+            </div>
+          )}
           {dollar && (
             <label className="field">
               <span>Câmbio da operação (R$ por US$)</span>
