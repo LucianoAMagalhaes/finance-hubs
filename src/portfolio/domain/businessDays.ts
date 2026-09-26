@@ -1,17 +1,22 @@
 import type { IsoDate } from "@/shared";
+import { ANBIMA_HOLIDAYS } from "./anbimaHolidays";
 
-/**
- * How many business days come after `from`, up to and including `to`. For
- * now a business day is Monday to Friday, so a holiday counts as one: the
- * ANBIMA calendar arrives with fixed income.
- */
+const HOLIDAYS = new Set<IsoDate>(ANBIMA_HOLIDAYS);
+
+const DAY_MS = 86_400_000;
+
+/** A business day is Monday to Friday, except the ANBIMA's national holidays. */
+export function isBusinessDay(date: IsoDate): boolean {
+  // Day 0 of the epoch was a Thursday.
+  const weekday = (Date.parse(`${date}T00:00:00Z`) / DAY_MS + 4) % 7;
+  return weekday !== 0 && weekday !== 6 && !HOLIDAYS.has(date);
+}
+
+/** How many business days come after `from`, up to and including `to`. */
 export function businessDaysAfter(from: IsoDate, to: IsoDate): number {
-  const day = (d: IsoDate) => Date.parse(`${d}T00:00:00Z`) / 86_400_000;
   let count = 0;
-  for (let d = day(from) + 1; d <= day(to); d++) {
-    // Day 0 of the epoch was a Thursday.
-    const weekday = (d + 4) % 7;
-    if (weekday !== 0 && weekday !== 6) count++;
+  for (let d = Date.parse(`${from}T00:00:00Z`) + DAY_MS; d <= Date.parse(`${to}T00:00:00Z`); d += DAY_MS) {
+    if (isBusinessDay(new Date(d).toISOString().slice(0, 10) as IsoDate)) count++;
   }
   return count;
 }

@@ -144,6 +144,14 @@ describe("the stale quote", () => {
     expect(projectPortfolio(state, "2026-09-28").staleQuote).toBe(true); // Monday: 6
   });
 
+  it("a national holiday doesn't count", () => {
+    // From Friday 13/11 to Monday 23/11: 16, 17, 18, 19 and 23, with Friday 20/11 a holiday.
+    const state = run(bought, recordQuotes(quote(1, 36, "2026-11-13T18:00:00")));
+
+    expect(projectPortfolio(state, "2026-11-23").staleQuote).toBe(false);
+    expect(projectPortfolio(state, "2026-11-24").staleQuote).toBe(true);
+  });
+
   it("an asset with no position doesn't raise the portfolio's warning", () => {
     const state = run(withAssets(["PETR4", "domestic-stocks"]), recordQuotes(quote(1, 36, "2026-09-01T09:00:00")));
 

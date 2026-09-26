@@ -209,6 +209,14 @@ describe("the current exchange rate", () => {
     expect(projectPortfolio(fresh, TODAY).staleExchangeRate).toBe(false);
   });
 
+  it("a national holiday doesn't count toward an old rate", () => {
+    // From Friday 13/11 to Monday 23/11: 16, 17, 18, 19 and 23, with Friday 20/11 a holiday.
+    const state = run(bought, recordQuotes([quote(1, 230)], rate(5.4, "2026-11-13T18:00:00")));
+
+    expect(projectPortfolio(state, "2026-11-23").staleExchangeRate).toBe(false);
+    expect(projectPortfolio(state, "2026-11-24").staleExchangeRate).toBe(true);
+  });
+
   it("with no position in dollars, an old rate doesn't warn", () => {
     const state = run(withAssets(["AAPL", "international-stocks"]), recordQuotes([], rate(5.4, "2026-09-01T09:00:00")));
 
