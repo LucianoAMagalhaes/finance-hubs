@@ -129,7 +129,7 @@ describe("correcting and deleting an action", () => {
     const corrected = run(state, { ...saved!, date: "2026-03-11", ratio: { from: 1, to: 5 } });
 
     expect(corrected.corporateActions).toEqual([
-      { id: saved!.id, asset: saved!.asset, kind: "split", date: "2026-03-11", ratio: { from: 1, to: 5 } },
+      { id: saved!.id, asset: saved!.asset, kind: "split", date: "2026-03-11", ratio: { from: 1, to: 5 }, status: "confirmed" },
     ]);
     expect(asset(corrected, "PETR4").quantity).toBe(decimal(200));
   });

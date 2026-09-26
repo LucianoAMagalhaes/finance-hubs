@@ -50,6 +50,8 @@ const toCorporateAction = (row: CorporateActionRow): CorporateAction => ({
   kind: row.kind as CorporateAction["kind"],
   date: row.date as CorporateAction["date"],
   ratio: { from: row.ratioFrom, to: row.ratioTo },
+  status: row.status as CorporateAction["status"],
+  ...(row.origin !== null && { origin: row.origin }),
 });
 
 const toPayout = (row: PayoutRow): Payout => ({
@@ -122,7 +124,7 @@ export function save(tx: Connection, state: PortfolioState): void {
     tx.insert(trade).values(row).onConflictDoUpdate({ target: trade.id, set: row }).run();
   }
   for (const { ratio, ...c } of state.corporateActions) {
-    const row: CorporateActionRow = { ...c, ratioFrom: ratio.from, ratioTo: ratio.to };
+    const row: CorporateActionRow = { ...c, ratioFrom: ratio.from, ratioTo: ratio.to, origin: c.origin ?? null };
     tx.insert(corporateAction).values(row).onConflictDoUpdate({ target: corporateAction.id, set: row }).run();
   }
   for (const o of state.payoutOrigins) {

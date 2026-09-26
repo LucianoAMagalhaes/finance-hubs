@@ -47,8 +47,8 @@ export const trade = sqliteTable("trade", {
 
 /**
  * A split, reverse split or bonus of an asset, on its date. The quantity
- * becomes `quantity × ratio_to ÷ ratio_from`. Deleted for good, and with its
- * asset: there is no trash mark.
+ * becomes `quantity × ratio_to ÷ ratio_from` once confirmed. Deleted for good,
+ * and with its asset: there is no trash mark.
  */
 export const corporateAction = sqliteTable("corporate_action", {
   id: integer("id").primaryKey(),
@@ -61,6 +61,10 @@ export const corporateAction = sqliteTable("corporate_action", {
   /** The ratio as the company announces it: "1 para 4" is 1 → 4, "1 nova para cada 10" is 10 → 11. */
   ratioFrom: integer("ratio_from").notNull(),
   ratioTo: integer("ratio_to").notNull(),
+  /** "pending", "confirmed" or "dismissed"; a dismissed one stays so the source never proposes it again. */
+  status: text("status").notNull().default("confirmed"),
+  /** The source's proposal it came from ("2026-03-10 1:4"); null on one entered by hand. */
+  origin: text("origin"),
 });
 
 /**
@@ -123,7 +127,7 @@ export const currentExchangeRate = sqliteTable("current_exchange_rate", {
 
 /** The time of the last successful fetch of each kind, one row per kind ever fetched. */
 export const lastFetch = sqliteTable("last_fetch", {
-  /** "quotes" or "payouts". */
+  /** "quotes", "payouts" or "corporate-actions". */
   kind: text("kind").primaryKey(),
   at: text("at").notNull(),
 });

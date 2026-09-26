@@ -17,7 +17,7 @@ import type { Trade, TradeKind } from "./trades";
 // always in reais; the dollars are only to show.
 
 /** What the table's row says about the asset beyond its numbers. Each tag arrives with the ticket that sets it. */
-export type AssetTag = "no-quote" | "no-exchange-rate" | "stale-quote" | "zero-position";
+export type AssetTag = "no-quote" | "no-exchange-rate" | "stale-quote" | "pending-corporate-action" | "zero-position";
 
 /** A quote or a current exchange rate older than this many business days is stale: it still gives the current value. */
 const STALE_AFTER_BUSINESS_DAYS = 5;
@@ -98,8 +98,10 @@ export type AssetView = {
   tags: AssetTag[];
   /** Newest first; on the same date, the last entered first. */
   trades: TradeView[];
-  /** Newest first; on the same date, the last entered first. They count before the trades of their date. */
+  /** The confirmed ones, newest first; on the same date, the last entered first. They count before the trades of their date. */
   corporateActions: CorporateActionView[];
+  /** What the source proposed and the person hasn't decided, newest first; they don't count yet. */
+  pendingCorporateActions: CorporateActionView[];
   /** Newest first; on the same date, the last entered first. */
   payouts: PayoutView[];
 };
@@ -213,6 +215,8 @@ function projectAsset(
   if (!quote) tags.push("no-quote");
   if (currency === "USD" && !rate) tags.push("no-exchange-rate");
   if (quote && isStale(quote.at, today)) tags.push("stale-quote");
+  const pending = corporateActions.filter((c) => c.status === "pending");
+  if (pending.length > 0) tags.push("pending-corporate-action");
   if (zero) tags.push("zero-position");
   const payoutsReceived = payouts.reduce((s, p) => s + p.amount, 0);
   const totalGain = (unrealizedGain ?? 0) + realizedGain + payoutsReceived;
@@ -245,14 +249,18 @@ function projectAsset(
         dollarTotal: currency === "USD" ? tradeTotal(t) : null,
         realizedGain: realizedGainBySale.get(t.id) ?? null,
       })),
-    corporateActions: inHistoryOrder(corporateActions)
-      .reverse()
-      .map(({ id, date, kind, ratio }) => ({ id, date, kind, ratio })),
+    corporateActions: actionViews(corporateActions.filter((c) => c.status === "confirmed")),
+    pendingCorporateActions: actionViews(pending),
     payouts: inHistoryOrder(payouts)
       .reverse()
       .map(({ id, date, kind, amount }) => ({ id, date, kind, amount })),
   };
 }
+
+const actionViews = (actions: CorporateAction[]): CorporateActionView[] =>
+  inHistoryOrder(actions)
+    .reverse()
+    .map(({ id, date, kind, ratio }) => ({ id, date, kind, ratio }));
 
 /** The dollars' replay, valued by the quote in dollars, or at cost with no quote. */
 function inDollars({ position, realizedGain }: Replay, quoted: Cents | null): DollarView {

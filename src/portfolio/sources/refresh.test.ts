@@ -12,7 +12,7 @@ import {
   type PortfolioCommand,
   type PortfolioState,
 } from "@/portfolio/domain";
-import { refresh, SourceError, type AnnouncedPayout, type Sources } from "@/portfolio/sources";
+import { refresh, SourceError, type AnnouncedCorporateAction, type AnnouncedPayout, type Sources } from "@/portfolio/sources";
 
 const NOW: IsoDateTime = "2026-09-25T14:32:00";
 
@@ -260,7 +260,98 @@ describe("refreshing the payouts", () => {
   });
 });
 
+describe("refreshing the corporate actions", () => {
+  it("asks the assets that have them and had a position, the B3's by their ISIN and the American by the ticker, and records what came", async () => {
+    const state = run(
+      withIsins(
+        ["PETR4", "domestic-stocks", "BRPETRACNPR6"],
+        ["HGLG11", "real-estate-funds", "BRHGLGCTF004"],
+        ["AAPL", "international-stocks", null],
+        ["BOVA11", "domestic-stocks", null],
+        ["VALE3", "domestic-stocks", "BRVALEACNOR0"],
+        ["BTC", "crypto", "bitcoin"],
+      ),
+      buy(1, "2026-01-10"),
+      sell(1, "2026-02-10"),
+      buy(2, "2026-01-10"),
+      buy(3, "2026-01-10", 10, 200, 50_000),
+      buy(4, "2026-01-10"),
+      buy(6, "2026-01-10"),
+      recordQuotes([1, NOW], [2, NOW], [3, NOW], [4, NOW], [5, NOW], [6, NOW]),
+      recordRate(NOW),
+      { type: "record-fetch", kind: "payouts", at: NOW },
+    );
+    const sources = fakeSources({}, undefined, {}, { PETR4: [], HGLG11: [split], AAPL: [reverseSplit] });
+
+    const commands = await refresh(state, sources, NOW, false);
+
+    expect(sources.askedActions).toEqual(["PETR4 BRPETRACNPR6", "HGLG11 BRHGLGCTF004", "AAPL null"]);
+    expect(commands).toEqual([
+      { type: "record-source-corporate-actions", actions: [{ asset: 2, ...split }, { asset: 3, ...reverseSplit }] },
+      { type: "record-fetch", kind: "corporate-actions", at: NOW },
+    ]);
+    expect(run(state, ...commands).corporateActions.map((c) => [c.asset, c.date, c.status])).toEqual([
+      [2, "2026-03-10", "pending"],
+      [3, "2026-04-10", "pending"],
+    ]);
+  });
+
+  it("asks again only after more than a day, and forced asks however fresh", async () => {
+    const fetched = (at: string) =>
+      run(withAssets(["AAPL", "international-stocks"]), buy(1, "2026-01-10", 10, 200, 50_000), recordQuotes([1, NOW]), recordRate(NOW), {
+        type: "record-fetch",
+        kind: "corporate-actions",
+        at: at as IsoDateTime,
+      });
+
+    const fresh = fakeSources({}, undefined, {}, { AAPL: [] });
+    expect(await refresh(fetched("2026-09-24T14:32:00"), fresh, NOW, false)).toEqual([]);
+    expect(fresh.askedActions).toEqual([]);
+
+    const old = fakeSources({}, undefined, {}, { AAPL: [] });
+    await refresh(fetched("2026-09-24T14:31:59"), old, NOW, false);
+    expect(old.askedActions).toEqual(["AAPL null"]);
+
+    const forced = fakeSources({ AAPL: decimal(200) }, exchangeRate(5.3), {}, { AAPL: [] });
+    await refresh(fetched("2026-09-25T14:00:00"), forced, NOW, true);
+    expect(forced.askedActions).toEqual(["AAPL null"]);
+  });
+
+  it("a failure is silent: what came is recorded, but the fetch isn't, so the next opening asks again", async () => {
+    const state = run(
+      withIsins(["PETR4", "domestic-stocks", "BRPETRACNPR6"], ["AAPL", "international-stocks", null]),
+      buy(1, "2026-01-10"),
+      buy(2, "2026-01-10", 10, 200, 50_000),
+      recordQuotes([1, NOW], [2, NOW]),
+      recordRate(NOW),
+      { type: "record-fetch", kind: "payouts", at: NOW },
+    );
+
+    const oneFails = fakeSources({}, undefined, {}, { PETR4: new SourceError("The B3 didn't answer."), AAPL: [reverseSplit] });
+    expect(await refresh(state, oneFails, NOW, false)).toEqual([{ type: "record-source-corporate-actions", actions: [{ asset: 2, ...reverseSplit }] }]);
+
+    const allFail = fakeSources({}, undefined, {}, { PETR4: new SourceError("The B3 didn't answer."), AAPL: new TypeError("fetch failed") });
+    expect(await refresh(state, allFail, NOW, false)).toEqual([]);
+  });
+
+  it("a failure of the corporate actions doesn't stop the quotes", async () => {
+    const state = run(withIsins(["PETR4", "domestic-stocks", "BRPETRACNPR6"]), buy(1, "2026-01-10"), { type: "record-fetch", kind: "payouts", at: NOW });
+    const sources = fakeSources({ PETR4: decimal(37) }, undefined, {}, { PETR4: new SourceError("The B3 didn't answer.") });
+
+    expect(await refresh(state, sources, NOW, false)).toEqual([
+      { type: "record-quotes", quotes: [{ asset: 1, price: decimal(37), at: NOW }] },
+      { type: "record-fetch", kind: "quotes", at: NOW },
+    ]);
+  });
+});
+
 // ---------------------------------------------------------------- helpers
+
+/** HGLG11's split of 1 into 10. */
+const split: AnnouncedCorporateAction = { kind: "split", date: "2026-03-10", ratio: { from: 1, to: 10 } };
+
+/** A reverse split of 8 into 1. */
+const reverseSplit: AnnouncedCorporateAction = { kind: "reverse-split", date: "2026-04-10", ratio: { from: 8, to: 1 } };
 
 /** PETR4's dividend of R$ 0,47156696 per share, paid; R$ 47,16 for 100 shares. */
 const dividend: AnnouncedPayout = { kind: "dividend", recordDate: "2026-08-21", paymentDate: "2026-09-21", perUnit: decimal(0.47156696) };
@@ -269,18 +360,21 @@ const dividend: AnnouncedPayout = { kind: "dividend", recordDate: "2026-08-21", 
 const fundIncome: AnnouncedPayout = { kind: "fund-income", recordDate: "2026-08-31", paymentDate: "2026-09-15", perUnit: decimal(1.17) };
 
 /**
- * A port that answers each ticker's quote and payouts from the tables, and the
- * current exchange rate with `rate`, or fails with their error, and remembers
- * what it was asked.
+ * A port that answers each ticker's quote, payouts and corporate actions from
+ * the tables, and the current exchange rate with `rate`, or fails with their
+ * error, and remembers what it was asked: the corporate actions apart.
  */
 function fakeSources(
   answers: Record<string, Decimal | Error>,
   rate: ExchangeRate | Error = new Error("Nobody asked for the rate."),
   payouts: Record<string, AnnouncedPayout[] | Error> = {},
-): Sources & { asked: string[] } {
+  actions: Record<string, AnnouncedCorporateAction[] | Error> = {},
+): Sources & { asked: string[]; askedActions: string[] } {
   const asked: string[] = [];
+  const askedActions: string[] = [];
   return {
     asked,
+    askedActions,
     async latestQuote({ ticker }) {
       asked.push(ticker);
       const answer = answers[ticker];
@@ -300,6 +394,13 @@ function fakeSources(
       if (answer instanceof Error) throw answer;
       return answer;
     },
+    async corporateActions({ ticker, sourceId }) {
+      askedActions.push(`${ticker} ${sourceId}`);
+      const answer = actions[ticker];
+      if (answer === undefined) throw new Error(`Nobody asked for the corporate actions of ${ticker}.`);
+      if (answer instanceof Error) throw answer;
+      return answer;
+    },
     tickerExists: notAsked,
     isin: notAsked,
     searchCrypto: notAsked,
@@ -308,7 +409,7 @@ function fakeSources(
 }
 
 async function notAsked(): Promise<never> {
-  throw new Error("The refresh only asks for quotes, the current exchange rate and payouts.");
+  throw new Error("The refresh only asks for quotes, the current exchange rate, payouts and corporate actions.");
 }
 
 function withIsins(...assets: [string, AssetClass, string | null][]): PortfolioState {

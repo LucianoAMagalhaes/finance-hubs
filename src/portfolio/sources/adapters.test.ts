@@ -2,12 +2,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { decimal, exchangeRate } from "@/portfolio/domain";
 import {
+  b3CorporateActions,
   b3Isin,
   b3Payouts,
   bcbSellingPtax,
   coinGeckoQuote,
   coinGeckoSearch,
   SourceError,
+  yahooCorporateActions,
   yahooExchangeRate,
   yahooQuote,
   yahooTickerExists,
@@ -257,6 +259,108 @@ describe("the B3's payouts", () => {
     await expect(b3Payouts(asset, fakeFetch(withRow({ ...good, lastDatePrior: "2026-08-21" })))).rejects.toThrow(SourceError);
     await expect(b3Payouts(asset, fakeFetch(withRow({ ...good, paymentDate: "31/02/2026" })))).rejects.toThrow(SourceError);
     await expect(b3Payouts(asset, failingFetch())).rejects.toThrow(SourceError);
+  });
+});
+
+describe("the B3's corporate actions", () => {
+  it("a company's come from its supplement, only the ISIN's: a split and a bonus in percent, a reverse split as the multiplier", async () => {
+    const fetch = routedFetch({ GetListedSupplementCompany: recorded("b3-company-supplement-petr.json") });
+
+    const actions = await b3CorporateActions({ ticker: "PETR4", assetClass: "domestic-stocks", sourceId: "BRPETRACNPR6" }, fetch);
+
+    expect(fetch.asked.map(decodeB3)).toEqual([["GetListedSupplementCompany", { issuingCompany: "PETR", language: "pt-br" }]]);
+    // Each counts from the first weekday after the record date.
+    expect(actions).toEqual([
+      // "100,00000000000": 100% more, 1 → 2 (record date on Friday 25/04/2008).
+      { kind: "split", date: "2008-04-28", ratio: { from: 1, to: 2 } },
+      // "0,01000000000": the multiplier, 100 → 1.
+      { kind: "reverse-split", date: "2000-06-22", ratio: { from: 100, to: 1 } },
+      // "33,33333333300": a third more, 1 new for each 3.
+      { kind: "bonus", date: "1994-03-28", ratio: { from: 3, to: 4 } },
+    ]);
+  });
+
+  it("a FII's come from the fund's supplement", async () => {
+    const fetch = routedFetch({ GetListedSupplementFunds: recorded("b3-funds-supplement-hglg.json") });
+
+    const actions = await b3CorporateActions({ ticker: "HGLG11", assetClass: "real-estate-funds", sourceId: "BRHGLGCTF004" }, fetch);
+
+    // "900,00000000000": 900% more, 1 → 10.
+    expect(actions).toEqual([{ kind: "split", date: "2018-04-18", ratio: { from: 1, to: 10 } }]);
+  });
+
+  it("a bonus in another ISIN, and what doesn't change the number of units, are left out", async () => {
+    const isin = "BRPETRACNPR6";
+    const rows = [
+      { isinCode: isin, assetIssued: "BRPETRACNOR9", label: "BONIFICACAO", factor: "10,00000000000", lastDatePrior: "10/03/2026" },
+      { isinCode: isin, assetIssued: isin, label: "CIS RED CAP", factor: "5,00000000000", lastDatePrior: "10/03/2026" },
+      { isinCode: isin, assetIssued: isin, label: "BONIFICACAO", factor: "10,00000000000", lastDatePrior: "10/03/2026" },
+    ];
+
+    const actions = await b3CorporateActions({ ticker: "PETR4", assetClass: "domestic-stocks", sourceId: isin }, fakeFetch(JSON.stringify([{ stockDividends: rows }])));
+
+    expect(actions).toEqual([{ kind: "bonus", date: "2026-03-11", ratio: { from: 10, to: 11 } }]);
+  });
+
+  it("a company or a fund the B3 answers nothing for brings none", async () => {
+    expect(await b3CorporateActions({ ticker: "XPTO3", assetClass: "domestic-stocks", sourceId: "BRXPTOACNOR0" }, fakeFetch(""))).toEqual([]);
+    expect(await b3CorporateActions({ ticker: "XPTO11", assetClass: "real-estate-funds", sourceId: "BRXPTOCTF000" }, fakeFetch(""))).toEqual([]);
+  });
+
+  it("an asset with no ISIN, an error status, a changed format or a network failure is a failure, never an empty list", async () => {
+    const asset = { ticker: "PETR4", assetClass: "domestic-stocks", sourceId: "BRPETRACNPR6" } as const;
+    const withRow = (row: object) =>
+      JSON.stringify([{ stockDividends: [{ isinCode: "BRPETRACNPR6", assetIssued: "BRPETRACNPR6", label: "DESDOBRAMENTO", ...row }] }]);
+    const good = { lastDatePrior: "25/04/2008", factor: "100,00000000000" };
+
+    expect(await b3CorporateActions(asset, fakeFetch(withRow(good)))).toHaveLength(1);
+    await expect(b3CorporateActions({ ...asset, sourceId: null }, fakeFetch(recorded("b3-company-supplement-petr.json")))).rejects.toThrow(SourceError);
+    await expect(b3CorporateActions(asset, fakeFetch("Service Unavailable", 503))).rejects.toThrow(SourceError);
+    await expect(b3CorporateActions(asset, fakeFetch('[{"code":"PETR"}]'))).rejects.toThrow(SourceError);
+    await expect(b3CorporateActions(asset, fakeFetch(withRow({ ...good, factor: "100" })))).rejects.toThrow(SourceError);
+    await expect(b3CorporateActions(asset, fakeFetch(withRow({ ...good, factor: "0,00000000000" })))).rejects.toThrow(SourceError);
+    await expect(b3CorporateActions(asset, fakeFetch(withRow({ ...good, factor: "0,31415926535" })))).rejects.toThrow(SourceError);
+    await expect(b3CorporateActions(asset, fakeFetch(withRow({ ...good, lastDatePrior: "2008-04-25" })))).rejects.toThrow(SourceError);
+    await expect(b3CorporateActions(asset, failingFetch())).rejects.toThrow(SourceError);
+  });
+});
+
+describe("Yahoo's corporate actions", () => {
+  it("are an American stock's splits over its whole history, by the ex date, as the smallest integers", async () => {
+    const fetch = fakeFetch(recorded("yahoo-splits-ge.json"));
+
+    const actions = await yahooCorporateActions({ ticker: "GE", assetClass: "international-stocks" }, fetch);
+
+    expect(fetch.asked).toEqual(["https://query2.finance.yahoo.com/v8/finance/chart/GE?interval=3mo&range=max&events=split"]);
+    expect(actions).toHaveLength(10);
+    expect(actions.slice(-4)).toEqual([
+      // A spin-off Yahoo adjusts as a split, "104:100": the person dismisses it.
+      { kind: "split", date: "2019-02-26", ratio: { from: 25, to: 26 } },
+      // "1:8": a reverse split, 8 → 1.
+      { kind: "reverse-split", date: "2021-08-02", ratio: { from: 8, to: 1 } },
+      { kind: "split", date: "2023-01-04", ratio: { from: 1000, to: 1281 } },
+      { kind: "split", date: "2024-04-02", ratio: { from: 1000, to: 1253 } },
+    ]);
+    expect(actions[5]).toEqual({ kind: "split", date: "2000-05-08", ratio: { from: 1, to: 3 } });
+  });
+
+  it("a chart with no split brings none", async () => {
+    expect(await yahooCorporateActions({ ticker: "KO", assetClass: "international-stocks" }, fakeFetch(recorded("yahoo-chart-ko.json")))).toEqual([]);
+  });
+
+  it("an error status, a changed format or a network failure is a failure, never an empty list", async () => {
+    const asset = { ticker: "GE", assetClass: "international-stocks" } as const;
+    const withSplit = (split: object) => JSON.stringify({ chart: { result: [{ meta: { gmtoffset: -14400 }, events: { splits: { 1: split } } }] } });
+
+    expect(await yahooCorporateActions(asset, fakeFetch(withSplit({ date: 1627911000, numerator: 1.5, denominator: 1 })))).toEqual([
+      { kind: "split", date: "2021-08-02", ratio: { from: 2, to: 3 } },
+    ]);
+    await expect(yahooCorporateActions(asset, fakeFetch(recorded("yahoo-chart-not-found.json"), 404))).rejects.toThrow(SourceError);
+    await expect(yahooCorporateActions(asset, fakeFetch("Too Many Requests", 429))).rejects.toThrow(SourceError);
+    await expect(yahooCorporateActions(asset, fakeFetch('{"chart":{"result":[]}}'))).rejects.toThrow(SourceError);
+    await expect(yahooCorporateActions(asset, fakeFetch(withSplit({ date: 1627911000, numerator: 1, denominator: 0 })))).rejects.toThrow(SourceError);
+    await expect(yahooCorporateActions(asset, fakeFetch(withSplit({ numerator: 2, denominator: 1 })))).rejects.toThrow(SourceError);
+    await expect(yahooCorporateActions(asset, failingFetch())).rejects.toThrow(SourceError);
   });
 });
 

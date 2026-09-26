@@ -21,8 +21,10 @@ export {
   hasCorporateActions,
   type CorporateAction,
   type CorporateActionKind,
+  type CorporateActionStatus,
   type CorporateActionToSave,
   type Ratio,
+  type SourceCorporateAction,
 } from "./corporateActions";
 export { PAYOUT_KINDS, type Payout, type PayoutKind, type PayoutOrigin, type PayoutToSave, type SourcePayout } from "./payouts";
 export { tradeAmount } from "./position";

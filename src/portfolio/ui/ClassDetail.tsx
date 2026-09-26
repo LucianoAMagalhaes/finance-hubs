@@ -12,6 +12,8 @@ import {
   type IsoDate,
   type TradeView,
 } from "@/portfolio/domain";
+import { Refusal } from "@/ui/Refusal";
+import { useAction } from "@/ui/useAction";
 import { describeRatio } from "./corporateActionDraft";
 import {
   classColor,
@@ -29,6 +31,9 @@ import {
   ToTarget,
 } from "./parts";
 
+/** What the person decides of a corporate action the source proposed. */
+type Decision = "confirm" | "dismiss";
+
 type Props = {
   c: ClassView;
   today: IsoDate;
@@ -42,6 +47,8 @@ type Props = {
   editTrade: (trade: number) => void;
   /** Opens the correction of the corporate action. */
   editAction: (action: number) => void;
+  /** Confirms or dismisses a pending corporate action; returns the refusal, or null. */
+  decideAction: (action: number, decision: Decision) => Promise<string | null>;
   /** Opens a new payout of the asset. */
   newPayout: (asset: number) => void;
   /** Opens the correction of the payout. */
@@ -59,7 +66,7 @@ type Props = {
  * asset in dollars shows its prices in dollars, and its average price, value
  * and gain in both currencies; the class's numbers stay in reais.
  */
-export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, editAction, newPayout, editPayout, editAsset, deleteAsset }: Props) {
+export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, editAction, decideAction, newPayout, editPayout, editAsset, deleteAsset }: Props) {
   return (
     <section className="detail class-detail" aria-label={c.name} style={classColor(c.key)}>
       <header>
@@ -109,6 +116,7 @@ export function ClassDetail({ c, today, expanded, expand, close, newTrade, editT
                   newTrade={() => newTrade(a.id)}
                   editTrade={editTrade}
                   editAction={editAction}
+                  decideAction={decideAction}
                   newPayout={() => newPayout(a.id)}
                   editPayout={editPayout}
                   editAsset={() => editAsset(a.id)}
@@ -131,6 +139,7 @@ type RowProps = {
   newTrade: () => void;
   editTrade: (trade: number) => void;
   editAction: (action: number) => void;
+  decideAction: (action: number, decision: Decision) => Promise<string | null>;
   newPayout: () => void;
   editPayout: (payout: number) => void;
   editAsset: () => void;
@@ -215,10 +224,13 @@ function tradesAndActions(a: AssetView): ({ trade: TradeView } | { action: Corpo
  * The asset's trades, corporate actions and payouts, newest first; clicking
  * one opens its correction. In dollars, each trade shows its exchange rate and
  * its total in dollars and in reais. An action has no price: only its ratio.
+ * What the source proposed comes on top, to be confirmed or dismissed there.
  */
-function History({ a, newTrade, editTrade, editAction, newPayout, editPayout, editAsset, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
+function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, editPayout, editAsset, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
   const dollar = a.currency === "USD";
   const entries = tradesAndActions(a);
+  const { run, running, refusal } = useAction();
+  const decide = (action: number, decision: Decision) => run(() => decideAction(action, decision));
   return (
     <div className="history">
       <div className="history-head">
@@ -235,7 +247,8 @@ function History({ a, newTrade, editTrade, editAction, newPayout, editPayout, ed
           </button>
         </span>
       </div>
-      {entries.length === 0 ? (
+      <Refusal refusal={refusal} />
+      {entries.length === 0 && a.pendingCorporateActions.length === 0 ? (
         <p className="history-empty">Nenhuma operação. O ativo existe com quantidade zero.</p>
       ) : (
         <table className="ops">
@@ -250,6 +263,25 @@ function History({ a, newTrade, editTrade, editAction, newPayout, editPayout, ed
             </tr>
           </thead>
           <tbody>
+            {a.pendingCorporateActions.map((e) => (
+              <tr key={`pending-${e.id}`} className="pending-action">
+                <td className="num">{formatDate(e.date)}</td>
+                <td colSpan={dollar ? 5 : 4}>
+                  <span className="trade-kind corporate-action">
+                    {CORPORATE_ACTION_NAMES[e.kind]} {describeRatio(e.kind, e.ratio)}
+                  </span>
+                  <span className="pending-note">proposto pela fonte</span>
+                  <span className="pending-buttons">
+                    <button type="button" className="btn primary" disabled={running} onClick={() => decide(e.id, "confirm")}>
+                      Confirmar
+                    </button>
+                    <button type="button" className="btn" disabled={running} onClick={() => decide(e.id, "dismiss")}>
+                      Descartar
+                    </button>
+                  </span>
+                </td>
+              </tr>
+            ))}
             {entries.map((entry) => {
               if ("action" in entry) {
                 const e = entry.action;

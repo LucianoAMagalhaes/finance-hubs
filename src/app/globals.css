@@ -1468,6 +1468,21 @@ dialog.sheet.trash {
   background: transparent;
   border: 1px solid var(--line);
 }
+/* a corporate action the source proposed, on top of the trades until the person decides */
+.ops .pending-action td {
+  background: var(--warn-bg);
+  vertical-align: middle;
+}
+.pending-note {
+  margin-left: 8px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.pending-buttons {
+  float: right;
+  display: inline-flex;
+  gap: 6px;
+}
 /* the ratio as the company announces it: "1 para 4", "1 nova para cada 10" */
 .ratio-fields {
   display: grid;

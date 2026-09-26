@@ -250,6 +250,9 @@ function fakeSources({ known = [], isins = {}, coins = {} }: Answers): Sources &
     async payouts() {
       throw new Error("The check doesn't ask for payouts.");
     },
+    async corporateActions() {
+      throw new Error("The check doesn't ask for corporate actions.");
+    },
     async sellingPtax() {
       throw new Error("The check doesn't ask for the PTAX.");
     },

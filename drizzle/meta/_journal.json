@@ -113,6 +113,13 @@
       "when": 1790428674450,
       "tag": "0015_portfolio_corporate_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1790432007911,
+      "tag": "0016_portfolio_corporate_action_proposals",
+      "breakpoints": true
     }
   ]
 }

@@ -14,7 +14,7 @@ export type Quote = { asset: number; price: Decimal; at: IsoDateTime };
 export type QuoteToRecord = Quote;
 
 /** What the portfolio fetches from outside. Each kind arrives with the ticket that fetches it. */
-export const FETCH_KINDS = ["quotes", "payouts"] as const;
+export const FETCH_KINDS = ["quotes", "payouts", "corporate-actions"] as const;
 export type FetchKind = (typeof FETCH_KINDS)[number];
 
 /** The time of the last successful fetch of each kind; a kind never fetched is absent. */

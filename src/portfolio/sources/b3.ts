@@ -1,7 +1,7 @@
-import { DECIMAL_PLACES, type Decimal, type PayoutKind } from "@/portfolio/domain";
+import { DECIMAL_PLACES, type CorporateActionKind, type Decimal, type PayoutKind, type Ratio } from "@/portfolio/domain";
 import { isValidDate, type IsoDate } from "@/shared";
 import { getJson } from "./http";
-import { SourceError, type AnnouncedPayout, type SourcedAsset } from "./port";
+import { SourceError, type AnnouncedCorporateAction, type AnnouncedPayout, type SourcedAsset } from "./port";
 
 // The JSON the B3's own site reads, with no key. Not a documented API, and its
 // terms allow only personal use: a risk accepted in the map (#59). Each call
@@ -92,6 +92,65 @@ function payoutKind(label: unknown, fund: boolean): PayoutKind | null {
     default:
       return null;
   }
+}
+
+/**
+ * Every split, reverse split and bonus the B3 lists for the asset's ISIN, from
+ * the same supplement as the payouts (`stockDividends`). A bonus paid in
+ * another ISIN, like common shares to the preferred's holders, isn't a ratio
+ * of the asset, and is left out. Each counts from the day after the record
+ * date ("data-com"): the first weekday, when the asset trades "ex".
+ */
+export async function b3CorporateActions(asset: SourcedAsset, fetchFn: typeof fetch = fetch): Promise<AnnouncedCorporateAction[]> {
+  const isin = asset.sourceId;
+  if (!isin) throw new SourceError(`B3 corporate actions ${asset.ticker}: the asset has no ISIN.`);
+  const supplement =
+    asset.assetClass === "real-estate-funds" ? await fundSupplement(asset.ticker, fetchFn) : await companySupplement(asset.ticker, fetchFn);
+  if (supplement === null) return [];
+  const rows = supplement.stockDividends;
+  if (!Array.isArray(rows)) throw new SourceError(`B3 corporate actions ${asset.ticker}: no stock dividends in the answer.`);
+
+  const actions: AnnouncedCorporateAction[] = [];
+  for (const row of rows as Record<string, unknown>[]) {
+    if (row?.isinCode !== isin || row.assetIssued !== isin) continue;
+    const kind = ACTION_KINDS[String(row.label)];
+    if (!kind) continue;
+    const where = `B3 corporate actions ${asset.ticker}`;
+    actions.push({ kind, date: firstWeekdayAfter(dateFrom(row.lastDatePrior, where)), ratio: ratioFrom(kind, row.factor, where) });
+  }
+  return actions;
+}
+
+/** The B3's labels of what changes the number of units; the rest (a subscription, a capital reduction) isn't a corporate action. */
+const ACTION_KINDS: Record<string, CorporateActionKind> = { DESDOBRAMENTO: "split", GRUPAMENTO: "reverse-split", BONIFICACAO: "bonus" };
+
+/** The largest `from` a ratio is looked for with: no split or bonus the B3 lists needs more. */
+const MAX_RATIO_FROM = 1000;
+
+/**
+ * The B3's factor as a ratio from → to. A split's and a bonus's come in
+ * percent of what is added ("100,00000000000" is 1 → 2, "33,33333333300" is
+ * 3 → 4), a reverse split's as the multiplier ("0,01000000000" is 100 → 1).
+ * The ratio is the smallest two integers that give the factor to the
+ * precision the B3 writes; anything else is a format failure.
+ */
+function ratioFrom(kind: CorporateActionKind, factor: unknown, where: string): Ratio {
+  const m = typeof factor === "string" ? /^(\d+),(\d+)$/.exec(factor) : null;
+  const value = m ? Number(`${m[1]}.${m[2]}`) : NaN;
+  const multiplier = kind === "reverse-split" ? value : 1 + value / 100;
+  for (let from = 1; multiplier > 0 && from <= MAX_RATIO_FROM; from++) {
+    const to = Math.round(multiplier * from);
+    if (to > 0 && to !== from && Math.abs(multiplier * from - to) < 1e-9) return { from, to };
+  }
+  throw new SourceError(`${where}: "${String(factor)}" isn't a ratio.`);
+}
+
+/** The first Monday to Friday after the date. */
+function firstWeekdayAfter(date: IsoDate): IsoDate {
+  const day = new Date(`${date}T00:00:00Z`);
+  do day.setUTCDate(day.getUTCDate() + 1);
+  while (day.getUTCDay() === 0 || day.getUTCDay() === 6);
+  return day.toISOString().slice(0, 10) as IsoDate;
 }
 
 /** A company's supplement, or null when the B3 answers nothing for its issuer. */

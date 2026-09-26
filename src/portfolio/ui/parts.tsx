@@ -172,6 +172,7 @@ const TAG_NAMES: Record<AssetTag, string | null> = {
   "no-quote": "sem cotação",
   "no-exchange-rate": "sem câmbio",
   "stale-quote": "cotação antiga",
+  "pending-corporate-action": "evento a confirmar",
   "zero-position": null,
 };
 

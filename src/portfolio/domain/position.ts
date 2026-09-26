@@ -55,12 +55,12 @@ const CENTS_SCALE = 1e14;
 const RATE_SCALE = 1e4;
 
 /**
- * An asset's trades and corporate actions in the order they count: date
+ * An asset's trades and confirmed corporate actions in the order they count: date
  * order, the actions of a date before its trades, and each kind in its order
  * of entry.
  */
 function historyOrder(trades: Trade[], corporateActions: CorporateAction[]): (Trade | CorporateAction)[] {
-  const actions = inHistoryOrder(corporateActions);
+  const actions = inHistoryOrder(corporateActions.filter((c) => c.status === "confirmed"));
   const history: (Trade | CorporateAction)[] = [];
   let next = 0;
   for (const t of inHistoryOrder(trades)) {

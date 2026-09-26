@@ -32,8 +32,8 @@ describe("the corporate action's draft", () => {
   });
 
   it("a saved action opens as typed, and goes back as its correction", () => {
-    const bonus = corporateActionDraftFrom({ id: 7, asset: 3, kind: "bonus", date: "2026-04-10", ratio: { from: 10, to: 13 } });
-    const split = corporateActionDraftFrom({ id: 8, asset: 3, kind: "split", date: "2026-05-10", ratio: { from: 1, to: 4 } });
+    const bonus = corporateActionDraftFrom({ id: 7, asset: 3, kind: "bonus", date: "2026-04-10", ratio: { from: 10, to: 13 }, status: "confirmed" });
+    const split = corporateActionDraftFrom({ id: 8, asset: 3, kind: "split", date: "2026-05-10", ratio: { from: 1, to: 4 }, status: "confirmed" });
 
     expect(bonus).toEqual({ id: 7, asset: 3, kind: "bonus", date: "2026-04-10", left: "3", right: "10" });
     expect(split).toMatchObject({ left: "1", right: "4" });

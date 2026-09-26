@@ -9,6 +9,7 @@ import {
   DEFAULT_TARGETS,
   emptyPortfolio,
   projectPortfolio,
+  type IsoDate,
   type PortfolioCommand,
   type PortfolioState,
   type Targets,
@@ -232,7 +233,35 @@ describe("the portfolio's persistence", () => {
 
     const reloaded = loadPortfolio(open());
     expect(reloaded).toEqual(state);
-    expect(reloaded.corporateActions).toEqual([{ id: 1, asset: 1, kind: "split", date: "2026-03-11", ratio: { from: 1, to: 5 } }]);
+    expect(reloaded.corporateActions).toEqual([{ id: 1, asset: 1, kind: "split", date: "2026-03-11", ratio: { from: 1, to: 5 }, status: "confirmed" }]);
+    expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
+  });
+
+  it("corporate actions from the source come back pending, confirmed and dismissed, with their origin", () => {
+    const database = open();
+    const proposed = (date: IsoDate, from: number, to: number) => ({ asset: 1, kind: "split" as const, date, ratio: { from, to } });
+    executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks", sourceId: "BRPETRACNPR6" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-01-10", quantity: decimal(100), unitPrice: decimal(30) } },
+      { type: "record-source-corporate-actions", actions: [proposed("2026-03-10", 1, 2), proposed("2026-05-10", 1, 3), proposed("2026-07-10", 10, 1)] },
+    );
+
+    const state = executeOk(
+      database,
+      { type: "confirm-corporate-action", id: 1 },
+      { type: "dismiss-corporate-action", id: 3 },
+      { type: "record-fetch", kind: "corporate-actions", at: "2026-09-25T14:32:07" },
+    );
+
+    const reloaded = loadPortfolio(open());
+    expect(reloaded).toEqual(state);
+    expect(reloaded.corporateActions.map((c) => [c.id, c.status, c.origin])).toEqual([
+      [1, "confirmed", "2026-03-10 1:2"],
+      [2, "pending", "2026-05-10 1:3"],
+      [3, "dismissed", "2026-07-10 10:1"],
+    ]);
+    expect(reloaded.lastFetch).toEqual({ "corporate-actions": "2026-09-25T14:32:07" });
     expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
   });
 

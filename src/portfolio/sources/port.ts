@@ -1,4 +1,4 @@
-import type { AssetClass, Decimal, ExchangeRate, IsoDate, SourcePayout } from "@/portfolio/domain";
+import type { AssetClass, Decimal, ExchangeRate, IsoDate, SourceCorporateAction, SourcePayout } from "@/portfolio/domain";
 
 /** What a source needs to know of an asset to find it; `sourceId` is its id there, when kept. */
 export type SourcedAsset = { ticker: string; assetClass: AssetClass; sourceId?: string | null };
@@ -11,6 +11,9 @@ export type Ptax = { rate: ExchangeRate; date: IsoDate };
 
 /** A payout the source announced for one unit: whoever held it at the end of the record date is paid on the payment date. */
 export type AnnouncedPayout = Omit<SourcePayout, "asset">;
+
+/** A corporate action the source announced: from its date on, the quantity becomes `quantity × to ÷ from`. */
+export type AnnouncedCorporateAction = Omit<SourceCorporateAction, "asset">;
 
 /**
  * The port of sources: what the portfolio asks outside, each question behind
@@ -31,6 +34,8 @@ export type Sources = {
   currentExchangeRate(): Promise<ExchangeRate>;
   /** Every payout the source has of a B3 stock or fund, by its ISIN, paid or only announced. */
   payouts(asset: SourcedAsset): Promise<AnnouncedPayout[]>;
+  /** Every corporate action the source has of the asset: the B3's by its ISIN, Yahoo's of an American stock. */
+  corporateActions(asset: SourcedAsset): Promise<AnnouncedCorporateAction[]>;
   /** The selling PTAX of the date or, on a day with none (weekend, holiday, today before it is published), the last one before. */
   sellingPtax(date: IsoDate): Promise<Ptax>;
 };

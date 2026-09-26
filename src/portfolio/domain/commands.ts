@@ -1,7 +1,15 @@
 import type { IsoDate, IsoDateTime, Result } from "@/shared";
 import { deleteAsset, saveAsset, type AssetToSave } from "./assets";
 import { validateTargets, type Targets } from "./classes";
-import { deleteCorporateAction, saveCorporateAction, type CorporateActionToSave } from "./corporateActions";
+import {
+  confirmCorporateAction,
+  deleteCorporateAction,
+  dismissCorporateAction,
+  recordSourceCorporateActions,
+  saveCorporateAction,
+  type CorporateActionToSave,
+  type SourceCorporateAction,
+} from "./corporateActions";
 import type { CurrentExchangeRate } from "./exchangeRate";
 import { deletePayout, recordSourcePayouts, savePayout, type PayoutToSave, type SourcePayout } from "./payouts";
 import { recordFetch, recordQuotes, type FetchKind, type QuoteToRecord } from "./quotes";
@@ -20,11 +28,14 @@ export type PortfolioCommand =
   | { type: "delete-trade"; id: number }
   | { type: "save-corporate-action"; action: CorporateActionToSave }
   | { type: "delete-corporate-action"; id: number }
+  | { type: "confirm-corporate-action"; id: number }
+  | { type: "dismiss-corporate-action"; id: number }
   | { type: "save-payout"; payout: PayoutToSave }
   | { type: "delete-payout"; id: number }
   // What the sources bring, which `refresh` turns into commands; never typed by the person.
   | { type: "record-quotes"; quotes: QuoteToRecord[]; exchangeRate?: CurrentExchangeRate }
   | { type: "record-source-payouts"; payouts: SourcePayout[] }
+  | { type: "record-source-corporate-actions"; actions: SourceCorporateAction[] }
   | { type: "record-fetch"; kind: FetchKind; at: IsoDateTime };
 
 /**
@@ -51,6 +62,10 @@ export function apply(state: PortfolioState, command: PortfolioCommand, today: I
       return saveCorporateAction(state, command.action, today);
     case "delete-corporate-action":
       return deleteCorporateAction(state, command.id);
+    case "confirm-corporate-action":
+      return confirmCorporateAction(state, command.id);
+    case "dismiss-corporate-action":
+      return dismissCorporateAction(state, command.id);
     case "save-payout":
       return savePayout(state, command.payout, today);
     case "delete-payout":
@@ -59,6 +74,8 @@ export function apply(state: PortfolioState, command: PortfolioCommand, today: I
       return recordQuotes(state, command.quotes, command.exchangeRate);
     case "record-source-payouts":
       return recordSourcePayouts(state, command.payouts, today);
+    case "record-source-corporate-actions":
+      return recordSourceCorporateActions(state, command.actions, today);
     case "record-fetch":
       return recordFetch(state, command.kind, command.at);
     default:

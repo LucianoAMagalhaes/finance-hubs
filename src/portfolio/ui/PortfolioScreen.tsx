@@ -65,16 +65,25 @@ export function PortfolioScreen({ initialState, today }: Props) {
 
   /**
    * Asks the server for what is old, or for everything when forced, and takes
-   * only the quotes and the exchange rate it brings back: a command run
-   * meanwhile keeps its result.
+   * only what the sources bring back: the quotes and the exchange rate, and
+   * the payouts and corporate actions they created. What the person saved,
+   * confirmed or dismissed meanwhile keeps its result.
    */
-  async function refreshQuotes(force: boolean) {
+  async function refreshFromSources(force: boolean) {
     setRefreshing(true);
     try {
       const fresh = await refresh(force);
-      setState((s) => ({ ...s, quotes: fresh.quotes, exchangeRate: fresh.exchangeRate, lastFetch: fresh.lastFetch }));
+      setState((s) => ({
+        ...s,
+        quotes: fresh.quotes,
+        exchangeRate: fresh.exchangeRate,
+        payouts: withCreated(s.payouts, fresh.payouts),
+        payoutOrigins: withCreated(s.payoutOrigins, fresh.payoutOrigins),
+        corporateActions: withCreated(s.corporateActions, fresh.corporateActions),
+        lastFetch: fresh.lastFetch,
+      }));
     } catch (error) {
-      console.warn("The quotes' refresh failed:", error);
+      console.warn("The refresh failed:", error);
     } finally {
       setRefreshing(false);
     }
@@ -84,7 +93,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
   useEffect(() => {
     if (refreshedOnOpen.current) return;
     refreshedOnOpen.current = true;
-    void refreshQuotes(false);
+    void refreshFromSources(false);
   }, []);
 
   const openClassDetail = (key: AssetClass | null) => {
@@ -113,7 +122,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
     setState(result.value);
     setSheet(null);
     if (asset.id === undefined) openClassDetail(asset.assetClass);
-    void refreshQuotes(false);
+    void refreshFromSources(false);
     return null;
   }
 
@@ -159,7 +168,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
           >
             + Lançar
           </button>
-          <button type="button" className="btn" disabled={refreshing} onClick={() => refreshQuotes(true)}>
+          <button type="button" className="btn" disabled={refreshing} onClick={() => refreshFromSources(true)}>
             {refreshing ? "Atualizando…" : "Atualizar"}
           </button>
         </div>
@@ -199,6 +208,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
               const action = state.corporateActions.find((c) => c.id === id);
               if (action) setSheet({ kind: "corporate-action", asset: action.asset, action: id });
             }}
+            decideAction={(id, decision) => run({ type: `${decision}-corporate-action`, id })}
             newPayout={(asset) => setSheet({ kind: "payout", asset, payout: null })}
             editPayout={(payout) => setSheet({ kind: "payout", asset: null, payout })}
             editAsset={(id) => {
@@ -378,4 +388,14 @@ function ClassCard({ c, open, toggle }: { c: ClassView; open: boolean; toggle: (
       </span>
     </button>
   );
+}
+
+/**
+ * The rows the refresh created, added to the ones on the screen: a source's
+ * new row always takes an id above every one before it, and the rows already
+ * on the screen keep what the person did to them meanwhile.
+ */
+function withCreated<T extends { id: number }>(shown: T[], fresh: T[]): T[] {
+  const last = Math.max(0, ...shown.map((r) => r.id));
+  return [...shown, ...fresh.filter((r) => r.id > last)];
 }
