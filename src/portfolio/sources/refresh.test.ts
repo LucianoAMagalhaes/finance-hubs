@@ -7,11 +7,12 @@ import {
   type AssetClass,
   type Decimal,
   type ExchangeRate,
+  type IsoDate,
   type IsoDateTime,
   type PortfolioCommand,
   type PortfolioState,
 } from "@/portfolio/domain";
-import { refresh, SourceError, type Sources } from "@/portfolio/sources";
+import { refresh, SourceError, type AnnouncedPayout, type Sources } from "@/portfolio/sources";
 
 const NOW: IsoDateTime = "2026-09-25T14:32:00";
 
@@ -161,13 +162,122 @@ describe("refreshing the current exchange rate", () => {
   });
 });
 
+describe("refreshing the payouts", () => {
+  it("asks the B3 stocks and funds that had a position, by their ISIN, and records what came with the time of the fetch", async () => {
+    const state = run(
+      withIsins(["PETR4", "domestic-stocks", "BRPETRACNPR6"], ["HGLG11", "real-estate-funds", "BRHGLGCTF004"]),
+      buy(1, "2026-08-01"),
+      buy(2, "2026-08-01"),
+      recordQuotes([1, NOW], [2, NOW]),
+    );
+    const sources = fakeSources({}, undefined, { PETR4: [dividend], HGLG11: [fundIncome] });
+
+    const commands = await refresh(state, sources, NOW, false);
+
+    expect(sources.asked).toEqual(["payouts PETR4 BRPETRACNPR6", "payouts HGLG11 BRHGLGCTF004"]);
+    expect(commands).toEqual([
+      { type: "record-source-payouts", payouts: [{ asset: 1, ...dividend }, { asset: 2, ...fundIncome }] },
+      { type: "record-fetch", kind: "payouts", at: NOW },
+    ]);
+    expect(run(state, ...commands).payouts.map((p) => [p.asset, p.date, p.amount])).toEqual([
+      [1, "2026-09-21", 4_716],
+      [2, "2026-09-15", 11_700],
+    ]);
+  });
+
+  it("only asks the assets that had a position at some moment, and only in the B3's classes with an ISIN", async () => {
+    const state = run(
+      withIsins(
+        ["PETR4", "domestic-stocks", "BRPETRACNPR6"],
+        ["VALE3", "domestic-stocks", "BRVALEACNOR0"],
+        ["BOVA11", "domestic-stocks", null],
+        ["KO", "international-stocks", null],
+        ["BTC", "crypto", "bitcoin"],
+      ),
+      buy(1, "2026-08-01"),
+      sell(1, "2026-08-10"),
+      buy(3, "2026-08-01"),
+      buy(4, "2026-08-01", 10, 50, 50_000),
+      buy(5, "2026-08-01"),
+      recordQuotes([1, NOW], [2, NOW], [3, NOW], [4, NOW], [5, NOW]),
+      recordRate(NOW),
+    );
+    const sources = fakeSources({}, undefined, { PETR4: [] });
+
+    const commands = await refresh(state, sources, NOW, false);
+
+    expect(sources.asked).toEqual(["payouts PETR4 BRPETRACNPR6"]);
+    expect(commands).toEqual([
+      { type: "record-source-payouts", payouts: [] },
+      { type: "record-fetch", kind: "payouts", at: NOW },
+    ]);
+  });
+
+  it("asks again only after more than a day, and forced asks however fresh", async () => {
+    const fetched = (at: string) =>
+      run(withIsins(["PETR4", "domestic-stocks", "BRPETRACNPR6"]), buy(1, "2026-08-01"), recordQuotes([1, NOW]), {
+        type: "record-fetch",
+        kind: "payouts",
+        at: at as IsoDateTime,
+      });
+
+    const fresh = fakeSources({}, undefined, { PETR4: [] });
+    expect(await refresh(fetched("2026-09-24T14:32:00"), fresh, NOW, false)).toEqual([]);
+    expect(fresh.asked).toEqual([]);
+
+    const old = fakeSources({}, undefined, { PETR4: [] });
+    await refresh(fetched("2026-09-24T14:31:59"), old, NOW, false);
+    expect(old.asked).toEqual(["payouts PETR4 BRPETRACNPR6"]);
+
+    const forced = fakeSources({ PETR4: decimal(37) }, undefined, { PETR4: [] });
+    await refresh(fetched("2026-09-25T14:00:00"), forced, NOW, true);
+    expect(forced.asked).toEqual(["PETR4", "payouts PETR4 BRPETRACNPR6"]);
+  });
+
+  it("a failure is silent: what came is recorded, but the fetch isn't, so the next opening asks again", async () => {
+    const state = run(
+      withIsins(["PETR4", "domestic-stocks", "BRPETRACNPR6"], ["HGLG11", "real-estate-funds", "BRHGLGCTF004"]),
+      buy(1, "2026-08-01"),
+      buy(2, "2026-08-01"),
+      recordQuotes([1, NOW], [2, NOW]),
+    );
+
+    const oneFails = fakeSources({}, undefined, { PETR4: [dividend], HGLG11: new SourceError("The B3 didn't answer.") });
+    expect(await refresh(state, oneFails, NOW, false)).toEqual([{ type: "record-source-payouts", payouts: [{ asset: 1, ...dividend }] }]);
+
+    const allFail = fakeSources({}, undefined, { PETR4: new TypeError("fetch failed"), HGLG11: new SourceError("The B3 didn't answer.") });
+    expect(await refresh(state, allFail, NOW, false)).toEqual([]);
+  });
+
+  it("a failure of the payouts doesn't stop the quotes", async () => {
+    const state = run(withIsins(["PETR4", "domestic-stocks", "BRPETRACNPR6"]), buy(1, "2026-08-01"));
+    const sources = fakeSources({ PETR4: decimal(37) }, undefined, { PETR4: new SourceError("The B3 didn't answer.") });
+
+    expect(await refresh(state, sources, NOW, false)).toEqual([
+      { type: "record-quotes", quotes: [{ asset: 1, price: decimal(37), at: NOW }] },
+      { type: "record-fetch", kind: "quotes", at: NOW },
+    ]);
+  });
+});
+
 // ---------------------------------------------------------------- helpers
 
+/** PETR4's dividend of R$ 0,47156696 per share, paid; R$ 47,16 for 100 shares. */
+const dividend: AnnouncedPayout = { kind: "dividend", recordDate: "2026-08-21", paymentDate: "2026-09-21", perUnit: decimal(0.47156696) };
+
+/** HGLG11's income of R$ 1,17 per quota, paid; R$ 117,00 for 100 quotas. */
+const fundIncome: AnnouncedPayout = { kind: "fund-income", recordDate: "2026-08-31", paymentDate: "2026-09-15", perUnit: decimal(1.17) };
+
 /**
- * A port that answers each ticker from the table, and the current exchange
- * rate with `rate`, or fails with their error, and remembers what it was asked.
+ * A port that answers each ticker's quote and payouts from the tables, and the
+ * current exchange rate with `rate`, or fails with their error, and remembers
+ * what it was asked.
  */
-function fakeSources(answers: Record<string, Decimal | Error>, rate: ExchangeRate | Error = new Error("Nobody asked for the rate.")): Sources & { asked: string[] } {
+function fakeSources(
+  answers: Record<string, Decimal | Error>,
+  rate: ExchangeRate | Error = new Error("Nobody asked for the rate."),
+  payouts: Record<string, AnnouncedPayout[] | Error> = {},
+): Sources & { asked: string[] } {
   const asked: string[] = [];
   return {
     asked,
@@ -183,6 +293,13 @@ function fakeSources(answers: Record<string, Decimal | Error>, rate: ExchangeRat
       if (rate instanceof Error) throw rate;
       return rate;
     },
+    async payouts({ ticker, sourceId }) {
+      asked.push(`payouts ${ticker} ${sourceId}`);
+      const answer = payouts[ticker];
+      if (answer === undefined) throw new Error(`Nobody asked for the payouts of ${ticker}.`);
+      if (answer instanceof Error) throw answer;
+      return answer;
+    },
     tickerExists: notAsked,
     isin: notAsked,
     searchCrypto: notAsked,
@@ -191,8 +308,24 @@ function fakeSources(answers: Record<string, Decimal | Error>, rate: ExchangeRat
 }
 
 async function notAsked(): Promise<never> {
-  throw new Error("The refresh only asks for quotes and the current exchange rate.");
+  throw new Error("The refresh only asks for quotes, the current exchange rate and payouts.");
 }
+
+function withIsins(...assets: [string, AssetClass, string | null][]): PortfolioState {
+  return run(
+    emptyPortfolio(),
+    ...assets.map(([ticker, assetClass, sourceId]): PortfolioCommand => ({ type: "save-asset", asset: { ticker, assetClass, sourceId } })),
+  );
+}
+
+const trade =
+  (kind: "buy" | "sell") =>
+  (asset: number, date: string, quantity = 100, unitPrice = 30, rate?: ExchangeRate): PortfolioCommand => ({
+    type: "save-trade",
+    trade: { asset, kind, date: date as IsoDate, quantity: decimal(quantity), unitPrice: decimal(unitPrice), exchangeRate: rate },
+  });
+const buy = trade("buy");
+const sell = trade("sell");
 
 function withAssets(...assets: [string, AssetClass][]): PortfolioState {
   return run(emptyPortfolio(), ...assets.map(([ticker, assetClass]): PortfolioCommand => ({ type: "save-asset", asset: { ticker, assetClass } })));

@@ -64,5 +64,6 @@ export function deleteAsset(state: PortfolioState, id: number): Result<Portfolio
     return { ok: false, error: `${asset.ticker} tem proventos: um ativo com histórico fica na carteira para sempre.` };
   }
   const assets = state.assets.filter((a) => a.id !== id);
-  return { ok: true, value: { ...state, assets, quotes: state.quotes.filter((q) => q.asset !== id) } };
+  const quotes = state.quotes.filter((q) => q.asset !== id);
+  return { ok: true, value: { ...state, assets, quotes, payoutOrigins: state.payoutOrigins.filter((o) => o.asset !== id) } };
 }

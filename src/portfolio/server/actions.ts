@@ -38,8 +38,12 @@ export async function saveAsset(asset: AssetToSave): Promise<Result<PortfolioSta
 export async function refresh(force: boolean): Promise<PortfolioState> {
   const database = appDatabase();
   const commands = await refreshFromSources(loadPortfolio(database), liveSources(), localNow(), force === true);
+  // A fetch only counts once what it brought was recorded: refused, the next opening asks again.
+  let refused = false;
   for (const command of commands) {
+    if (command.type === "record-fetch" && refused) continue;
     const result = executePortfolioOnDatabase(database, command, localToday());
+    refused = !result.ok;
     if (!result.ok) console.warn(`The refresh couldn't record ${command.type}: ${result.error}`);
   }
   return loadPortfolio(database);

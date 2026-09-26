@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { decimal, exchangeRate } from "@/portfolio/domain";
 import {
   b3Isin,
+  b3Payouts,
   bcbSellingPtax,
   coinGeckoQuote,
   coinGeckoSearch,
@@ -171,6 +172,91 @@ describe("the B3's ISIN", () => {
     await expect(b3Isin(asset, fakeFetch('{"page":{}}'))).rejects.toThrow(SourceError);
     await expect(b3Isin({ ticker: "HGLG11", assetClass: "real-estate-funds" }, fakeFetch("<html>"))).rejects.toThrow(SourceError);
     await expect(b3Isin(asset, failingFetch())).rejects.toThrow(SourceError);
+  });
+});
+
+describe("the B3's payouts", () => {
+  it("a company's come from its supplement, only the ISIN's, each with kind, value per unit, record date and payment date", async () => {
+    const fetch = routedFetch({ GetListedSupplementCompany: recorded("b3-company-supplement-petr.json") });
+
+    const payouts = await b3Payouts({ ticker: "PETR4", assetClass: "domestic-stocks", sourceId: "BRPETRACNPR6" }, fetch);
+
+    expect(fetch.asked.map(decodeB3)).toEqual([["GetListedSupplementCompany", { issuingCompany: "PETR", language: "pt-br" }]]);
+    expect(payouts).toHaveLength(12);
+    expect(payouts.slice(0, 3)).toEqual([
+      { kind: "dividend", recordDate: "2026-08-21", paymentDate: "2026-12-21", perUnit: decimal(0.47156696) },
+      { kind: "interest-on-equity", recordDate: "2026-08-21", paymentDate: "2026-12-21", perUnit: decimal(0.20250435) },
+      { kind: "interest-on-equity", recordDate: "2026-08-21", paymentDate: "2026-11-23", perUnit: decimal(0.67407131) },
+    ]);
+    // The monetary update of a company's dividend comes as RENDIMENTO: a dividend, not a fund's income.
+    expect(payouts.filter((p) => p.perUnit === decimal(0.01649003))).toEqual([
+      { kind: "dividend", recordDate: "2026-04-22", paymentDate: "2026-05-20", perUnit: decimal(0.01649003) },
+    ]);
+  });
+
+  it("the other ticker of the same company brings its own ISIN's", async () => {
+    const fetch = routedFetch({ GetListedSupplementCompany: recorded("b3-company-supplement-petr.json") });
+
+    const payouts = await b3Payouts({ ticker: "PETR3", assetClass: "domestic-stocks", sourceId: "BRPETRACNOR9" }, fetch);
+
+    expect(payouts).toHaveLength(12);
+  });
+
+  it("a FII's come from the fund's supplement, only its quota's, never a subscription receipt's", async () => {
+    const fetch = routedFetch({ GetListedSupplementFunds: recorded("b3-funds-supplement-hglg.json") });
+
+    const payouts = await b3Payouts({ ticker: "HGLG11", assetClass: "real-estate-funds", sourceId: "BRHGLGCTF004" }, fetch);
+
+    expect(fetch.asked.map(decodeB3)).toEqual([["GetListedSupplementFunds", { cnpj: "0", identifierFund: "HGLG", typeFund: 7 }]]);
+    expect(payouts).toHaveLength(12);
+    expect(payouts[0]).toEqual({ kind: "fund-income", recordDate: "2026-08-31", paymentDate: "2026-09-15", perUnit: decimal(1.17) });
+    expect(payouts.filter((p) => p.paymentDate === "2026-05-15")).toHaveLength(1);
+  });
+
+  it("what isn't a payout, like an amortization, and a row still with no payment date are left out", async () => {
+    const row = { isinCode: "BRXPTOCTF000", lastDatePrior: "30/04/2026", rate: "1,00000000000", remarks: "" };
+    const answer = JSON.stringify({
+      cashDividends: [
+        { ...row, label: "AMORTIZACAO", paymentDate: "15/05/2026" },
+        { ...row, label: "RENDIMENTO", paymentDate: "" },
+        { ...row, label: "RENDIMENTO", paymentDate: "15/05/2026" },
+      ],
+    });
+
+    expect(await b3Payouts({ ticker: "XPTO11", assetClass: "real-estate-funds", sourceId: "BRXPTOCTF000" }, fakeFetch(answer))).toEqual([
+      { kind: "fund-income", recordDate: "2026-04-30", paymentDate: "2026-05-15", perUnit: decimal(1) },
+    ]);
+  });
+
+  it("reads the value per unit exactly from the text, rounded at the eighth place", async () => {
+    const answer = (rate: string) =>
+      JSON.stringify({ cashDividends: [{ isinCode: "BRXPTOCTF000", label: "RENDIMENTO", lastDatePrior: "30/04/2026", paymentDate: "15/05/2026", rate }] });
+    const perUnit = async (rate: string) =>
+      (await b3Payouts({ ticker: "XPTO11", assetClass: "real-estate-funds", sourceId: "BRXPTOCTF000" }, fakeFetch(answer(rate))))[0]!.perUnit;
+
+    expect(await perUnit("0,12345678500")).toBe(12_345_679);
+    expect(await perUnit("0,12345678499")).toBe(12_345_678);
+    await expect(perUnit("1.234,5")).rejects.toThrow(SourceError);
+  });
+
+  it("a company or a fund the B3 answers nothing for brings none", async () => {
+    expect(await b3Payouts({ ticker: "XPTO3", assetClass: "domestic-stocks", sourceId: "BRXPTOACNOR0" }, fakeFetch(""))).toEqual([]);
+    expect(await b3Payouts({ ticker: "XPTO11", assetClass: "real-estate-funds", sourceId: "BRXPTOCTF000" }, fakeFetch(""))).toEqual([]);
+  });
+
+  it("an asset with no ISIN, an error status, a changed format or a network failure is a failure, never an empty list", async () => {
+    const asset = { ticker: "PETR4", assetClass: "domestic-stocks", sourceId: "BRPETRACNPR6" } as const;
+    const withRow = (row: object) => JSON.stringify([{ cashDividends: [{ isinCode: "BRPETRACNPR6", label: "DIVIDENDO", ...row }] }]);
+    const good = { lastDatePrior: "21/08/2026", paymentDate: "21/12/2026", rate: "0,47156696000" };
+
+    await expect(b3Payouts({ ...asset, sourceId: null }, fakeFetch(recorded("b3-company-supplement-petr.json")))).rejects.toThrow(SourceError);
+    await expect(b3Payouts(asset, fakeFetch("Service Unavailable", 503))).rejects.toThrow(SourceError);
+    await expect(b3Payouts(asset, fakeFetch('[{"code":"PETR"}]'))).rejects.toThrow(SourceError);
+    await expect(b3Payouts(asset, fakeFetch(withRow({ ...good, rate: "abc" })))).rejects.toThrow(SourceError);
+    await expect(b3Payouts(asset, fakeFetch(withRow({ ...good, rate: "0,00000000000" })))).rejects.toThrow(SourceError);
+    await expect(b3Payouts(asset, fakeFetch(withRow({ ...good, lastDatePrior: "2026-08-21" })))).rejects.toThrow(SourceError);
+    await expect(b3Payouts(asset, fakeFetch(withRow({ ...good, paymentDate: "31/02/2026" })))).rejects.toThrow(SourceError);
+    await expect(b3Payouts(asset, failingFetch())).rejects.toThrow(SourceError);
   });
 });
 

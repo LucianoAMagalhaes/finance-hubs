@@ -46,6 +46,21 @@ export const trade = sqliteTable("trade", {
 });
 
 /**
+ * The origin of a payout the source brought: its asset, kind, record date and
+ * payment date. Kept after the payout is corrected or deleted, so the source
+ * never writes it again; deleted only with its asset.
+ */
+export const payoutOrigin = sqliteTable("payout_origin", {
+  id: integer("id").primaryKey(),
+  asset: integer("asset")
+    .notNull()
+    .references(() => asset.id),
+  kind: text("kind").notNull(),
+  recordDate: text("record_date").notNull(),
+  paymentDate: text("payment_date").notNull(),
+});
+
+/**
  * Money an asset paid, on its payment date: the amount received in reais, net,
  * in cents. Deleted for good: there is no trash mark.
  */
@@ -59,6 +74,8 @@ export const payout = sqliteTable("payout", {
   /** "dividend", "interest-on-equity", "fund-income" or "interest"; only informative. */
   kind: text("kind").notNull(),
   amount: integer("amount").notNull(),
+  /** The origin it came from, on a payout the source brought; null on one entered by hand. */
+  origin: integer("origin").references(() => payoutOrigin.id),
 });
 
 /**
@@ -88,7 +105,7 @@ export const currentExchangeRate = sqliteTable("current_exchange_rate", {
 
 /** The time of the last successful fetch of each kind, one row per kind ever fetched. */
 export const lastFetch = sqliteTable("last_fetch", {
-  /** "quotes". */
+  /** "quotes" or "payouts". */
   kind: text("kind").primaryKey(),
   at: text("at").notNull(),
 });

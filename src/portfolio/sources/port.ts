@@ -1,4 +1,4 @@
-import type { AssetClass, Decimal, ExchangeRate, IsoDate } from "@/portfolio/domain";
+import type { AssetClass, Decimal, ExchangeRate, IsoDate, SourcePayout } from "@/portfolio/domain";
 
 /** What a source needs to know of an asset to find it; `sourceId` is its id there, when kept. */
 export type SourcedAsset = { ticker: string; assetClass: AssetClass; sourceId?: string | null };
@@ -8,6 +8,9 @@ export type CryptoCandidate = { id: string; name: string; rank: number | null };
 
 /** The BCB's selling PTAX, and the day it was published for. */
 export type Ptax = { rate: ExchangeRate; date: IsoDate };
+
+/** A payout the source announced for one unit: whoever held it at the end of the record date is paid on the payment date. */
+export type AnnouncedPayout = Omit<SourcePayout, "asset">;
 
 /**
  * The port of sources: what the portfolio asks outside, each question behind
@@ -26,6 +29,8 @@ export type Sources = {
   searchCrypto(ticker: string): Promise<CryptoCandidate[]>;
   /** The current exchange rate, in reais per dollar. */
   currentExchangeRate(): Promise<ExchangeRate>;
+  /** Every payout the source has of a B3 stock or fund, by its ISIN, paid or only announced. */
+  payouts(asset: SourcedAsset): Promise<AnnouncedPayout[]>;
   /** The selling PTAX of the date or, on a day with none (weekend, holiday, today before it is published), the last one before. */
   sellingPtax(date: IsoDate): Promise<Ptax>;
 };

@@ -6,6 +6,7 @@ import {
   type IsoDateTime,
   type LastFetch,
   type Payout,
+  type PayoutOrigin,
   type PortfolioState,
   type Quote,
   type Targets,
@@ -13,7 +14,7 @@ import {
 } from "@/portfolio/domain";
 import { notInArray } from "drizzle-orm";
 import type { Connection, Database } from "@/persistence/database";
-import { asset, classTarget, currentExchangeRate, lastFetch, payout, quote, trade } from "./schema";
+import { asset, classTarget, currentExchangeRate, lastFetch, payout, payoutOrigin, quote, trade } from "./schema";
 
 // No business rule here: validating and deriving belong to the domain. This
 // module only translates the portfolio's state into rows and back.
@@ -21,6 +22,7 @@ import { asset, classTarget, currentExchangeRate, lastFetch, payout, quote, trad
 type AssetRow = typeof asset.$inferSelect;
 type TradeRow = typeof trade.$inferSelect;
 type PayoutRow = typeof payout.$inferSelect;
+type PayoutOriginRow = typeof payoutOrigin.$inferSelect;
 type QuoteRow = typeof quote.$inferSelect;
 
 const toAsset = (row: AssetRow): Asset => ({
@@ -46,6 +48,15 @@ const toPayout = (row: PayoutRow): Payout => ({
   date: row.date as Payout["date"],
   kind: row.kind as Payout["kind"],
   amount: row.amount,
+  ...(row.origin !== null && { origin: row.origin }),
+});
+
+const toPayoutOrigin = (row: PayoutOriginRow): PayoutOrigin => ({
+  id: row.id,
+  asset: row.asset,
+  kind: row.kind as PayoutOrigin["kind"],
+  recordDate: row.recordDate as PayoutOrigin["recordDate"],
+  paymentDate: row.paymentDate as PayoutOrigin["paymentDate"],
 });
 
 const toQuote = (row: QuoteRow): Quote => ({ asset: row.asset, price: row.price, at: row.at as Quote["at"] });
@@ -67,6 +78,7 @@ export function load(db: Connection): PortfolioState {
     assets: db.select().from(asset).orderBy(asset.id).all().map(toAsset),
     trades: db.select().from(trade).orderBy(trade.id).all().map(toTrade),
     payouts: db.select().from(payout).orderBy(payout.id).all().map(toPayout),
+    payoutOrigins: db.select().from(payoutOrigin).orderBy(payoutOrigin.id).all().map(toPayoutOrigin),
     quotes: db.select().from(quote).orderBy(quote.asset).all().map(toQuote),
     exchangeRate: rate ? { rate: rate.rate, at: rate.at as IsoDateTime } : null,
     lastFetch: fetched,
@@ -75,12 +87,13 @@ export function load(db: Connection): PortfolioState {
 
 /**
  * Saves the state the command returned, inside the caller's transaction. Rows
- * are inserted or rewritten, and a trade, payout, quote or asset the state no longer has is
+ * are inserted or rewritten, and a trade, payout, payout origin, quote or asset the state no longer has is
  * deleted for good: the portfolio has no trash.
  */
 export function save(tx: Connection, state: PortfolioState): void {
   tx.delete(trade).where(notInArray(trade.id, state.trades.map((t) => t.id))).run();
   tx.delete(payout).where(notInArray(payout.id, state.payouts.map((p) => p.id))).run();
+  tx.delete(payoutOrigin).where(notInArray(payoutOrigin.id, state.payoutOrigins.map((o) => o.id))).run();
   tx.delete(quote).where(notInArray(quote.asset, state.quotes.map((q) => q.asset))).run();
   tx.delete(asset).where(notInArray(asset.id, state.assets.map((a) => a.id))).run();
   for (const { id } of ASSET_CLASSES) {
@@ -95,8 +108,12 @@ export function save(tx: Connection, state: PortfolioState): void {
     const row: TradeRow = { ...t };
     tx.insert(trade).values(row).onConflictDoUpdate({ target: trade.id, set: row }).run();
   }
+  for (const o of state.payoutOrigins) {
+    const row: PayoutOriginRow = { ...o };
+    tx.insert(payoutOrigin).values(row).onConflictDoUpdate({ target: payoutOrigin.id, set: row }).run();
+  }
   for (const p of state.payouts) {
-    const row: PayoutRow = { ...p };
+    const row: PayoutRow = { ...p, origin: p.origin ?? null };
     tx.insert(payout).values(row).onConflictDoUpdate({ target: payout.id, set: row }).run();
   }
   for (const q of state.quotes) {

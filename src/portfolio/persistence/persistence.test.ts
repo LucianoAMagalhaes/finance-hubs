@@ -164,6 +164,51 @@ describe("the portfolio's persistence", () => {
     expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
   });
 
+  it("payouts from the source and their seen origins come back identical, and a deleted one stays seen", () => {
+    const database = open();
+    executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "HGLG11", assetClass: "real-estate-funds", sourceId: "BRHGLGCTF004" } },
+      { type: "save-asset", asset: { ticker: "KNRI11", assetClass: "real-estate-funds", sourceId: "BRKNRICTF007" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-07-01", quantity: decimal(100), unitPrice: decimal(150) } },
+      { type: "save-trade", trade: { asset: 2, kind: "buy", date: "2026-07-01", quantity: decimal(10), unitPrice: decimal(140) } },
+      {
+        type: "record-source-payouts",
+        payouts: [
+          { asset: 1, kind: "fund-income", recordDate: "2026-07-31", paymentDate: "2026-08-14", perUnit: decimal(1.17) },
+          { asset: 1, kind: "fund-income", recordDate: "2026-08-31", paymentDate: "2026-09-15", perUnit: decimal(1.17) },
+          { asset: 2, kind: "fund-income", recordDate: "2026-08-31", paymentDate: "2026-09-15", perUnit: decimal(1) },
+        ],
+      },
+      { type: "save-payout", payout: { asset: 1, date: "2026-09-20", kind: "fund-income", amount: 500 } },
+    );
+
+    const state = executeOk(
+      database,
+      { type: "save-payout", payout: { id: 1, asset: 1, date: "2026-08-14", kind: "fund-income", amount: 11_000 } },
+      { type: "delete-payout", id: 2 },
+      { type: "delete-payout", id: 3 },
+      { type: "delete-trade", id: 2 },
+      { type: "delete-asset", id: 2 },
+      { type: "record-fetch", kind: "payouts", at: "2026-09-25T14:32:07" },
+    );
+
+    const reloaded = loadPortfolio(open());
+    expect(reloaded).toEqual(state);
+    expect(reloaded.payouts.map((p) => [p.id, p.amount])).toEqual([
+      [1, 11_000],
+      [4, 500],
+    ]);
+    expect(reloaded.lastFetch).toEqual({ payouts: "2026-09-25T14:32:07" });
+    // The deleted payout's origin is still seen: the source doesn't bring it back.
+    const again = executeOk(database, {
+      type: "record-source-payouts",
+      payouts: [{ asset: 1, kind: "fund-income", recordDate: "2026-08-31", paymentDate: "2026-09-15", perUnit: decimal(1.17) }],
+    });
+    expect(again.payouts).toHaveLength(2);
+    expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
+  });
+
   it("quotes and the time of the last fetch come back identical from the database", () => {
     const database = open();
     executeOk(

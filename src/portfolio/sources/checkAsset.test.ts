@@ -247,6 +247,9 @@ function fakeSources({ known = [], isins = {}, coins = {} }: Answers): Sources &
     async currentExchangeRate() {
       throw new Error("The check doesn't ask for the exchange rate.");
     },
+    async payouts() {
+      throw new Error("The check doesn't ask for payouts.");
+    },
     async sellingPtax() {
       throw new Error("The check doesn't ask for the PTAX.");
     },

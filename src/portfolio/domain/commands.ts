@@ -2,7 +2,7 @@ import type { IsoDate, IsoDateTime, Result } from "@/shared";
 import { deleteAsset, saveAsset, type AssetToSave } from "./assets";
 import { validateTargets, type Targets } from "./classes";
 import type { CurrentExchangeRate } from "./exchangeRate";
-import { deletePayout, savePayout, type PayoutToSave } from "./payouts";
+import { deletePayout, recordSourcePayouts, savePayout, type PayoutToSave, type SourcePayout } from "./payouts";
 import { recordFetch, recordQuotes, type FetchKind, type QuoteToRecord } from "./quotes";
 import type { PortfolioState } from "./state";
 import { deleteTrade, saveTrade, type TradeToSave } from "./trades";
@@ -21,6 +21,7 @@ export type PortfolioCommand =
   | { type: "delete-payout"; id: number }
   // What the sources bring, which `refresh` turns into commands; never typed by the person.
   | { type: "record-quotes"; quotes: QuoteToRecord[]; exchangeRate?: CurrentExchangeRate }
+  | { type: "record-source-payouts"; payouts: SourcePayout[] }
   | { type: "record-fetch"; kind: FetchKind; at: IsoDateTime };
 
 /**
@@ -49,6 +50,8 @@ export function apply(state: PortfolioState, command: PortfolioCommand, today: I
       return deletePayout(state, command.id);
     case "record-quotes":
       return recordQuotes(state, command.quotes, command.exchangeRate);
+    case "record-source-payouts":
+      return recordSourcePayouts(state, command.payouts, today);
     case "record-fetch":
       return recordFetch(state, command.kind, command.at);
     default:

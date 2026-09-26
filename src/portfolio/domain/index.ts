@@ -15,7 +15,7 @@ export {
 export { emptyPortfolio, type PortfolioState } from "./state";
 export { normalizeTicker, REGISTRABLE_CLASSES, type Asset, type AssetToSave } from "./assets";
 export type { Trade, TradeKind, TradeToSave } from "./trades";
-export { PAYOUT_KINDS, type Payout, type PayoutKind, type PayoutToSave } from "./payouts";
+export { PAYOUT_KINDS, type Payout, type PayoutKind, type PayoutOrigin, type PayoutToSave, type SourcePayout } from "./payouts";
 export { tradeAmount } from "./position";
 export {
   currencyOf,

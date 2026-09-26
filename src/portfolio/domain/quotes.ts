@@ -14,7 +14,8 @@ export type Quote = { asset: number; price: Decimal; at: IsoDateTime };
 export type QuoteToRecord = Quote;
 
 /** What the portfolio fetches from outside. Each kind arrives with the ticket that fetches it. */
-export type FetchKind = "quotes";
+export const FETCH_KINDS = ["quotes", "payouts"] as const;
+export type FetchKind = (typeof FETCH_KINDS)[number];
 
 /** The time of the last successful fetch of each kind; a kind never fetched is absent. */
 export type LastFetch = Partial<Record<FetchKind, IsoDateTime>>;
@@ -46,7 +47,7 @@ export function recordQuotes(
 
 /** Records the time of the last successful fetch of that kind. */
 export function recordFetch(state: PortfolioState, kind: FetchKind, at: IsoDateTime): Result<PortfolioState> {
-  if (kind !== "quotes") return { ok: false, error: "Não sei que busca é essa." };
+  if (!FETCH_KINDS.includes(kind)) return { ok: false, error: "Não sei que busca é essa." };
   if (typeof at !== "string" || !isValidDateTime(at)) return { ok: false, error: "Informe a hora da busca." };
   return { ok: true, value: { ...state, lastFetch: { ...state.lastFetch, [kind]: at } } };
 }

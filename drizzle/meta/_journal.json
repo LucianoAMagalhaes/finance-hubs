@@ -99,6 +99,13 @@
       "when": 1790363735051,
       "tag": "0013_portfolio_exchange_rate",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1790427831005,
+      "tag": "0014_portfolio_payout_origins",
+      "breakpoints": true
     }
   ]
 }
