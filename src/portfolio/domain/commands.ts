@@ -1,6 +1,7 @@
 import type { IsoDate, IsoDateTime, Result } from "@/shared";
 import { deleteAsset, saveAsset, type AssetToSave } from "./assets";
 import { validateTargets, type Targets } from "./classes";
+import { deleteCorporateAction, saveCorporateAction, type CorporateActionToSave } from "./corporateActions";
 import type { CurrentExchangeRate } from "./exchangeRate";
 import { deletePayout, recordSourcePayouts, savePayout, type PayoutToSave, type SourcePayout } from "./payouts";
 import { recordFetch, recordQuotes, type FetchKind, type QuoteToRecord } from "./quotes";
@@ -17,6 +18,8 @@ export type PortfolioCommand =
   | { type: "delete-asset"; id: number }
   | { type: "save-trade"; trade: TradeToSave }
   | { type: "delete-trade"; id: number }
+  | { type: "save-corporate-action"; action: CorporateActionToSave }
+  | { type: "delete-corporate-action"; id: number }
   | { type: "save-payout"; payout: PayoutToSave }
   | { type: "delete-payout"; id: number }
   // What the sources bring, which `refresh` turns into commands; never typed by the person.
@@ -44,6 +47,10 @@ export function apply(state: PortfolioState, command: PortfolioCommand, today: I
       return saveTrade(state, command.trade, today);
     case "delete-trade":
       return deleteTrade(state, command.id);
+    case "save-corporate-action":
+      return saveCorporateAction(state, command.action, today);
+    case "delete-corporate-action":
+      return deleteCorporateAction(state, command.id);
     case "save-payout":
       return savePayout(state, command.payout, today);
     case "delete-payout":

@@ -1,5 +1,6 @@
 import type { Asset } from "./assets";
 import { DEFAULT_TARGETS, type Targets } from "./classes";
+import type { CorporateAction } from "./corporateActions";
 import type { CurrentExchangeRate } from "./exchangeRate";
 import type { Payout, PayoutOrigin } from "./payouts";
 import type { LastFetch, Quote } from "./quotes";
@@ -14,6 +15,7 @@ export type PortfolioState = {
   targets: Targets;
   assets: Asset[];
   trades: Trade[];
+  corporateActions: CorporateAction[];
   payouts: Payout[];
   /** The origin of every payout the source brought, kept after the payout is corrected or deleted. */
   payoutOrigins: PayoutOrigin[];
@@ -26,7 +28,7 @@ export type PortfolioState = {
 
 /** The portfolio of the first use: the default targets and no asset. */
 export function emptyPortfolio(): PortfolioState {
-  return { targets: { ...DEFAULT_TARGETS }, assets: [], trades: [], payouts: [], payoutOrigins: [], quotes: [], exchangeRate: null, lastFetch: {} };
+  return { targets: { ...DEFAULT_TARGETS }, assets: [], trades: [], corporateActions: [], payouts: [], payoutOrigins: [], quotes: [], exchangeRate: null, lastFetch: {} };
 }
 
 export const nextId = (list: { id: number }[]) => Math.max(0, ...list.map((r) => r.id)) + 1;

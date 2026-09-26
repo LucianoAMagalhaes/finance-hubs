@@ -64,29 +64,34 @@ export function saveTrade(state: PortfolioState, data: TradeToSave, today: IsoDa
     exchangeRate,
   };
   const trades = existing ? state.trades.map((t) => (t.id === trade.id ? trade : t)) : [...state.trades, trade];
-  const uncovered = whyUncovered(state, trades, [trade.asset, existing?.asset], trade.id);
+  const next = { ...state, trades };
+  const uncovered = whyUncovered(next, [trade.asset, existing?.asset], trade.id);
   if (uncovered) return { ok: false, error: uncovered };
-  return { ok: true, value: { ...state, trades } };
+  return { ok: true, value: next };
 }
 
 /** Deletes the trade for good, unless a later sale would be left uncovered. */
 export function deleteTrade(state: PortfolioState, id: number): Result<PortfolioState> {
   const deleted = state.trades.find((t) => t.id === id);
   if (!deleted) return { ok: false, error: "Essa operação não existe." };
-  const trades = state.trades.filter((t) => t.id !== id);
-  const uncovered = whyUncovered(state, trades, [deleted.asset], null);
+  const next = { ...state, trades: state.trades.filter((t) => t.id !== id) };
+  const uncovered = whyUncovered(next, [deleted.asset], null);
   if (uncovered) return { ok: false, error: uncovered };
-  return { ok: true, value: { ...state, trades } };
+  return { ok: true, value: next };
 }
 
 /**
- * Why the trades would leave one of the assets with a negative quantity, or
- * null if they don't. The sale being saved is told what there was on its
- * date; any other sale is the one that would be left uncovered.
+ * Why the state's trades and corporate actions would leave one of the assets
+ * with a negative quantity, or null if they don't. The sale being saved is
+ * told what there was on its date; any other sale is the one that would be
+ * left uncovered.
  */
-function whyUncovered(state: PortfolioState, trades: Trade[], assets: (number | undefined)[], saved: number | null): string | null {
+export function whyUncovered(state: PortfolioState, assets: (number | undefined)[], saved: number | null): string | null {
   for (const id of new Set(assets)) {
-    const { uncovered } = replay(trades.filter((t) => t.asset === id));
+    const { uncovered } = replay(
+      state.trades.filter((t) => t.asset === id),
+      state.corporateActions.filter((c) => c.asset === id),
+    );
     if (!uncovered) continue;
     const ticker = state.assets.find((a) => a.id === id)?.ticker;
     const date = formatDate(uncovered.sale.date);

@@ -2,6 +2,7 @@ import { dateOf, type Cents, type IsoDate, type IsoDateTime } from "@/shared";
 import type { Asset } from "./assets";
 import { businessDaysAfter } from "./businessDays";
 import { ASSET_CLASSES, type AssetClass } from "./classes";
+import type { CorporateAction, CorporateActionKind, Ratio } from "./corporateActions";
 import { decimalToNumber, type Decimal } from "./decimal";
 import { currencyOf, exchangeRateToNumber, type Currency, type CurrentExchangeRate, type ExchangeRate } from "./exchangeRate";
 import type { Payout, PayoutKind } from "./payouts";
@@ -57,6 +58,9 @@ export type DollarView = {
   totalGain: Cents;
 };
 
+/** A corporate action as the expanded row lists it, among the trades and with no price. */
+export type CorporateActionView = { id: number; date: IsoDate; kind: CorporateActionKind; ratio: Ratio };
+
 /** A payout as the expanded row lists it. */
 export type PayoutView = { id: number; date: IsoDate; kind: PayoutKind; amount: Cents };
 
@@ -94,6 +98,8 @@ export type AssetView = {
   tags: AssetTag[];
   /** Newest first; on the same date, the last entered first. */
   trades: TradeView[];
+  /** Newest first; on the same date, the last entered first. They count before the trades of their date. */
+  corporateActions: CorporateActionView[];
   /** Newest first; on the same date, the last entered first. */
   payouts: PayoutView[];
 };
@@ -139,6 +145,7 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
     projectAsset(
       a,
       state.trades.filter((t) => t.asset === a.id),
+      state.corporateActions.filter((c) => c.asset === a.id),
       state.payouts.filter((p) => p.asset === a.id),
       state.quotes.find((q) => q.asset === a.id) ?? null,
       state.exchangeRate,
@@ -186,13 +193,14 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
 function projectAsset(
   asset: Asset,
   trades: Trade[],
+  corporateActions: CorporateAction[],
   payouts: Payout[],
   quote: Quote | null,
   rate: CurrentExchangeRate | null,
   today: IsoDate,
 ): AssetView {
   const currency = currencyOf(asset.assetClass);
-  const inReais = replay(trades, tradeTotalInReais);
+  const inReais = replay(trades, corporateActions, tradeTotalInReais);
   const { position, realizedGain, realizedGainBySale } = inReais;
   const quoted = quote && tradeAmount(position.quantity, quote.price);
   // An asset that never had a quote, or in dollars a current exchange rate, is
@@ -222,7 +230,7 @@ function projectAsset(
     payoutsReceived,
     totalGain,
     totalGainPercent: position.cost > 0 ? (totalGain / position.cost) * 100 : null,
-    inDollars: currency === "USD" ? inDollars(replay(trades, tradeTotal), quoted) : null,
+    inDollars: currency === "USD" ? inDollars(replay(trades, corporateActions, tradeTotal), quoted) : null,
     tags,
     trades: inHistoryOrder(trades)
       .reverse()
@@ -237,6 +245,9 @@ function projectAsset(
         dollarTotal: currency === "USD" ? tradeTotal(t) : null,
         realizedGain: realizedGainBySale.get(t.id) ?? null,
       })),
+    corporateActions: inHistoryOrder(corporateActions)
+      .reverse()
+      .map(({ id, date, kind, ratio }) => ({ id, date, kind, ratio })),
     payouts: inHistoryOrder(payouts)
       .reverse()
       .map(({ id, date, kind, amount }) => ({ id, date, kind, amount })),

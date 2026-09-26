@@ -1,4 +1,5 @@
 import type { Cents, IsoDate } from "@/shared";
+import type { CorporateAction } from "./corporateActions";
 import { decimalToNumber, type Decimal } from "./decimal";
 import type { Trade } from "./trades";
 
@@ -54,19 +55,50 @@ const CENTS_SCALE = 1e14;
 const RATE_SCALE = 1e4;
 
 /**
+ * An asset's trades and corporate actions in the order they count: date
+ * order, the actions of a date before its trades, and each kind in its order
+ * of entry.
+ */
+function historyOrder(trades: Trade[], corporateActions: CorporateAction[]): (Trade | CorporateAction)[] {
+  const actions = inHistoryOrder(corporateActions);
+  const history: (Trade | CorporateAction)[] = [];
+  let next = 0;
+  for (const t of inHistoryOrder(trades)) {
+    while (next < actions.length && actions[next]!.date <= t.date) history.push(actions[next++]!);
+    history.push(t);
+  }
+  return [...history, ...actions.slice(next)];
+}
+
+/**
+ * The quantity × to ÷ from of a corporate action, exact, rounded down to the
+ * 8 places: a fraction left over stays in the quantity.
+ */
+const afterAction = (quantity: Decimal, { ratio }: CorporateAction): Decimal =>
+  Number((BigInt(quantity) * BigInt(ratio.to)) / BigInt(ratio.from));
+
+/**
  * Replays an asset's history in date order, each trade worth `amount`: its
  * total in the currency being replayed. An asset in dollars is replayed twice
  * by the same rules, in dollars and in reais. Each buy recalculates the average
  * price, `(cost + quantity × price) ÷ new quantity`, so the cost stays
  * `quantity × average price`. A sale reduces the quantity, keeps the average
  * price and fixes its result against it; selling everything makes the average
- * price stop existing, and the next buy starts from nothing.
+ * price stop existing, and the next buy starts from nothing. A corporate
+ * action multiplies the quantity by its ratio and keeps the cost, so the
+ * average price adjusts; with no quantity, it changes nothing.
  */
-export function replay(trades: Trade[], amount: (t: Trade) => Cents = tradeTotalInReais): Replay {
+export function replay(trades: Trade[], corporateActions: CorporateAction[], amount: (t: Trade) => Cents = tradeTotalInReais): Replay {
   let position: Position = { quantity: 0, averagePrice: null, cost: 0 };
   let realizedGain = 0;
   const realizedGainBySale = new Map<number, Cents>();
-  for (const t of inHistoryOrder(trades)) {
+  for (const t of historyOrder(trades, corporateActions)) {
+    if ("ratio" in t) {
+      const quantity = afterAction(position.quantity, t);
+      position =
+        quantity === 0 ? { quantity, averagePrice: null, cost: 0 } : { quantity, averagePrice: position.cost / decimalToNumber(quantity), cost: position.cost };
+      continue;
+    }
     if (t.kind === "buy") {
       const quantity = position.quantity + t.quantity;
       const cost = position.cost + amount(t);

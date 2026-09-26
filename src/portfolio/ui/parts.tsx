@@ -11,6 +11,7 @@ import {
   type AssetClass,
   type AssetTag,
   type Cents,
+  type CorporateActionKind,
   type Currency,
   type Decimal,
   type IsoDate,
@@ -100,25 +101,33 @@ export const PAYOUT_KIND_NAMES: Record<PayoutKind, string> = {
   interest: "Juros",
 };
 
-/** What a launch can be. */
-export type LaunchKind = TradeKind | "payout";
+export const CORPORATE_ACTION_NAMES: Record<CorporateActionKind, string> = {
+  split: "Desdobramento",
+  "reverse-split": "Grupamento",
+  bonus: "Bonificação",
+};
 
-const LAUNCH_NAMES: Record<LaunchKind, string> = { ...KIND_NAMES, payout: "Provento" };
+/** What a launch can be. */
+export type LaunchKind = TradeKind | "payout" | "corporate-action";
+
+const LAUNCH_NAMES: Record<LaunchKind, string> = { ...KIND_NAMES, payout: "Provento", "corporate-action": "Evento" };
 
 /**
- * Buy, sale or, when offered, payout: the top of a launch's sheet. The payout
- * is offered from the top bar's + Lançar, which doesn't know yet what comes.
+ * Buy, sale and what else is offered: the top of a launch's sheet. The
+ * payout is offered from the top bar's + Lançar, which doesn't know yet what
+ * comes; the corporate action from the + Operação of an asset that has them.
  */
 export function LaunchPicker({
   chosen,
   choose,
-  offerPayout = true,
+  offer,
 }: {
   chosen: LaunchKind;
   choose: (kind: LaunchKind) => void;
-  offerPayout?: boolean;
+  /** Beyond the buy and the sale. */
+  offer: LaunchKind[];
 }) {
-  const kinds: LaunchKind[] = offerPayout ? ["buy", "sell", "payout"] : ["buy", "sell"];
+  const kinds: LaunchKind[] = ["buy", "sell", ...offer];
   return (
     <div className="shape-picker" role="group" aria-label="Tipo do lançamento">
       {kinds.map((k) => (

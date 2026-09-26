@@ -1,9 +1,21 @@
 "use client";
 
 import { Fragment } from "react";
-import { decimalToNumber, exchangeRateToField, formatDate, formatReais, type AssetView, type ClassView, type IsoDate } from "@/portfolio/domain";
+import {
+  decimalToNumber,
+  exchangeRateToField,
+  formatDate,
+  formatReais,
+  type AssetView,
+  type ClassView,
+  type CorporateActionView,
+  type IsoDate,
+  type TradeView,
+} from "@/portfolio/domain";
+import { describeRatio } from "./corporateActionDraft";
 import {
   classColor,
+  CORPORATE_ACTION_NAMES,
   formatDollars,
   formatGainPercent,
   formatMoment,
@@ -28,6 +40,8 @@ type Props = {
   newTrade: (asset: number) => void;
   /** Opens the correction of the trade. */
   editTrade: (trade: number) => void;
+  /** Opens the correction of the corporate action. */
+  editAction: (action: number) => void;
   /** Opens a new payout of the asset. */
   newPayout: (asset: number) => void;
   /** Opens the correction of the payout. */
@@ -45,7 +59,7 @@ type Props = {
  * asset in dollars shows its prices in dollars, and its average price, value
  * and gain in both currencies; the class's numbers stay in reais.
  */
-export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, newPayout, editPayout, editAsset, deleteAsset }: Props) {
+export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, editAction, newPayout, editPayout, editAsset, deleteAsset }: Props) {
   return (
     <section className="detail class-detail" aria-label={c.name} style={classColor(c.key)}>
       <header>
@@ -94,6 +108,7 @@ export function ClassDetail({ c, today, expanded, expand, close, newTrade, editT
                   toggle={() => expand(expanded === a.id ? null : a.id)}
                   newTrade={() => newTrade(a.id)}
                   editTrade={editTrade}
+                  editAction={editAction}
                   newPayout={() => newPayout(a.id)}
                   editPayout={editPayout}
                   editAsset={() => editAsset(a.id)}
@@ -115,6 +130,7 @@ type RowProps = {
   toggle: () => void;
   newTrade: () => void;
   editTrade: (trade: number) => void;
+  editAction: (action: number) => void;
   newPayout: () => void;
   editPayout: (payout: number) => void;
   editAsset: () => void;
@@ -182,12 +198,27 @@ function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
 }
 
 /**
- * The asset's trades and payouts, newest first; clicking one opens its
- * correction. In dollars, each trade shows its exchange rate and its total in
- * dollars and in reais.
+ * The trades and corporate actions of the asset, newest first. On the same
+ * date the actions count before the trades, so they are listed after them.
  */
-function History({ a, newTrade, editTrade, newPayout, editPayout, editAsset, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
+function tradesAndActions(a: AssetView): ({ trade: TradeView } | { action: CorporateActionView })[] {
+  const listed: ({ trade: TradeView } | { action: CorporateActionView })[] = [];
+  let next = 0;
+  for (const trade of a.trades) {
+    while (next < a.corporateActions.length && a.corporateActions[next]!.date > trade.date) listed.push({ action: a.corporateActions[next++]! });
+    listed.push({ trade });
+  }
+  return [...listed, ...a.corporateActions.slice(next).map((action) => ({ action }))];
+}
+
+/**
+ * The asset's trades, corporate actions and payouts, newest first; clicking
+ * one opens its correction. In dollars, each trade shows its exchange rate and
+ * its total in dollars and in reais. An action has no price: only its ratio.
+ */
+function History({ a, newTrade, editTrade, editAction, newPayout, editPayout, editAsset, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
   const dollar = a.currency === "USD";
+  const entries = tradesAndActions(a);
   return (
     <div className="history">
       <div className="history-head">
@@ -204,7 +235,7 @@ function History({ a, newTrade, editTrade, newPayout, editPayout, editAsset, del
           </button>
         </span>
       </div>
-      {a.trades.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="history-empty">Nenhuma operação. O ativo existe com quantidade zero.</p>
       ) : (
         <table className="ops">
@@ -219,7 +250,22 @@ function History({ a, newTrade, editTrade, newPayout, editPayout, editAsset, del
             </tr>
           </thead>
           <tbody>
-            {a.trades.map((t) => (
+            {entries.map((entry) => {
+              if ("action" in entry) {
+                const e = entry.action;
+                return (
+                  <tr key={`action-${e.id}`} className="clickable" onClick={() => editAction(e.id)} title="Corrigir ou apagar">
+                    <td className="num">{formatDate(e.date)}</td>
+                    <td colSpan={dollar ? 5 : 4}>
+                      <span className="trade-kind corporate-action">
+                        {CORPORATE_ACTION_NAMES[e.kind]} {describeRatio(e.kind, e.ratio)}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              }
+              const t = entry.trade;
+              return (
               <tr key={t.id} className="clickable" onClick={() => editTrade(t.id)} title="Corrigir ou apagar">
                 <td className="num">{formatDate(t.date)}</td>
                 <td>
@@ -238,7 +284,8 @@ function History({ a, newTrade, editTrade, newPayout, editPayout, editAsset, del
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       )}

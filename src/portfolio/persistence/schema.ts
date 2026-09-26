@@ -46,6 +46,24 @@ export const trade = sqliteTable("trade", {
 });
 
 /**
+ * A split, reverse split or bonus of an asset, on its date. The quantity
+ * becomes `quantity × ratio_to ÷ ratio_from`. Deleted for good, and with its
+ * asset: there is no trash mark.
+ */
+export const corporateAction = sqliteTable("corporate_action", {
+  id: integer("id").primaryKey(),
+  asset: integer("asset")
+    .notNull()
+    .references(() => asset.id),
+  /** "split", "reverse-split" or "bonus"; only informative. */
+  kind: text("kind").notNull(),
+  date: text("date").notNull(),
+  /** The ratio as the company announces it: "1 para 4" is 1 → 4, "1 nova para cada 10" is 10 → 11. */
+  ratioFrom: integer("ratio_from").notNull(),
+  ratioTo: integer("ratio_to").notNull(),
+});
+
+/**
  * The origin of a payout the source brought: its asset, kind, record date and
  * payment date. Kept after the payout is corrected or deleted, so the source
  * never writes it again; deleted only with its asset.

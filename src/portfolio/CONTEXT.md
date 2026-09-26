@@ -79,9 +79,10 @@ _Avoid_: Transação, lote, lançamento (é do orçamento), movimentação
 **Evento corporativo**:
 Uma mudança que a empresa ou o fundo faz no número de unidades de um ativo: um desdobramento, um
 grupamento ou uma bonificação. Registra o ativo, a data e a **proporção** ("1 para 4", "10 para 1",
-"1 nova para cada 10"). Não é uma operação, mas vale em ordem de data junto com elas: multiplica a
-quantidade pela proporção e mantém o custo, de modo que o preço médio se ajusta sozinho. O tipo é
-só informativo, e a bonificação não tem custo atribuído. Uma fração que sobra fica na quantidade
+"1 nova para cada 10"). Não é uma operação, mas vale em ordem de data junto com elas, e numa mesma
+data vale antes das operações do dia: multiplica a quantidade pela proporção e mantém o custo, de
+modo que o preço médio se ajusta sozinho. O tipo é só informativo, e a bonificação não tem custo
+atribuído. Uma fração que sobra fica na quantidade
 até a pessoa lançar a sua venda. Só existe em Ações Nacionais, Ações Internacionais e FIIs.
 A fonte **propõe** todo evento de uma data em que a posição era maior que zero, e ele fica
 **pendente** até a pessoa confirmar ou descartar. Enquanto houver um pendente, o ativo não recebe

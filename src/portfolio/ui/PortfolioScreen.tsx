@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   exchangeRateToNumber,
   formatReais,
+  hasCorporateActions,
   projectPortfolio,
   type Asset,
   type AssetClass,
@@ -22,6 +23,7 @@ import { ThemeToggle } from "@/ui/ThemeToggle";
 import { AssetForm } from "./AssetForm";
 import { DeleteAssetForm } from "./DeleteAssetForm";
 import { ClassDetail } from "./ClassDetail";
+import { CorporateActionForm } from "./CorporateActionForm";
 import { PayoutForm } from "./PayoutForm";
 import { TargetsForm } from "./TargetsForm";
 import { TradeForm } from "./TradeForm";
@@ -34,14 +36,16 @@ type Props = { initialState: PortfolioState; today: IsoDate };
  * being corrected, or null when new. A trade or payout carries the one being
  * corrected, or null when new; a new one also carries the asset whose row it
  * came from, or null from the top bar, where the sheet can still turn from a
- * trade into a payout and back.
+ * trade into a payout and back. A corporate action always has its asset: a new
+ * one comes from the + Operação of its row, turned from a trade and back.
  */
 type OpenSheet =
   | { kind: "targets" }
   | { kind: "asset"; asset: Asset | null }
   | { kind: "delete-asset"; asset: Asset }
   | { kind: "trade"; asset: number | null; trade: number | null; tradeKind: TradeKind }
-  | { kind: "payout"; asset: number | null; payout: number | null };
+  | { kind: "payout"; asset: number | null; payout: number | null }
+  | { kind: "corporate-action"; asset: number; action: number | null };
 
 /**
  * The portfolio's dashboard (variation E of the prototype, #71): the band with
@@ -112,6 +116,12 @@ export function PortfolioScreen({ initialState, today }: Props) {
     void refreshQuotes(false);
     return null;
   }
+
+  /** A new trade from the + Operação of an asset that has corporate actions, which can still turn into one. */
+  const canTurnIntoAction = ({ asset, trade }: { asset: number | null; trade: number | null }) => {
+    const row = trade === null ? state.assets.find((a) => a.id === asset) : undefined;
+    return row !== undefined && hasCorporateActions(row.assetClass);
+  };
 
   /** The asset opens expanded, in its class, with what was just launched in its place. */
   function showAsset(id: number) {
@@ -185,6 +195,10 @@ export function PortfolioScreen({ initialState, today }: Props) {
             close={() => openClassDetail(null)}
             newTrade={(asset) => setSheet({ kind: "trade", asset, trade: null, tradeKind: "buy" })}
             editTrade={(trade) => setSheet({ kind: "trade", asset: null, trade, tradeKind: "buy" })}
+            editAction={(id) => {
+              const action = state.corporateActions.find((c) => c.id === id);
+              if (action) setSheet({ kind: "corporate-action", asset: action.asset, action: id });
+            }}
             newPayout={(asset) => setSheet({ kind: "payout", asset, payout: null })}
             editPayout={(payout) => setSheet({ kind: "payout", asset: null, payout })}
             editAsset={(id) => {
@@ -222,9 +236,23 @@ export function PortfolioScreen({ initialState, today }: Props) {
           kind={sheet.tradeKind}
           today={today}
           payoutInstead={fromTopBar(sheet) ? () => setSheet({ kind: "payout", asset: null, payout: null }) : undefined}
+          actionInstead={canTurnIntoAction(sheet) ? () => setSheet({ kind: "corporate-action", asset: sheet.asset!, action: null }) : undefined}
           suggestExchangeRate={suggestExchangeRate}
           save={(trade) => run({ type: "save-trade", trade }, () => showAsset(trade.asset))}
           delete={() => run({ type: "delete-trade", id: sheet.trade! })}
+          close={() => setSheet(null)}
+        />
+      )}
+      {sheet?.kind === "corporate-action" && (
+        <CorporateActionForm
+          asset={state.assets.find((a) => a.id === sheet.asset)!}
+          action={state.corporateActions.find((c) => c.id === sheet.action) ?? null}
+          today={today}
+          tradeInstead={
+            sheet.action === null ? (tradeKind) => setSheet({ kind: "trade", asset: sheet.asset, trade: null, tradeKind }) : undefined
+          }
+          save={(action) => run({ type: "save-corporate-action", action }, () => showAsset(action.asset))}
+          delete={() => run({ type: "delete-corporate-action", id: sheet.action! })}
           close={() => setSheet(null)}
         />
       )}

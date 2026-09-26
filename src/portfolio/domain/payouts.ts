@@ -78,8 +78,9 @@ export function deletePayout(state: PortfolioState, id: number): Result<Portfoli
 /**
  * Records the payouts the source brought whose origin was never seen: only the
  * ones already paid, on the payment date, worth the quantity at the end of the
- * record date (counting that day's trades) × the value per unit, less 15% on
- * interest on equity, to the cent. A record date with no position, or one not
+ * record date (counting that day's trades and corporate actions) × the value
+ * per unit, less 15% on interest on equity, to the cent. A record date with no
+ * position, or one not
  * yet paid, is left unseen, so a retroactive buy or the payment date makes a
  * later fetch record it. A payout of an asset deleted meanwhile is dropped.
  * Checks every field, because the command crosses the server's boundary.
@@ -98,7 +99,10 @@ export function recordSourcePayouts(state: PortfolioState, payouts: SourcePayout
   for (const p of payouts) {
     if (p.paymentDate > today || !next.assets.some((a) => a.id === p.asset)) continue;
     if (next.payoutOrigins.some((o) => sameOrigin(o, p))) continue;
-    const held = replay(next.trades.filter((t) => t.asset === p.asset && t.date <= p.recordDate)).position.quantity;
+    const held = replay(
+      next.trades.filter((t) => t.asset === p.asset && t.date <= p.recordDate),
+      next.corporateActions.filter((c) => c.asset === p.asset && c.date <= p.recordDate),
+    ).position.quantity;
     // Multiplied exactly, before the only division.
     const gross = BigInt(held) * BigInt(p.perUnit);
     const amount = Math.round(

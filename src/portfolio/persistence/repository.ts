@@ -2,6 +2,7 @@ import {
   ASSET_CLASSES,
   type Asset,
   type AssetClass,
+  type CorporateAction,
   type FetchKind,
   type IsoDateTime,
   type LastFetch,
@@ -14,13 +15,14 @@ import {
 } from "@/portfolio/domain";
 import { notInArray } from "drizzle-orm";
 import type { Connection, Database } from "@/persistence/database";
-import { asset, classTarget, currentExchangeRate, lastFetch, payout, payoutOrigin, quote, trade } from "./schema";
+import { asset, classTarget, corporateAction, currentExchangeRate, lastFetch, payout, payoutOrigin, quote, trade } from "./schema";
 
 // No business rule here: validating and deriving belong to the domain. This
 // module only translates the portfolio's state into rows and back.
 
 type AssetRow = typeof asset.$inferSelect;
 type TradeRow = typeof trade.$inferSelect;
+type CorporateActionRow = typeof corporateAction.$inferSelect;
 type PayoutRow = typeof payout.$inferSelect;
 type PayoutOriginRow = typeof payoutOrigin.$inferSelect;
 type QuoteRow = typeof quote.$inferSelect;
@@ -40,6 +42,14 @@ const toTrade = (row: TradeRow): Trade => ({
   quantity: row.quantity,
   unitPrice: row.unitPrice,
   exchangeRate: row.exchangeRate,
+});
+
+const toCorporateAction = (row: CorporateActionRow): CorporateAction => ({
+  id: row.id,
+  asset: row.asset,
+  kind: row.kind as CorporateAction["kind"],
+  date: row.date as CorporateAction["date"],
+  ratio: { from: row.ratioFrom, to: row.ratioTo },
 });
 
 const toPayout = (row: PayoutRow): Payout => ({
@@ -77,6 +87,7 @@ export function load(db: Connection): PortfolioState {
     targets,
     assets: db.select().from(asset).orderBy(asset.id).all().map(toAsset),
     trades: db.select().from(trade).orderBy(trade.id).all().map(toTrade),
+    corporateActions: db.select().from(corporateAction).orderBy(corporateAction.id).all().map(toCorporateAction),
     payouts: db.select().from(payout).orderBy(payout.id).all().map(toPayout),
     payoutOrigins: db.select().from(payoutOrigin).orderBy(payoutOrigin.id).all().map(toPayoutOrigin),
     quotes: db.select().from(quote).orderBy(quote.asset).all().map(toQuote),
@@ -87,11 +98,13 @@ export function load(db: Connection): PortfolioState {
 
 /**
  * Saves the state the command returned, inside the caller's transaction. Rows
- * are inserted or rewritten, and a trade, payout, payout origin, quote or asset the state no longer has is
- * deleted for good: the portfolio has no trash.
+ * are inserted or rewritten, and a trade, corporate action, payout, payout
+ * origin, quote or asset the state no longer has is deleted for good: the
+ * portfolio has no trash.
  */
 export function save(tx: Connection, state: PortfolioState): void {
   tx.delete(trade).where(notInArray(trade.id, state.trades.map((t) => t.id))).run();
+  tx.delete(corporateAction).where(notInArray(corporateAction.id, state.corporateActions.map((c) => c.id))).run();
   tx.delete(payout).where(notInArray(payout.id, state.payouts.map((p) => p.id))).run();
   tx.delete(payoutOrigin).where(notInArray(payoutOrigin.id, state.payoutOrigins.map((o) => o.id))).run();
   tx.delete(quote).where(notInArray(quote.asset, state.quotes.map((q) => q.asset))).run();
@@ -107,6 +120,10 @@ export function save(tx: Connection, state: PortfolioState): void {
   for (const t of state.trades) {
     const row: TradeRow = { ...t };
     tx.insert(trade).values(row).onConflictDoUpdate({ target: trade.id, set: row }).run();
+  }
+  for (const { ratio, ...c } of state.corporateActions) {
+    const row: CorporateActionRow = { ...c, ratioFrom: ratio.from, ratioTo: ratio.to };
+    tx.insert(corporateAction).values(row).onConflictDoUpdate({ target: corporateAction.id, set: row }).run();
   }
   for (const o of state.payoutOrigins) {
     const row: PayoutOriginRow = { ...o };

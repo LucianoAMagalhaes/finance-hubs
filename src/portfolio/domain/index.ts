@@ -6,6 +6,7 @@ export {
   projectPortfolio,
   type AssetTag,
   type AssetView,
+  type CorporateActionView,
   type ClassView,
   type DollarView,
   type PayoutView,
@@ -15,6 +16,14 @@ export {
 export { emptyPortfolio, type PortfolioState } from "./state";
 export { normalizeTicker, REGISTRABLE_CLASSES, type Asset, type AssetToSave } from "./assets";
 export type { Trade, TradeKind, TradeToSave } from "./trades";
+export {
+  CORPORATE_ACTION_KINDS,
+  hasCorporateActions,
+  type CorporateAction,
+  type CorporateActionKind,
+  type CorporateActionToSave,
+  type Ratio,
+} from "./corporateActions";
 export { PAYOUT_KINDS, type Payout, type PayoutKind, type PayoutOrigin, type PayoutToSave, type SourcePayout } from "./payouts";
 export { tradeAmount } from "./position";
 export {

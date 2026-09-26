@@ -51,8 +51,9 @@ export function saveAsset(state: PortfolioState, data: AssetToSave): Result<Port
 }
 
 /**
- * Deletes for good an asset registered by mistake. An asset with any trade
- * or payout is never deleted nor hidden: the gain it gave stays in the portfolio.
+ * Deletes for good an asset registered by mistake, with its corporate
+ * actions, which change nothing without a trade. An asset with any trade or
+ * payout is never deleted nor hidden: the gain it gave stays in the portfolio.
  */
 export function deleteAsset(state: PortfolioState, id: number): Result<PortfolioState> {
   const asset = state.assets.find((a) => a.id === id);
@@ -65,5 +66,14 @@ export function deleteAsset(state: PortfolioState, id: number): Result<Portfolio
   }
   const assets = state.assets.filter((a) => a.id !== id);
   const quotes = state.quotes.filter((q) => q.asset !== id);
-  return { ok: true, value: { ...state, assets, quotes, payoutOrigins: state.payoutOrigins.filter((o) => o.asset !== id) } };
+  return {
+    ok: true,
+    value: {
+      ...state,
+      assets,
+      quotes,
+      corporateActions: state.corporateActions.filter((c) => c.asset !== id),
+      payoutOrigins: state.payoutOrigins.filter((o) => o.asset !== id),
+    },
+  };
 }

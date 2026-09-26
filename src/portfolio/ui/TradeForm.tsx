@@ -32,6 +32,8 @@ type Props = {
   today: IsoDate;
   /** From the top bar, turns the sheet into a payout; absent otherwise. */
   payoutInstead?: () => void;
+  /** From the row of an asset that has corporate actions, turns the sheet into one; absent otherwise. */
+  actionInstead?: () => void;
   /** The selling PTAX of the date, or the last one before; null with the BCB down. */
   suggestExchangeRate: (date: IsoDate) => Promise<Ptax | null>;
   /** Returns the refusal, or null if it saved. */
@@ -60,6 +62,7 @@ export function TradeForm({
   kind: initialKind,
   today,
   payoutInstead,
+  actionInstead,
   suggestExchangeRate,
   save,
   delete: remove,
@@ -118,8 +121,8 @@ export function TradeForm({
         <div className="content">
           <LaunchPicker
             chosen={draft.kind}
-            choose={(k) => (k === "payout" ? payoutInstead?.() : edit({ kind: k }))}
-            offerPayout={payoutInstead !== undefined}
+            choose={(k) => (k === "payout" ? payoutInstead?.() : k === "corporate-action" ? actionInstead?.() : edit({ kind: k }))}
+            offer={[...(payoutInstead ? (["payout"] as const) : []), ...(actionInstead ? (["corporate-action"] as const) : [])]}
           />
           {!asset && <AssetSelect assets={assets} value={draft.asset} change={(a) => edit({ asset: a })} />}
           <label className="field">

@@ -209,6 +209,33 @@ describe("the portfolio's persistence", () => {
     expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
   });
 
+  it("corporate actions come back identical from the database, corrected and deleted as the domain left them", () => {
+    const database = open();
+    executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
+      { type: "save-asset", asset: { ticker: "AAPL", assetClass: "international-stocks" } },
+      { type: "save-asset", asset: { ticker: "MGLU3", assetClass: "domestic-stocks" } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-01-10", quantity: decimal(100), unitPrice: decimal(30) } },
+      { type: "save-trade", trade: { asset: 2, kind: "buy", date: "2026-01-10", quantity: decimal(10), unitPrice: decimal(200), exchangeRate: 50000 } },
+      { type: "save-corporate-action", action: { asset: 1, kind: "split", date: "2026-03-10", ratio: { from: 1, to: 4 } } },
+      { type: "save-corporate-action", action: { asset: 2, kind: "bonus", date: "2026-04-10", ratio: { from: 10, to: 11 } } },
+      { type: "save-corporate-action", action: { asset: 3, kind: "reverse-split", date: "2026-05-10", ratio: { from: 10, to: 1 } } },
+    );
+
+    const state = executeOk(
+      database,
+      { type: "save-corporate-action", action: { id: 1, asset: 1, kind: "split", date: "2026-03-11", ratio: { from: 1, to: 5 } } },
+      { type: "delete-corporate-action", id: 2 },
+      { type: "delete-asset", id: 3 },
+    );
+
+    const reloaded = loadPortfolio(open());
+    expect(reloaded).toEqual(state);
+    expect(reloaded.corporateActions).toEqual([{ id: 1, asset: 1, kind: "split", date: "2026-03-11", ratio: { from: 1, to: 5 } }]);
+    expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
+  });
+
   it("quotes and the time of the last fetch come back identical from the database", () => {
     const database = open();
     executeOk(

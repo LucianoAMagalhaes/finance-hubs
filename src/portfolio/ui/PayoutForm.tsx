@@ -58,7 +58,9 @@ export function PayoutForm({ assets, asset, payout, today, tradeInstead, save, d
           <p className="hint">O valor é o que caiu na conta, já líquido. O provento entra no ganho total, sem mudar a quantidade nem o custo.</p>
         </header>
         <div className="content">
-          {tradeInstead && <LaunchPicker chosen="payout" choose={(k) => k !== "payout" && tradeInstead(k)} />}
+          {tradeInstead && (
+            <LaunchPicker chosen="payout" choose={(k) => (k === "buy" || k === "sell") && tradeInstead(k)} offer={["payout"]} />
+          )}
           {!asset && <AssetSelect assets={assets} value={draft.asset} change={(a) => edit({ asset: a })} />}
           <label className="field">
             <span>Data de pagamento</span>
