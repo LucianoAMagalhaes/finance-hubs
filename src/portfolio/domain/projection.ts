@@ -240,7 +240,7 @@ function projectAsset(
   const matured = asset.bond !== undefined && today >= asset.bond.maturityDate;
   if (matured) tags.push("matured");
   if (privateBond) {
-    if (asset.bond!.indexer !== "fixed-rate" && accrued === null) tags.push("no-rate-index");
+    if (asset.bond.indexer !== "fixed-rate" && accrued === null) tags.push("no-rate-index");
   } else {
     if (!quote) tags.push("no-quote");
     if (currency === "USD" && !rate) tags.push("no-exchange-rate");

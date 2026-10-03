@@ -51,6 +51,9 @@ export function saveAsset(state: PortfolioState, data: AssetToSave): Result<Port
   if (!fixedIncome && data.bond !== undefined) return { ok: false, error: "Só um ativo de Renda Fixa é um título." };
   const checked = fixedIncome ? checkBond(data.bond!, existing?.bond) : null;
   if (checked && "error" in checked) return { ok: false, error: checked.error };
+  if (checked && "bond" in checked && checked.bond.kind === "treasury-bond" && !sourceId) {
+    return { ok: false, error: "Escolha um título do Tesouro Direto na lista." };
+  }
   if (state.assets.some((a) => sameTicker(a.ticker, ticker) && a.id !== existing?.id)) {
     return { ok: false, error: `Já existe um ativo ${ticker} na carteira.` };
   }

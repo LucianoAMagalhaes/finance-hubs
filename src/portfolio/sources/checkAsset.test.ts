@@ -242,6 +242,7 @@ function fakeSources({ known = [], isins = {}, coins = {} }: Answers): Sources &
   const down = () => new SourceError("down");
   return {
     asked,
+    async treasuryBonds() { throw new Error("Unexpected treasury request."); },
     async latestQuote() {
       throw new Error("The check doesn't ask for quotes.");
     },

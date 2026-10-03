@@ -131,12 +131,18 @@ function shiftDate(date: IsoDate, days: number): IsoDate {
  * came: a rate alone keeps only its own time.
  */
 async function refreshQuotes(state: PortfolioState, sources: Sources, now: IsoDateTime, force: boolean): Promise<PortfolioCommand[]> {
-  const due = state.assets.filter((a) => hasSource(a) && (force || isOld(state.quotes.find((q) => q.asset === a.id)?.at, now)));
+  const due = state.assets.filter((a) => (hasSource(a) || (a.bond?.kind === "treasury-bond" && a.bond.maturityDate > dateOf(now))) && (force || isOld(state.quotes.find((q) => q.asset === a.id)?.at, now)));
   const rateDue = state.assets.some((a) => currencyOf(a.assetClass) === "USD") && (force || isOld(state.exchangeRate?.at, now));
   if (due.length === 0 && !rateDue) return [];
 
+  const treasury = due.some((a) => a.bond?.kind === "treasury-bond") ? sources.treasuryBonds() : null;
   const [answers, rate] = await Promise.all([
-    Promise.allSettled(due.map((a) => sources.latestQuote(a))),
+    Promise.allSettled(due.map(async (a) => {
+      if (a.bond?.kind !== "treasury-bond") return sources.latestQuote(a);
+      const bond = (await treasury)?.find((b) => b.sourceId === a.sourceId);
+      if (!bond) throw new Error(`No treasury quote for ${a.sourceId}.`);
+      return bond.price;
+    })),
     rateDue ? fetchRate(sources, now) : null,
   ]);
   const quotes: QuoteToRecord[] = [];
@@ -220,7 +226,7 @@ async function fetchRate(sources: Sources, now: IsoDateTime): Promise<CurrentExc
   }
 }
 
-/** The classes a source quotes; fixed income has no quote from any source. */
+/** The market classes quoted individually; treasury bonds share their CSV list. */
 const QUOTED_CLASSES: readonly AssetClass[] = ["domestic-stocks", "international-stocks", "real-estate-funds", "crypto"];
 
 const hasSource = (a: Asset) => QUOTED_CLASSES.includes(a.assetClass);

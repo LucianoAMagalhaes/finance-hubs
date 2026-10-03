@@ -34,6 +34,7 @@ const toAsset = (row: AssetRow): Asset => ({
   ticker: row.ticker,
   assetClass: row.assetClass as AssetClass,
   sourceId: row.sourceId,
+  ...(row.bondKind === "treasury-bond" && { bond: { kind: "treasury-bond", maturityDate: row.maturityDate as PrivateBond["maturityDate"] } }),
   ...(row.bondKind === "private-bond" && {
     bond: {
       kind: "private-bond",
@@ -45,12 +46,12 @@ const toAsset = (row: AssetRow): Asset => ({
   }),
 });
 
-/** A private bond's bond columns, or nulls. */
+/** A bond's columns: treasury bonds keep only their kind and maturity. */
 const bondColumns = ({ bond }: Asset): Pick<AssetRow, "bondKind" | "bondType" | "indexer" | "rate" | "maturityDate"> => ({
   bondKind: bond?.kind ?? null,
-  bondType: bond?.bondType ?? null,
-  indexer: bond?.indexer ?? null,
-  rate: bond?.rate ?? null,
+  bondType: bond?.kind === "private-bond" ? bond.bondType : null,
+  indexer: bond?.kind === "private-bond" ? bond.indexer : null,
+  rate: bond?.kind === "private-bond" ? bond.rate : null,
   maturityDate: bond?.maturityDate ?? null,
 });
 

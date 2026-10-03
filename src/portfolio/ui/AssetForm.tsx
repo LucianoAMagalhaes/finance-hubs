@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { ASSET_CLASSES, BOND_TYPES, INDEXERS, normalizeTicker, type Asset, type AssetClass, type AssetToSave } from "@/portfolio/domain";
-import type { CryptoCandidate } from "@/portfolio/sources";
+import { useEffect, useState, type FormEvent } from "react";
+import { ASSET_CLASSES, BOND_TYPES, INDEXERS, formatDate, normalizeTicker, type Asset, type AssetClass, type AssetToSave } from "@/portfolio/domain";
+import type { CryptoCandidate, TreasuryBondQuote } from "@/portfolio/sources";
+import { listTreasuryBonds } from "@/portfolio/server/actions";
 import { Refusal } from "@/ui/Refusal";
 import { Sheet } from "@/ui/Sheet";
 import { useAction } from "@/ui/useAction";
@@ -24,8 +25,8 @@ type Props = {
  * correction of its ticker, when the company changes it. Either way the source
  * checks the ticker, and a crypto ticker several coins share asks which one.
  * In Renda Fixa, a private bond by its name, as typed, its type, indexer, rate
- * and maturity, all correctable; no source is asked. The Tesouro Direto comes
- * with its own ticket.
+ * and maturity, all correctable. A Tesouro Direto bond is chosen from the
+ * source list, with its name, maturity and source id.
  */
 export function AssetForm({ asset, proposedClass, save, close }: Props) {
   const [draft, setDraft] = useState<AssetDraft>(() =>
@@ -36,6 +37,22 @@ export function AssetForm({ asset, proposedClass, save, close }: Props) {
   const [coin, setCoin] = useState<string | null>(null);
   const { run, running, refusal, refuse, clearRefusal } = useAction();
   const fixedIncome = draft.assetClass === "fixed-income";
+  const treasury = fixedIncome && draft.bondKind === "treasury-bond";
+  const [bonds, setBonds] = useState<TreasuryBondQuote[] | null>(null);
+  const [listFailed, setListFailed] = useState(false);
+  const [listAttempt, setListAttempt] = useState(0);
+  useEffect(() => {
+    if (!treasury || asset) return;
+    let active = true;
+    setListFailed(false);
+    setBonds(null);
+    listTreasuryBonds().then((answer) => {
+      if (!active) return;
+      setBonds(answer);
+      setListFailed(answer === null);
+    }).catch(() => { if (active) setListFailed(true); });
+    return () => { active = false; };
+  }, [treasury, asset, listAttempt]);
 
   function edit(change: Partial<AssetDraft>) {
     clearRefusal();
@@ -66,7 +83,9 @@ export function AssetForm({ asset, proposedClass, save, close }: Props) {
             {asset ? (asset.bond ? `Corrigir ${asset.ticker}` : `Corrigir o código de ${asset.ticker}`) : "Novo ativo"}
           </h2>
           <p className="hint">
-            {fixedIncome
+            {treasury
+              ? "Escolha o título pela lista do Tesouro Direto."
+              : fixedIncome
               ? asset
                 ? "A correção do indexador ou da taxa vale para o título inteiro, desde a primeira aplicação."
                 : "Pelo nome que o banco usa. O jeito do título não muda depois."
@@ -94,66 +113,98 @@ export function AssetForm({ asset, proposedClass, save, close }: Props) {
           {fixedIncome ? (
             <>
               <div className="shape-picker" role="group" aria-label="Jeito do título">
-                <button type="button" aria-pressed={false} disabled title="Ainda não existe">
+                <button
+                  type="button"
+                  aria-pressed={treasury}
+                  disabled={asset !== null}
+                  onClick={() => edit({ bondKind: "treasury-bond", ticker: "", sourceId: null, maturityDate: "" })}
+                >
                   Tesouro Direto
                 </button>
-                <button type="button" aria-pressed={draft.bondKind === "private-bond"} disabled={asset !== null}>
+                <button
+                  type="button"
+                  aria-pressed={draft.bondKind === "private-bond"}
+                  disabled={asset !== null}
+                  onClick={() => edit({ bondKind: "private-bond", ticker: "", sourceId: null, maturityDate: "" })}
+                >
                   Título privado
                 </button>
               </div>
-              <label className="field">
-                <span>Nome</span>
-                <input
-                  required
-                  autoFocus
-                  value={draft.ticker}
-                  onChange={(e) => edit({ ticker: e.target.value })}
-                  placeholder="Ex.: CDB Inter 2028"
-                />
-              </label>
-              <div className="cols-2">
-                <label className="field">
-                  <span>Tipo</span>
-                  <select value={draft.bondType} onChange={(e) => edit({ bondType: e.target.value as AssetDraft["bondType"] })}>
-                    {BOND_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {BOND_TYPE_NAMES[t]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Indexador</span>
-                  <select value={draft.indexer} onChange={(e) => edit({ indexer: e.target.value as AssetDraft["indexer"] })}>
-                    {INDEXERS.map((i) => (
-                      <option key={i} value={i}>
-                        {INDEXER_NAMES[i]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="cols-2">
-                <label className="field">
-                  <span>Taxa</span>
-                  <span className="affixed">
-                    {affixes.before && <span className="affix">{affixes.before}</span>}
+              {treasury ? (
+                asset ? <p>{asset.ticker} · vence {formatDate(asset.bond!.maturityDate)}</p> : listFailed ? (
+                  <div role="alert">
+                    <p>A lista do Tesouro Direto não veio.</p>
+                    <button type="button" className="btn" onClick={() => setListAttempt((attempt) => attempt + 1)}>Tentar de novo</button>
+                  </div>
+                ) : bonds === null ? <p role="status">Buscando títulos…</p> : (
+                  <label className="field">
+                    <span>Título do Tesouro Direto</span>
+                    <select required value={draft.sourceId ?? ""} onChange={(event) => {
+                      const selected = bonds.find((bond) => bond.sourceId === event.target.value);
+                      edit({ sourceId: selected?.sourceId ?? null, ticker: selected?.name ?? "", maturityDate: selected?.maturityDate ?? "" });
+                    }}>
+                      <option value="">Escolha um título</option>
+                      {bonds.map((bond) => <option key={bond.sourceId} value={bond.sourceId}>{bond.name} · vence {formatDate(bond.maturityDate)}</option>)}
+                    </select>
+                  </label>
+                )
+              ) : (
+                <>
+                  <label className="field">
+                    <span>Nome</span>
                     <input
                       required
-                      inputMode="decimal"
-                      className="num"
-                      value={draft.rate}
-                      onChange={(e) => edit({ rate: e.target.value })}
-                      placeholder={affixes.example}
+                      autoFocus
+                      value={draft.ticker}
+                      onChange={(e) => edit({ ticker: e.target.value })}
+                      placeholder="Ex.: CDB Inter 2028"
                     />
-                    <span className="affix">{affixes.after}</span>
-                  </span>
-                </label>
-                <label className="field">
-                  <span>Vencimento</span>
-                  <input type="date" required value={draft.maturityDate} onChange={(e) => edit({ maturityDate: e.target.value })} />
-                </label>
-              </div>
+                  </label>
+                  <div className="cols-2">
+                    <label className="field">
+                      <span>Tipo</span>
+                      <select value={draft.bondType} onChange={(e) => edit({ bondType: e.target.value as AssetDraft["bondType"] })}>
+                        {BOND_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {BOND_TYPE_NAMES[t]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Indexador</span>
+                      <select value={draft.indexer} onChange={(e) => edit({ indexer: e.target.value as AssetDraft["indexer"] })}>
+                        {INDEXERS.map((i) => (
+                          <option key={i} value={i}>
+                            {INDEXER_NAMES[i]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="cols-2">
+                    <label className="field">
+                      <span>Taxa</span>
+                      <span className="affixed">
+                        {affixes.before && <span className="affix">{affixes.before}</span>}
+                        <input
+                          required
+                          inputMode="decimal"
+                          className="num"
+                          value={draft.rate}
+                          onChange={(e) => edit({ rate: e.target.value })}
+                          placeholder={affixes.example}
+                        />
+                        <span className="affix">{affixes.after}</span>
+                      </span>
+                    </label>
+                    <label className="field">
+                      <span>Vencimento</span>
+                      <input type="date" required value={draft.maturityDate} onChange={(e) => edit({ maturityDate: e.target.value })} />
+                    </label>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <label className="field">
@@ -195,7 +246,7 @@ export function AssetForm({ asset, proposedClass, save, close }: Props) {
           <button type="button" className="btn" onClick={close}>
             Cancelar
           </button>
-          <button type="submit" className="btn primary" disabled={running}>
+          <button type="submit" className="btn primary" disabled={running || (treasury && !draft.sourceId)}>
             {running ? (fixedIncome ? "Salvando…" : "Conferindo…") : asset ? "Salvar" : "Cadastrar"}
           </button>
         </footer>

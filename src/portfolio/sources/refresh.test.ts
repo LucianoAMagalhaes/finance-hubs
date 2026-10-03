@@ -408,6 +408,7 @@ function fakeSources(
     dailyCdi: notAsked,
     monthlyIpca: notAsked,
     ipcaProjections: notAsked,
+    treasuryBonds: notAsked,
   };
 }
 

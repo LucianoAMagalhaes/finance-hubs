@@ -16,7 +16,7 @@ export {
 export { emptyPortfolio, type PortfolioState } from "./state";
 export type { RateIndex } from "./rateIndexes";
 export { normalizeTicker, type Asset, type AssetToSave } from "./assets";
-export { BOND_TYPES, INDEXERS, isPrivateBond, type Bond, type BondKind, type BondType, type Indexer, type PrivateBond } from "./bonds";
+export { BOND_TYPES, INDEXERS, isPrivateBond, type Bond, type BondKind, type BondType, type Indexer, type PrivateBond, type TreasuryBond } from "./bonds";
 export type { AmountTrade, Trade, TradeKind, TradeToSave, UnitTrade } from "./trades";
 export {
   CORPORATE_ACTION_KINDS,
