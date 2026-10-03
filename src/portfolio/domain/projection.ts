@@ -123,6 +123,8 @@ export type ClassView = {
   name: string;
   /** The last daily CDI stored, shown in the fixed-income header; null in every other class or without CDI. */
   cdiThrough: IsoDate | null;
+  /** The latest official IPCA month, as its first day; null outside fixed income or before fetching. */
+  ipcaThrough: IsoDate | null;
   /** The current value of the class's assets. */
   value: Cents;
   /** The class's share of the portfolio's current value, from 0 to 100; 0 while the portfolio is worth nothing. */
@@ -182,6 +184,7 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
       key: id,
       name,
       cdiThrough: id === "fixed-income" ? (state.rateIndexes.filter((r) => r.kind === "cdi").map((r) => r.date).sort().at(-1) ?? null) : null,
+      ipcaThrough: id === "fixed-income" ? (state.rateIndexes.filter((r) => r.kind === "ipca").map((r) => r.date).sort().at(-1) ?? null) : null,
       value,
       share: currentValue > 0 ? (value / currentValue) * 100 : 0,
       target,

@@ -271,6 +271,8 @@ function fakeSources({ known = [], isins = {}, coins = {} }: Answers): Sources &
     async sellingPtax() {
       throw new Error("The check doesn't ask for the PTAX.");
     },
+    async monthlyIpca() { throw new Error("Unexpected IPCA request."); },
+    async ipcaProjections() { throw new Error("Unexpected Focus request."); },
     async dailyCdi() {
       throw new Error("The check doesn't ask for the CDI.");
     },

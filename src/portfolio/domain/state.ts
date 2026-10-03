@@ -22,7 +22,7 @@ export type PortfolioState = {
   payoutOrigins: PayoutOrigin[];
   /** The last quote of each asset that ever had one. */
   quotes: Quote[];
-  /** The official rates by kind and date, kept across fetches. */
+  /** Official rates and monthly IPCA projections by kind and date, kept across fetches. */
   rateIndexes: RateIndex[];
   /** The last current exchange rate; null while there never was one. */
   exchangeRate: CurrentExchangeRate | null;

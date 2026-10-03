@@ -40,6 +40,10 @@ export type Sources = {
   sellingPtax(date: IsoDate): Promise<Ptax>;
   /** Daily CDI between the included endpoints, translated from SGS series 12. */
   dailyCdi(from: IsoDate, to: IsoDate): Promise<RateIndex[]>;
+  /** Official monthly IPCA (SGS 433), between included month starts. */
+  monthlyIpca(from: IsoDate, to: IsoDate): Promise<RateIndex[]>;
+  /** Latest monthly Focus medians for months without official IPCA, dated on the month's first day. */
+  ipcaProjections(months: IsoDate[]): Promise<RateIndex[]>;
 };
 
 /** A source that didn't answer, or answered something we can't read. The message is for the log. */

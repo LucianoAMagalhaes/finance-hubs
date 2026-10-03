@@ -83,7 +83,7 @@ export function saveCorporateAction(state: PortfolioState, data: CorporateAction
     ? state.corporateActions.map((c) => (c.id === action.id ? action : c))
     : [...state.corporateActions, action];
   const next = { ...state, corporateActions };
-  const uncovered = whyUncovered(next, [asset.id], null);
+  const uncovered = whyUncovered(next, [asset.id], null, state);
   if (uncovered) return { ok: false, error: uncovered };
   return { ok: true, value: next };
 }
@@ -97,7 +97,7 @@ export function deleteCorporateAction(state: PortfolioState, id: number): Result
   if (!deleted) return { ok: false, error: "Esse evento não existe." };
   if (deleted.status === "pending") return { ok: false, error: PENDING_FIRST };
   const next = { ...state, corporateActions: state.corporateActions.filter((c) => c.id !== id) };
-  const uncovered = whyUncovered(next, [deleted.asset], null);
+  const uncovered = whyUncovered(next, [deleted.asset], null, state);
   if (uncovered) return { ok: false, error: uncovered };
   return { ok: true, value: next };
 }
@@ -107,7 +107,7 @@ export function confirmCorporateAction(state: PortfolioState, id: number): Resul
   const pending = pendingAction(state, id);
   if (!pending.ok) return pending;
   const next = { ...state, corporateActions: state.corporateActions.map((c) => (c.id === id ? { ...c, status: "confirmed" as const } : c)) };
-  const uncovered = whyUncovered(next, [pending.value.asset], null);
+  const uncovered = whyUncovered(next, [pending.value.asset], null, state);
   if (uncovered) return { ok: false, error: uncovered };
   return { ok: true, value: next };
 }

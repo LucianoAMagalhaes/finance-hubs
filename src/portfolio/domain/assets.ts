@@ -69,7 +69,7 @@ export function saveAsset(state: PortfolioState, data: AssetToSave): Result<Port
   }
   const unrepresentable = whyUnrepresentableTrade(next, asset.id);
   if (unrepresentable) return { ok: false, error: unrepresentable };
-  const uncovered = whyUncovered(next, [asset.id], null);
+  const uncovered = whyUncovered(next, [asset.id], null, state);
   if (uncovered) return { ok: false, error: uncovered };
   return { ok: true, value: next };
 }

@@ -7,6 +7,8 @@ import {
   b3Payouts,
   bcbSellingPtax,
   bcbDailyCdi,
+  bcbMonthlyIpca,
+  bcbIpcaProjections,
   coinGeckoQuote,
   coinGeckoSearch,
   SourceError,
@@ -18,6 +20,55 @@ import {
 
 // Real answers recorded in files: the suite never touches the network.
 const recorded = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
+
+describe("the BCB monthly inflation adapters", () => {
+  it("reads the newest Focus monthly median from the recorded answer, rather than its mean", async () => {
+    const fetch = fakeFetch(recorded("bcb-focus-ipca-september-2026.json"));
+    expect(await bcbIpcaProjections(["2026-09-01"], fetch)).toEqual([
+      { kind: "ipca-projection", date: "2026-09-01", rate: decimal(0.56) },
+    ]);
+    const url = new URL(fetch.asked[0]!);
+    expect(url.pathname).toContain("/ExpectativaMercadoMensais");
+    expect(url.searchParams.get("$filter")).toBe("Indicador eq 'IPCA' and baseCalculo eq 0 and DataReferencia eq '09/2026'");
+    expect(url.searchParams.get("$orderby")).toBe("Data desc");
+    expect(url.searchParams.get("$top")).toBe("1");
+  });
+  it("translates monthly SGS inflation, including deflation and zero", async () => {
+    // Representative SGS JSON; values verified against the recorded SGS portal answer.
+    const fetch = fakeFetch('[{"data":"01/07/2026","valor":"0.07"},{"data":"01/08/2026","valor":"-0.32"},{"data":"01/09/2026","valor":"0.00"}]');
+    expect(await bcbMonthlyIpca("2026-07-01", "2026-09-01", fetch)).toEqual([
+      { kind: "ipca", date: "2026-07-01", rate: decimal(0.07) },
+      { kind: "ipca", date: "2026-08-01", rate: decimal(-0.32) },
+      { kind: "ipca", date: "2026-09-01", rate: 0 },
+    ]);
+    expect(fetch.asked[0]).toContain("sgs.433/dados?formato=json&dataInicial=01/07/2026&dataFinal=30/09/2026");
+  });
+  it("rejects invalid SGS responses and failed requests without replacing stored inflation", async () => {
+    for (const body of ["null", "{}", "[null]", '[{"data":"31/02/2026","valor":"0.5"}]',
+      '[{"data":"01/09/2026","valor":0.5}]', '[{"data":"01/09/2026","valor":"-100"}]',
+      '[{"data":"01/09/2026","valor":"0.123456789"}]', '[{"data":"01/08/2026","valor":"0.5"}]']) {
+      await expect(bcbMonthlyIpca("2026-09-01", "2026-09-01", fakeFetch(body))).rejects.toThrow(SourceError);
+    }
+    await expect(bcbMonthlyIpca("2026-09-01", "2026-09-01", fakeFetch("down", 503))).rejects.toThrow(SourceError);
+    expect(await bcbMonthlyIpca("2026-09-01", "2026-09-01", fakeFetch("[]"))).toEqual([]);
+  });
+  it("rejects malformed Focus medians, accepts deflation, and handles an unpublished month", async () => {
+    const row = { Indicador: "IPCA", baseCalculo: 0, DataReferencia: "09/2026", Data: "2026-09-25", Mediana: -0.32 };
+    expect(await bcbIpcaProjections(["2026-09-01"], fakeFetch(JSON.stringify({ value: [row] })))).toEqual([
+      { kind: "ipca-projection", date: "2026-09-01", rate: decimal(-0.32) },
+    ]);
+    for (const patch of [{ Mediana: null }, { Mediana: "0.5" }, { Mediana: -100 }, { Data: "2026-02-30" },
+      { Indicador: "IGP-M" }, { baseCalculo: 1 }, { DataReferencia: "10/2026" }]) {
+      await expect(bcbIpcaProjections(["2026-09-01"], fakeFetch(JSON.stringify({ value: [{ ...row, ...patch }] })))).rejects.toThrow(SourceError);
+    }
+    for (const body of ["null", "{}", '{"value":[null]}']) {
+      await expect(bcbIpcaProjections(["2026-09-01"], fakeFetch(body))).rejects.toThrow(SourceError);
+    }
+    await expect(bcbIpcaProjections(["2026-09-01"], failingFetch())).rejects.toThrow(SourceError);
+    expect(await bcbIpcaProjections(["2026-09-01"], fakeFetch('{"value":[]}'))).toEqual([]);
+    expect(await bcbIpcaProjections([], failingFetch())).toEqual([]);
+  });
+});
 
 describe("the BCB daily CDI adapter", () => {
   it("rejects changed formats, invalid dates, rates and failed requests, allowing a successful empty window", async () => {

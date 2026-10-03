@@ -40,6 +40,22 @@ afterEach(() => {
 });
 
 describe("the portfolio's persistence", () => {
+  it("keeps monthly projections across reopening and removes them when official IPCA arrives", () => {
+    const database = open();
+    const projected = executeOk(database, { type: "record-rate-indexes", rateIndexes: [
+      { kind: "ipca-projection", date: "2026-08-01", rate: decimal(0.6) },
+      { kind: "ipca-projection", date: "2026-09-01", rate: decimal(0.56) },
+    ] });
+    expect(loadPortfolio(open())).toEqual(projected);
+    const official = executeOk(database, { type: "record-rate-indexes", rateIndexes: [
+      { kind: "ipca", date: "2026-08-01", rate: decimal(-0.32) },
+    ] });
+    expect(loadPortfolio(open())).toEqual(official);
+    expect(official.rateIndexes).toEqual([
+      { kind: "ipca", date: "2026-08-01", rate: decimal(-0.32) },
+      { kind: "ipca-projection", date: "2026-09-01", rate: decimal(0.56) },
+    ]);
+  });
   it("keeps exact daily indexes and their last fetch across reopening, replacing a repeated date", () => {
     const database = open();
     executeOk(database, { type: "record-rate-indexes", rateIndexes: [

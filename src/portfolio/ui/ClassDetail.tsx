@@ -93,6 +93,7 @@ export function ClassDetail({ c, today, expanded, expand, close, newTrade, editT
           {formatShare(c.share)} da carteira · alvo {c.target}%
         </p>
         {c.cdiThrough && <p className="hint">CDI até {formatDate(c.cdiThrough).slice(0, 5)}</p>}
+        {c.ipcaThrough && <p className="hint">IPCA até {new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(new Date(`${c.ipcaThrough}T00:00:00Z`)).replace(".", "")}</p>}
       </header>
       {c.assets.length === 0 ? (
         <p className="empty-detail">Nenhum ativo nesta classe.</p>

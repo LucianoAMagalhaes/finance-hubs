@@ -149,7 +149,7 @@ export const lastFetch = sqliteTable("last_fetch", {
   at: text("at").notNull(),
 });
 
-/** Official rates by kind and date, in daily percent scaled to 8 places. */
+/** Daily CDI and monthly IPCA or projections, in percent scaled to 8 places. */
 export const rateIndex = sqliteTable("rate_index", {
   kind: text("kind").notNull(),
   date: text("date").notNull(),

@@ -10,8 +10,10 @@ import {
   type FetchKind,
   type IsoDateTime,
   type IsoDate,
+  type Indexer,
   type PortfolioCommand,
   type PortfolioState,
+  type RateIndex,
   type QuoteToRecord,
   type SourceCorporateAction,
   type SourcePayout,
@@ -41,25 +43,79 @@ export async function refresh(state: PortfolioState, sources: Sources, now: IsoD
   return results.flat();
 }
 
-/** Daily CDI is shared by every indexed bond, starting at their earliest application. */
+/** Shared indexes: keep successful answers, and retry failures without advancing the daily gate. */
 async function refreshRateIndexes(state: PortfolioState, sources: Sources, now: IsoDateTime, force: boolean): Promise<PortfolioCommand[]> {
   if (!force && !isOld(state.lastFetch["rate-indexes"], now, FRESH_ANNOUNCED_MINUTES)) return [];
-  const ids = new Set(state.assets.filter((a) => isPrivateBond(a) && a.bond.indexer === "cdi-percentage").map((a) => a.id));
-  const first = state.trades.filter((t) => ids.has(t.asset) && t.kind === "buy").map((t) => t.date).sort()[0];
-  if (!first) return [];
+  const answers = await Promise.allSettled([refreshCdi(state, sources, now), refreshIpca(state, sources, now)]);
+  const indexes: RateIndex[] = [];
+  let asked = false;
+  let failed = false;
+  for (const answer of answers) {
+    if (answer.status === "rejected") { failed = true; continue; }
+    if (answer.value === null) continue;
+    asked = true;
+    indexes.push(...answer.value.indexes);
+    failed ||= answer.value.failed;
+  }
+  if (!asked || (failed && indexes.length === 0)) return [];
+  const recorded: PortfolioCommand = { type: "record-rate-indexes", rateIndexes: indexes };
+  return failed ? [recorded] : [recorded, { type: "record-fetch", kind: "rate-indexes", at: now }];
+}
+
+type IndexAnswer = { indexes: RateIndex[]; failed: boolean } | null;
+
+/** Daily CDI, starting at the earliest application and asking only after the last stored date. */
+async function refreshCdi(state: PortfolioState, sources: Sources, now: IsoDateTime): Promise<IndexAnswer> {
+  const first = firstApplication(state, "cdi-percentage");
+  if (!first) return null;
   const kept = state.rateIndexes.filter((r) => r.kind === "cdi").map((r) => r.date).sort();
   const last = kept.at(-1);
   const afterLast = last ? shiftDate(last, 1) : first;
   const from = kept[0] && first >= kept[0] && afterLast > first ? afterLast : first;
   const to = shiftDate(dateOf(now), -1);
-  if (from > to) return [];
-  try {
-    const rateIndexes = await sources.dailyCdi(from, to);
-    return [{ type: "record-rate-indexes", rateIndexes }, { type: "record-fetch", kind: "rate-indexes", at: now }];
-  } catch {
-    // Keep the previous indexes and time so the next opening retries.
-    return [];
+  if (from > to) return null;
+  return { indexes: await sources.dailyCdi(from, to), failed: false };
+}
+
+/** Missing official months first; refresh the projections only where official IPCA is still absent. */
+async function refreshIpca(state: PortfolioState, sources: Sources, now: IsoDateTime): Promise<IndexAnswer> {
+  const first = firstApplication(state, "ipca-plus");
+  if (!first) return null;
+  const start = new Date(`${first.slice(0, 7)}-01T00:00:00Z`);
+  // Before the 15th, the previous month's interval is still accruing.
+  if (first.slice(8) < "15") start.setUTCMonth(start.getUTCMonth() - 1);
+  const through = `${dateOf(now).slice(0, 7)}-01`;
+  const official = new Set(state.rateIndexes.filter((r) => r.kind === "ipca").map((r) => r.date));
+  const missing: IsoDate[] = [];
+  for (; start.toISOString().slice(0, 10) <= through; start.setUTCMonth(start.getUTCMonth() + 1)) {
+    const month = start.toISOString().slice(0, 10) as IsoDate;
+    if (!official.has(month)) missing.push(month);
   }
+  if (missing.length === 0) return null;
+  const windows: { from: IsoDate; to: IsoDate }[] = [];
+  for (const month of missing) {
+    const last = windows.at(-1);
+    const next = last ? new Date(`${last.to}T00:00:00Z`) : null;
+    next?.setUTCMonth(next.getUTCMonth() + 1);
+    if (last && next?.toISOString().slice(0, 10) === month) last.to = month;
+    else windows.push({ from: month, to: month });
+  }
+  const answers = await Promise.allSettled(windows.map(({ from, to }) => sources.monthlyIpca(from, to)));
+  const indexes = answers.flatMap((a) => a.status === "fulfilled" ? a.value : []);
+  let failed = answers.some((a) => a.status === "rejected");
+  for (const r of indexes) if (r.kind === "ipca") official.add(r.date);
+  const projected = missing.filter((month) => !official.has(month));
+  if (projected.length > 0) {
+    try { indexes.push(...await sources.ipcaProjections(projected)); }
+    catch { failed = true; }
+  }
+  return { indexes, failed };
+}
+
+/** The shared history starts with the earliest application of a bond using this indexer. */
+function firstApplication(state: PortfolioState, indexer: Indexer): IsoDate | undefined {
+  const ids = new Set(state.assets.filter((a) => isPrivateBond(a) && a.bond.indexer === indexer).map((a) => a.id));
+  return state.trades.filter((t) => ids.has(t.asset) && t.kind === "buy").map((t) => t.date).sort()[0];
 }
 
 /** Calendar dates for the included endpoints the source expects. */
