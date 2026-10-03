@@ -1,4 +1,4 @@
-import type { Cents, IsoDate } from "@/shared";
+import { formatDate, type Cents, type IsoDate } from "@/shared";
 import type { Asset } from "./assets";
 import { isPrivateBond, type PrivateBond } from "./bonds";
 import { businessDaysBetween } from "./businessDays";
@@ -65,6 +65,16 @@ export const tradesInUnits = (state: PortfolioState, asset: number): PricedTrade
     state.assets.find((a) => a.id === asset),
     state.trades.filter((t) => t.asset === asset),
   ).trades;
+
+/** A positive application must still buy shares at the precision the position supports. */
+export function whyUnrepresentableApplication(state: PortfolioState, id: number): string | null {
+  const asset = state.assets.find((a) => a.id === id);
+  if (!isPrivateBond(asset)) return null;
+  const application = tradesInUnits(state, id).find((t) => t.quantity === 0);
+  return application
+    ? `O valor da aplicação de ${asset.ticker} de ${formatDate(application.date)} é pequeno demais para representar as cotas com até 8 casas decimais.`
+    : null;
+}
 
 /** amount ÷ price, in shares, rounded to the 8 places, exact: cents × 10¹⁴ ÷ the scaled price. */
 function sharesOf(amount: Cents, price: Decimal): Decimal {

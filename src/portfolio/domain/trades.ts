@@ -3,7 +3,7 @@ import { decimalToField, type Decimal } from "./decimal";
 import { checkExchangeRate, currencyOf, type ExchangeRate } from "./exchangeRate";
 import { isPrivateBond } from "./bonds";
 import { replay } from "./position";
-import { tradesInUnits } from "./privateBonds";
+import { tradesInUnits, whyUnrepresentableApplication } from "./privateBonds";
 import { nextId, type PortfolioState } from "./state";
 
 export type TradeKind = "buy" | "sell";
@@ -57,6 +57,8 @@ export function saveTrade(state: PortfolioState, data: TradeToSave, today: IsoDa
   const trade: Trade = { id: existing?.id ?? nextId(state.trades), asset: data.asset, kind: data.kind, date: data.date, ...fields };
   const trades = existing ? state.trades.map((t) => (t.id === trade.id ? trade : t)) : [...state.trades, trade];
   const next = { ...state, trades };
+  const unrepresentable = whyUnrepresentableApplication(next, trade.asset);
+  if (unrepresentable) return { ok: false, error: unrepresentable };
   const uncovered = whyUncovered(next, [trade.asset, existing?.asset], trade.id);
   if (uncovered) return { ok: false, error: uncovered };
   return { ok: true, value: next };

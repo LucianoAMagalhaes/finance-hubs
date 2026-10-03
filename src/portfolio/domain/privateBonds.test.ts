@@ -223,6 +223,28 @@ describe("an application in a private bond", () => {
     expect(refused(10.5)).toEqual({ ok: false, error: "O valor aceita até 2 casas decimais." });
     expect(refused(100, "2026-09-26")).toEqual({ ok: false, error: "A operação não pode ter data depois de hoje." });
   });
+
+  it("refuses an application that would round to zero shares", () => {
+    const state = applyOk(
+      emptyPortfolio(),
+      save({ ...CDB, bond: { ...CDB.bond!, rate: decimal(100) } }),
+      apply10k(1, "2000-01-03"),
+    );
+
+    expect(apply(state, application(1, TODAY, 1), TODAY)).toEqual({
+      ok: false,
+      error: "O valor da aplicação de CDB Inter 2028 de 25/09/2026 é pequeno demais para representar as cotas com até 8 casas decimais.",
+    });
+  });
+
+  it("refuses a rate correction that would round an existing application to zero shares", () => {
+    const state = applyOk(registered, apply10k(1, "2000-01-03"), application(1, TODAY, 1));
+
+    expect(apply(state, save({ ...CDB, id: 1, bond: { ...CDB.bond!, rate: decimal(100) } }), TODAY)).toEqual({
+      ok: false,
+      error: "O valor da aplicação de CDB Inter 2028 de 25/09/2026 é pequeno demais para representar as cotas com até 8 casas decimais.",
+    });
+  });
 });
 
 describe("Renda Fixa in the portfolio", () => {
