@@ -6,6 +6,7 @@ import {
   exchangeRateToField,
   formatDate,
   formatReais,
+  isPrivateBond,
   type AssetView,
   type ClassView,
   type CorporateActionView,
@@ -14,10 +15,12 @@ import {
 } from "@/portfolio/domain";
 import { Refusal } from "@/ui/Refusal";
 import { useAction } from "@/ui/useAction";
+import { describeBond } from "./assetDraft";
 import { describeRatio } from "./corporateActionDraft";
 import {
   classColor,
   CORPORATE_ACTION_NAMES,
+  formatAccruedPrice,
   formatDollars,
   formatGainPercent,
   formatMoment,
@@ -25,7 +28,7 @@ import {
   formatShare,
   formatUnitPrice,
   Gain,
-  KIND_NAMES,
+  kindNamesOf,
   PAYOUT_KIND_NAMES,
   Tags,
   ToTarget,
@@ -53,7 +56,7 @@ type Props = {
   newPayout: (asset: number) => void;
   /** Opens the correction of the payout. */
   editPayout: (payout: number) => void;
-  /** Opens the correction of the asset's ticker. */
+  /** Opens the correction of the asset's ticker, or of the bond. */
   editAsset: (asset: number) => void;
   /** Opens the deletion of the asset. */
   deleteAsset: (asset: number) => void;
@@ -149,6 +152,7 @@ type RowProps = {
 function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
   const zero = a.tags.includes("zero-position");
   const usd = a.inDollars;
+  const privateBond = isPrivateBond(a);
   return (
     <Fragment>
       <tr className={`clickable ${open ? "expanded" : ""} ${zero ? "zero-position" : ""}`} onClick={toggle} aria-expanded={open}>
@@ -160,6 +164,7 @@ function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
             <strong>{a.ticker}</strong>
             <Tags tags={a.tags} />
           </span>
+          {a.bond && <small className="sub bond-line">{describeBond(a.bond)}</small>}
         </td>
         <td className="right num">{zero ? "—" : formatQuantity(a.quantity)}</td>
         <td className="right num">
@@ -178,8 +183,11 @@ function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
             formatUnitPrice(a.averagePrice)
           )}
         </td>
-        <td className="right num" title={a.quoteAt ? `cotação de ${formatMoment(a.quoteAt, today)}` : undefined}>
-          {a.quote === null ? "—" : formatUnitPrice(a.quote, a.currency)}
+        <td
+          className="right num"
+          title={privateBond ? "preço na curva de hoje" : a.quoteAt ? `cotação de ${formatMoment(a.quoteAt, today)}` : undefined}
+        >
+          {a.quote === null ? "—" : privateBond ? formatAccruedPrice(a.quote) : formatUnitPrice(a.quote, a.currency)}
         </td>
         <td className="right num">
           {zero ? "—" : formatReais(a.currentValue)}
@@ -228,6 +236,8 @@ function tradesAndActions(a: AssetView): ({ trade: TradeView } | { action: Corpo
  */
 function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, editPayout, editAsset, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
   const dollar = a.currency === "USD";
+  const privateBond = isPrivateBond(a);
+  const kindNames = kindNamesOf(a);
   const entries = tradesAndActions(a);
   const { run, running, refusal } = useAction();
   const decide = (action: number, decision: Decision) => run(() => decideAction(action, decision));
@@ -236,9 +246,15 @@ function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, 
       <div className="history-head">
         <h3>Operações</h3>
         <span className="history-actions">
-          <button type="button" className="btn" onClick={editAsset} title="Quando a empresa troca de código">
-            Corrigir código
-          </button>
+          {a.bond ? (
+            <button type="button" className="btn" onClick={editAsset}>
+              Corrigir título
+            </button>
+          ) : (
+            <button type="button" className="btn" onClick={editAsset} title="Quando a empresa troca de código">
+              Corrigir código
+            </button>
+          )}
           <button type="button" className="btn" onClick={deleteAsset}>
             Apagar ativo
           </button>
@@ -256,10 +272,10 @@ function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, 
             <tr>
               <th>Data</th>
               <th>Tipo</th>
-              <th className="right">Quantidade</th>
-              <th className="right">Preço</th>
+              <th className="right">{privateBond ? "Cotas" : "Quantidade"}</th>
+              <th className="right">{privateBond ? "Preço na curva" : "Preço"}</th>
               {dollar && <th className="right">Câmbio</th>}
-              <th className="right">Total</th>
+              <th className="right">{privateBond ? "Valor" : "Total"}</th>
             </tr>
           </thead>
           <tbody>
@@ -301,10 +317,14 @@ function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, 
               <tr key={t.id} className="clickable" onClick={() => editTrade(t.id)} title="Corrigir ou apagar">
                 <td className="num">{formatDate(t.date)}</td>
                 <td>
-                  <span className={`trade-kind ${t.kind}`}>{KIND_NAMES[t.kind]}</span>
+                  <span className={`trade-kind ${t.kind}`}>{kindNames[t.kind]}</span>
                 </td>
                 <td className="right num">{formatQuantity(t.quantity)}</td>
-                <td className="right num">{formatUnitPrice(decimalToNumber(t.unitPrice) * 100, a.currency)}</td>
+                <td className="right num">
+                  {privateBond
+                    ? formatAccruedPrice(decimalToNumber(t.unitPrice) * 100)
+                    : formatUnitPrice(decimalToNumber(t.unitPrice) * 100, a.currency)}
+                </td>
                 {dollar && <td className="right num">{t.exchangeRate === null ? "—" : exchangeRateToField(t.exchangeRate)}</td>}
                 <td className="right num">
                   {t.dollarTotal !== null && formatDollars(t.dollarTotal)}

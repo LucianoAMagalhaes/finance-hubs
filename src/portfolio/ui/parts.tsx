@@ -9,12 +9,16 @@ import {
   formatTime,
   type Asset,
   type AssetClass,
+  isPrivateBond,
   type AssetTag,
+  type Bond,
+  type BondType,
   type Cents,
   type CorporateActionKind,
   type Currency,
   type Decimal,
   type IsoDate,
+  type Indexer,
   type IsoDateTime,
   type PayoutKind,
   type TradeKind,
@@ -92,7 +96,20 @@ export const formatQuantity = (quantity: Decimal) => QUANTITY.format(decimalToNu
 export const formatUnitPrice = (cents: Cents, currency: Currency = "BRL") =>
   Math.abs(cents) >= 100 ? formatMoney(cents, currency) : UNIT_PRICE[currency].format(cents / 100);
 
+/** A private bond's accrued price, with all its 8 places, since a share starts at R$ 1,00: "R$ 1,08929742". */
+export const formatAccruedPrice = (cents: Cents) => UNIT_PRICE.BRL.format(cents / 100);
+
 export const KIND_NAMES: Record<TradeKind, string> = { buy: "Compra", sell: "Venda" };
+
+/** A private bond's trades, in the bank's words. */
+export const BOND_TRADE_KIND_NAMES: Record<TradeKind, string> = { buy: "Aplicação", sell: "Resgate" };
+
+/** The names of a trade's kinds for the asset: the bank's in a private bond, the exchange's in the others. */
+export const kindNamesOf = (asset: { bond?: Bond | null } | undefined) => (isPrivateBond(asset) ? BOND_TRADE_KIND_NAMES : KIND_NAMES);
+
+export const BOND_TYPE_NAMES: Record<BondType, string> = { cdb: "CDB", lci: "LCI", lca: "LCA", debenture: "Debênture" };
+
+export const INDEXER_NAMES: Record<Indexer, string> = { "cdi-percentage": "% do CDI", "fixed-rate": "Prefixado", "ipca-plus": "IPCA +" };
 
 export const PAYOUT_KIND_NAMES: Record<PayoutKind, string> = {
   dividend: "Dividendo",
@@ -110,29 +127,35 @@ export const CORPORATE_ACTION_NAMES: Record<CorporateActionKind, string> = {
 /** What a launch can be. */
 export type LaunchKind = TradeKind | "payout" | "corporate-action";
 
-const LAUNCH_NAMES: Record<LaunchKind, string> = { ...KIND_NAMES, payout: "Provento", "corporate-action": "Evento" };
+const OTHER_LAUNCH_NAMES = { payout: "Provento", "corporate-action": "Evento" } as const;
 
 /**
  * Buy, sale and what else is offered: the top of a launch's sheet. The
  * payout is offered from the top bar's + Lançar, which doesn't know yet what
  * comes; the corporate action from the + Operação of an asset that has them.
+ * A private bond's trade is an application, and its redemption arrives with
+ * its ticket.
  */
 export function LaunchPicker({
   chosen,
   choose,
   offer,
+  privateBond = false,
 }: {
   chosen: LaunchKind;
   choose: (kind: LaunchKind) => void;
   /** Beyond the buy and the sale. */
   offer: LaunchKind[];
+  /** Whether the chosen asset is a private bond. */
+  privateBond?: boolean;
 }) {
-  const kinds: LaunchKind[] = ["buy", "sell", ...offer];
+  const kinds: LaunchKind[] = [...(privateBond ? (["buy"] as const) : (["buy", "sell"] as const)), ...offer];
+  const names: Record<LaunchKind, string> = { ...(privateBond ? BOND_TRADE_KIND_NAMES : KIND_NAMES), ...OTHER_LAUNCH_NAMES };
   return (
     <div className="shape-picker" role="group" aria-label="Tipo do lançamento">
       {kinds.map((k) => (
         <button type="button" key={k} aria-pressed={k === chosen} onClick={() => choose(k)}>
-          {LAUNCH_NAMES[k]}
+          {names[k]}
         </button>
       ))}
     </div>
@@ -170,6 +193,7 @@ export function AssetSelect({ assets, value, change }: { assets: Asset[]; value:
 /** The tag's words on the row; null for a tag the row shows in another way (the zero position is dimmed). */
 const TAG_NAMES: Record<AssetTag, string | null> = {
   "no-quote": "sem cotação",
+  "no-rate-index": "sem índice",
   "no-exchange-rate": "sem câmbio",
   "stale-quote": "cotação antiga",
   "pending-corporate-action": "evento a confirmar",

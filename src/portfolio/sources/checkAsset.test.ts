@@ -96,9 +96,11 @@ describe("checking a ticker at the source, in the B3's classes", () => {
       ok: false,
       error: "Já existe um ativo PETR4 na carteira.",
     });
-    expect(await check(state, { ticker: "CDB INTER", assetClass: "fixed-income" }, sources)).toEqual({
+    expect(
+      await check(state, { ticker: "Petr4", assetClass: "real-estate-funds", bond: { kind: "private-bond" } as never }, sources),
+    ).toEqual({
       ok: false,
-      error: "Os títulos de Renda Fixa têm cadastro próprio, que ainda não existe.",
+      error: "Só um ativo de Renda Fixa é um título.",
     });
     expect(sources.asked).toEqual([]);
   });
@@ -201,6 +203,19 @@ describe("checking a crypto at CoinGecko", () => {
 });
 
 // ---------------------------------------------------------------- helpers
+
+describe("a Renda Fixa bond", () => {
+  it("asks no source, and keeps the name as typed", async () => {
+    const sources = fakeSources({ known: "down", coins: "down" });
+    const bond = { kind: "private-bond", bondType: "cdb", indexer: "fixed-rate", rate: 12_50000000, maturityDate: "2028-01-02" } as const;
+
+    expect(await check(emptyPortfolio(), { ticker: " CDB Inter 2028 ", assetClass: "fixed-income", bond }, sources)).toEqual({
+      ok: true,
+      asset: { ticker: "CDB Inter 2028", assetClass: "fixed-income", sourceId: null, bond },
+    });
+    expect(sources.asked).toEqual([]);
+  });
+});
 
 function check(state: PortfolioState, asset: AssetToSave, sources: Sources) {
   return checkAsset(state, asset, sources, TODAY);

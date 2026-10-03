@@ -14,13 +14,13 @@ export type AssetCheck = { ok: true; asset: AssetToSave } | { ok: false; error: 
  * with no source asked. A ticker the source doesn't know is refused. With the
  * source down the asset is accepted, and stays with no quote until a fetch
  * brings one. It keeps the id it had only while its ticker stays the same: a
- * new ticker's id is never the old one's.
+ * new ticker's id is never the old one's. A Renda Fixa bond asks no source.
  */
 export async function checkAsset(state: PortfolioState, asset: AssetToSave, sources: Sources, today: IsoDate): Promise<AssetCheck> {
   const saved = apply(state, { type: "save-asset", asset }, today);
   if (!saved.ok) return saved;
 
-  const ticker = normalizeTicker(asset.ticker);
+  const ticker = normalizeTicker(asset.ticker, asset.assetClass);
   const current = state.assets.find((a) => a.id === asset.id);
   const keptSourceId = current?.ticker === ticker ? current.sourceId : null;
   const accept = (sourceId: string | null): AssetCheck => ({ ok: true, asset: { ...asset, ticker, sourceId } });
@@ -54,8 +54,8 @@ export async function checkAsset(state: PortfolioState, asset: AssetToSave, sour
       if (coins.length === 1) return accept(coins[0]!.id);
       return { ok: false, choose: coins };
     }
-    default:
-      return accept(keptSourceId);
+    case "fixed-income":
+      return accept(null);
   }
 }
 

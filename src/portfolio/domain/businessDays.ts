@@ -20,3 +20,9 @@ export function businessDaysAfter(from: IsoDate, to: IsoDate): number {
   }
   return count;
 }
+
+/** How many business days there are from `from`, included, to `to`, excluded: the days a bond yields between them. */
+export function businessDaysBetween(from: IsoDate, to: IsoDate): number {
+  if (to <= from) return 0;
+  return businessDaysAfter(from, to) + (isBusinessDay(from) ? 1 : 0) - (isBusinessDay(to) ? 1 : 0);
+}

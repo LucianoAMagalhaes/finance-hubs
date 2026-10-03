@@ -12,6 +12,7 @@ import {
   type PortfolioCommand,
   type PortfolioState,
   type TradeToSave,
+  type UnitTrade,
 } from "@/portfolio/domain";
 
 const TODAY: IsoDate = "2026-09-25"; // a Friday
@@ -51,7 +52,7 @@ describe("a trade in dollars", () => {
     const state = withAssets(["PETR4", "domestic-stocks"]);
 
     expect(execute(state, buy(1, "2026-03-10", 10, 30, 5))).toEqual({ ok: false, error: "Só a operação em dólar tem câmbio." });
-    expect(run(state, buy(1, "2026-03-10", 10, 30, null)).trades[0]!.exchangeRate).toBeNull();
+    expect((run(state, buy(1, "2026-03-10", 10, 30, null)).trades[0] as UnitTrade).exchangeRate).toBeNull();
   });
 
   it("the rate is only ever changed by correcting the trade", () => {
@@ -60,8 +61,8 @@ describe("a trade in dollars", () => {
     const moved = run(state, saveTrade({ ...state.trades[0]!, date: "2026-03-12" }));
     const corrected = run(state, saveTrade({ ...state.trades[0]!, exchangeRate: exchangeRate(5.1) }));
 
-    expect(moved.trades[0]!.exchangeRate).toBe(exchangeRate(5));
-    expect(corrected.trades[0]!.exchangeRate).toBe(exchangeRate(5.1));
+    expect((moved.trades[0] as UnitTrade).exchangeRate).toBe(exchangeRate(5));
+    expect((corrected.trades[0] as UnitTrade).exchangeRate).toBe(exchangeRate(5.1));
   });
 });
 

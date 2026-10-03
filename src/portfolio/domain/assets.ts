@@ -1,23 +1,31 @@
 import type { Result } from "@/shared";
+import { checkBond, type Bond } from "./bonds";
 import { ASSET_CLASSES, type AssetClass } from "./classes";
 import { nextId, type PortfolioState } from "./state";
+import { whyUnrepresentableApplication } from "./privateBonds";
 
 /**
  * Something the person invests in or wants to, by its ticker and class. It
  * exists before the first buy. The class is chosen once and never changes.
  * `sourceId` is how the source knows it, when the source said so at the
  * registration: the ISIN in the B3's classes, which tells PETR3 from PETR4,
- * and the CoinGecko id in crypto. The person keeps seeing the ticker.
+ * and the CoinGecko id in crypto. The person keeps seeing the ticker. In
+ * Renda Fixa the ticker is the bond's name, and `bond` is only there.
  */
-export type Asset = { id: number; ticker: string; assetClass: AssetClass; sourceId: string | null };
+export type Asset = { id: number; ticker: string; assetClass: AssetClass; sourceId: string | null; bond?: Bond };
 
 /** Without `id`, a new asset; with it, the correction of that one. */
-export type AssetToSave = { id?: number; ticker: string; assetClass: AssetClass; sourceId?: string | null };
+export type AssetToSave = { id?: number; ticker: string; assetClass: AssetClass; sourceId?: string | null; bond?: Bond };
 
-/** The classes `+ Ativo` offers today: Renda Fixa has its own registration. */
-export const REGISTRABLE_CLASSES: readonly AssetClass[] = ["domestic-stocks", "international-stocks", "real-estate-funds", "crypto"];
+/**
+ * The ticker as it is kept: in capitals, like the exchange writes it. A
+ * bond's name is kept as typed, only without the surrounding spaces.
+ */
+export const normalizeTicker = (ticker: string, assetClass: AssetClass) =>
+  assetClass === "fixed-income" ? ticker.trim() : ticker.trim().toUpperCase();
 
-export const normalizeTicker = (ticker: string) => ticker.trim().toUpperCase();
+/** Two tickers or names are the same regardless of case. */
+const sameTicker = (a: string, b: string) => a.toUpperCase() === b.toUpperCase();
 
 /**
  * Creates the asset, or corrects its ticker and source's id. Checks every
@@ -25,9 +33,10 @@ export const normalizeTicker = (ticker: string) => ticker.trim().toUpperCase();
  * the ticker is asked before, outside the domain.
  */
 export function saveAsset(state: PortfolioState, data: AssetToSave): Result<PortfolioState> {
-  const ticker = typeof data?.ticker === "string" ? normalizeTicker(data.ticker) : "";
-  if (!ticker) return { ok: false, error: "Informe o código do ativo." };
-  if (!ASSET_CLASSES.some((c) => c.id === data.assetClass)) return { ok: false, error: "Escolha a classe do ativo." };
+  if (!ASSET_CLASSES.some((c) => c.id === data?.assetClass)) return { ok: false, error: "Escolha a classe do ativo." };
+  const fixedIncome = data.assetClass === "fixed-income";
+  const ticker = typeof data.ticker === "string" ? normalizeTicker(data.ticker, data.assetClass) : "";
+  if (!ticker) return { ok: false, error: fixedIncome ? "Informe o nome do título." : "Informe o código do ativo." };
   const sourceId = data.sourceId ?? null;
   if (sourceId !== null && (typeof sourceId !== "string" || !sourceId.trim())) {
     return { ok: false, error: "O identificador do ativo na fonte é inválido." };
@@ -38,16 +47,25 @@ export function saveAsset(state: PortfolioState, data: AssetToSave): Result<Port
   if (existing && existing.assetClass !== data.assetClass) {
     return { ok: false, error: "A classe de um ativo não muda depois do cadastro." };
   }
-  if (!existing && data.assetClass === "fixed-income") {
-    return { ok: false, error: "Os títulos de Renda Fixa têm cadastro próprio, que ainda não existe." };
-  }
-  if (state.assets.some((a) => a.ticker === ticker && a.id !== existing?.id)) {
+  if (!fixedIncome && data.bond !== undefined) return { ok: false, error: "Só um ativo de Renda Fixa é um título." };
+  const checked = fixedIncome ? checkBond(data.bond!, existing?.bond) : null;
+  if (checked && "error" in checked) return { ok: false, error: checked.error };
+  if (state.assets.some((a) => sameTicker(a.ticker, ticker) && a.id !== existing?.id)) {
     return { ok: false, error: `Já existe um ativo ${ticker} na carteira.` };
   }
 
-  const asset: Asset = { id: existing?.id ?? nextId(state.assets), ticker, assetClass: data.assetClass, sourceId };
+  const asset: Asset = {
+    id: existing?.id ?? nextId(state.assets),
+    ticker,
+    assetClass: data.assetClass,
+    sourceId,
+    ...(checked && { bond: checked.bond }),
+  };
   const assets = existing ? state.assets.map((a) => (a.id === asset.id ? asset : a)) : [...state.assets, asset];
-  return { ok: true, value: { ...state, assets } };
+  const next = { ...state, assets };
+  const unrepresentable = whyUnrepresentableApplication(next, asset.id);
+  if (unrepresentable) return { ok: false, error: unrepresentable };
+  return { ok: true, value: next };
 }
 
 /**

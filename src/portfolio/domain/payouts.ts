@@ -1,6 +1,7 @@
 import { isValidDate, type Cents, type IsoDate, type Result } from "@/shared";
 import type { Decimal } from "./decimal";
 import { replay } from "./position";
+import { tradesInUnits } from "./privateBonds";
 import { nextId, type PortfolioState } from "./state";
 
 export const PAYOUT_KINDS = ["dividend", "interest-on-equity", "fund-income", "interest"] as const;
@@ -100,7 +101,7 @@ export function recordSourcePayouts(state: PortfolioState, payouts: SourcePayout
     if (p.paymentDate > today || !next.assets.some((a) => a.id === p.asset)) continue;
     if (next.payoutOrigins.some((o) => sameOrigin(o, p))) continue;
     const held = replay(
-      next.trades.filter((t) => t.asset === p.asset && t.date <= p.recordDate),
+      tradesInUnits(next, p.asset).filter((t) => t.date <= p.recordDate),
       next.corporateActions.filter((c) => c.asset === p.asset && c.date <= p.recordDate),
     ).position.quantity;
     // Multiplied exactly, before the only division.

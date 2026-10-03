@@ -1,7 +1,14 @@
 import type { Cents, IsoDate } from "@/shared";
 import type { CorporateAction } from "./corporateActions";
 import { decimalToNumber, type Decimal } from "./decimal";
-import type { Trade } from "./trades";
+import type { UnitTrade } from "./trades";
+
+/**
+ * A trade as the replay reads it: in units. A private bond's application
+ * becomes one, at the accrued price of its date, and keeps the amount in
+ * reais it was recorded with, which is its total.
+ */
+export type PricedTrade = UnitTrade & { amount?: Cents };
 
 /** What the person has of an asset: the quantity, the average price per unit and the cost, in one currency. */
 export type Position = {
@@ -22,7 +29,7 @@ export type Replay = {
    * The first sale larger than the quantity there was when it came, with that
    * quantity. The replay stops there: past it the history makes no sense.
    */
-  uncovered: { sale: Trade; available: Decimal } | null;
+  uncovered: { sale: PricedTrade; available: Decimal } | null;
 };
 
 /** Date order, and within a date the order of entry. */
@@ -38,16 +45,19 @@ export const tradeAmount = (quantity: Decimal, unitPrice: Decimal): Cents =>
   Number(BigInt(quantity) * BigInt(unitPrice)) / CENTS_SCALE;
 
 /** A trade's amount in the asset's currency. */
-export const tradeTotal = (t: Trade): Cents => tradeAmount(t.quantity, t.unitPrice);
+export const tradeTotal = (t: UnitTrade): Cents => tradeAmount(t.quantity, t.unitPrice);
 
 /**
  * A trade's amount in reais: in dollars, quantity × unit price × the trade's
- * exchange rate, multiplied exactly before the only division.
+ * exchange rate, multiplied exactly before the only division; in a private
+ * bond, the amount it was recorded with.
  */
-export const tradeTotalInReais = (t: Trade): Cents =>
-  t.exchangeRate === null
-    ? tradeTotal(t)
-    : Number(BigInt(t.quantity) * BigInt(t.unitPrice) * BigInt(t.exchangeRate)) / (CENTS_SCALE * RATE_SCALE);
+export const tradeTotalInReais = (t: PricedTrade): Cents =>
+  t.amount !== undefined
+    ? t.amount
+    : t.exchangeRate === null
+      ? tradeTotal(t)
+      : Number(BigInt(t.quantity) * BigInt(t.unitPrice) * BigInt(t.exchangeRate)) / (CENTS_SCALE * RATE_SCALE);
 
 /** From quantity × unit price, both scaled to 8 places, to cents. */
 const CENTS_SCALE = 1e14;
@@ -59,9 +69,9 @@ const RATE_SCALE = 1e4;
  * order, the actions of a date before its trades, and each kind in its order
  * of entry.
  */
-function historyOrder(trades: Trade[], corporateActions: CorporateAction[]): (Trade | CorporateAction)[] {
+function historyOrder(trades: PricedTrade[], corporateActions: CorporateAction[]): (PricedTrade | CorporateAction)[] {
   const actions = inHistoryOrder(corporateActions.filter((c) => c.status === "confirmed"));
-  const history: (Trade | CorporateAction)[] = [];
+  const history: (PricedTrade | CorporateAction)[] = [];
   let next = 0;
   for (const t of inHistoryOrder(trades)) {
     while (next < actions.length && actions[next]!.date <= t.date) history.push(actions[next++]!);
@@ -88,7 +98,7 @@ const afterAction = (quantity: Decimal, { ratio }: CorporateAction): Decimal =>
  * action multiplies the quantity by its ratio and keeps the cost, so the
  * average price adjusts; with no quantity, it changes nothing.
  */
-export function replay(trades: Trade[], corporateActions: CorporateAction[], amount: (t: Trade) => Cents = tradeTotalInReais): Replay {
+export function replay(trades: PricedTrade[], corporateActions: CorporateAction[], amount: (t: PricedTrade) => Cents = tradeTotalInReais): Replay {
   let position: Position = { quantity: 0, averagePrice: null, cost: 0 };
   let realizedGain = 0;
   const realizedGainBySale = new Map<number, Cents>();

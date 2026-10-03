@@ -120,6 +120,13 @@
       "when": 1790432007911,
       "tag": "0016_portfolio_corporate_action_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1790452571363,
+      "tag": "0017_portfolio_private_bonds",
+      "breakpoints": true
     }
   ]
 }
