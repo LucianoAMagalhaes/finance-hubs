@@ -21,7 +21,11 @@ export type AnnouncedCorporateAction = Omit<SourceCorporateAction, "asset">;
  * failure arrives as a rejected promise, never as empty data. Each question
  * arrives with the ticket that asks it.
  */
+export type TreasuryBondQuote = { name: string; maturityDate: IsoDate; sourceId: string; price: Decimal };
+
 export type Sources = {
+  /** The latest base date of the Tesouro Transparente CSV, with selling unit prices. */
+  treasuryBonds(): Promise<TreasuryBondQuote[]>;
   /** The asset's last price per unit, in its currency, as an exact decimal. */
   latestQuote(asset: SourcedAsset): Promise<Decimal>;
   /** Whether the source knows the ticker of an asset of the B3's classes. */

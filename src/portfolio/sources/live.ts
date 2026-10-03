@@ -1,3 +1,4 @@
+import { treasuryBonds } from "./treasury";
 import { b3CorporateActions, b3Isin, b3Payouts } from "./b3";
 import { bcbDailyCdi, bcbMonthlyIpca, bcbIpcaProjections, bcbSellingPtax } from "./bcb";
 import { coinGeckoQuote, coinGeckoSearch } from "./coingecko";
@@ -13,6 +14,7 @@ import { yahooCorporateActions, yahooExchangeRate, yahooQuote, yahooTickerExists
  */
 export function liveSources(fetchFn: typeof fetch = fetch): Sources {
   return {
+    treasuryBonds: () => treasuryBonds(fetchFn),
     latestQuote(asset) {
       switch (asset.assetClass) {
         case "domestic-stocks":

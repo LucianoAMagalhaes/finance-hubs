@@ -10,6 +10,7 @@ import {
   type Indexer,
   type IsoDate,
   type PrivateBond,
+  type Bond,
 } from "@/portfolio/domain";
 
 /** What is written in each field of the asset's sheet, as the person typed it. The bond's fields are only read in Renda Fixa. */
@@ -21,9 +22,10 @@ export type AssetDraft = {
   indexer: Indexer;
   rate: string;
   maturityDate: string;
+  sourceId?: string | null;
 };
 
-/** A new asset of the class; in Renda Fixa, a private bond, since the Tesouro Direto isn't registered yet. */
+/** A new asset of the class; in Renda Fixa, a private bond, by default. */
 export function emptyAssetDraft(assetClass: AssetClass): AssetDraft {
   return { ticker: "", assetClass, bondKind: "private-bond", bondType: "cdb", indexer: "cdi-percentage", rate: "", maturityDate: "" };
 }
@@ -33,6 +35,7 @@ export function assetDraftFrom(asset: Asset): AssetDraft {
   const draft = { ...emptyAssetDraft(asset.assetClass), ticker: asset.ticker };
   const bond = asset.bond;
   if (!bond) return draft;
+  if (bond.kind === "treasury-bond") return { ...draft, bondKind: bond.kind, maturityDate: bond.maturityDate, sourceId: asset.sourceId };
   return {
     ...draft,
     bondKind: bond.kind,
@@ -54,6 +57,10 @@ const RATE_PLACES = 2;
 export function checkAssetDraft(draft: AssetDraft, id: number | null): { asset: AssetToSave; error: string | null } {
   const common = { ...(id !== null && { id }), ticker: draft.ticker, assetClass: draft.assetClass };
   if (draft.assetClass !== "fixed-income") return { asset: common, error: null };
+  if (draft.bondKind === "treasury-bond") return {
+    asset: { ...common, sourceId: draft.sourceId, bond: { kind: "treasury-bond", maturityDate: draft.maturityDate as IsoDate } },
+    error: draft.sourceId ? null : "Escolha um título do Tesouro Direto.",
+  };
   const rate = parseDecimal(draft.rate);
   const readable = rate !== null && rate % 10 ** (8 - RATE_PLACES) === 0;
   const bond: PrivateBond = {
@@ -85,4 +92,4 @@ export function describeRate({ indexer, rate }: Pick<PrivateBond, "indexer" | "r
 }
 
 /** The small line under the bond's name: "110% do CDI · vence 02/01/2028". */
-export const describeBond = (bond: PrivateBond) => `${describeRate(bond)} · vence ${formatDate(bond.maturityDate)}`;
+export const describeBond = (bond: Bond) => `${bond.kind === "treasury-bond" ? "Tesouro" : describeRate(bond)} · vence ${formatDate(bond.maturityDate)}`;

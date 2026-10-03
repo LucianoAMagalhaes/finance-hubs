@@ -14,7 +14,7 @@ export type AssetCheck = { ok: true; asset: AssetToSave } | { ok: false; error: 
  * with no source asked. A ticker the source doesn't know is refused. With the
  * source down the asset is accepted, and stays with no quote until a fetch
  * brings one. It keeps the id it had only while its ticker stays the same: a
- * new ticker's id is never the old one's. A Renda Fixa bond asks no source.
+ * new ticker's id is never the old one's. A private bond asks no source; a treasury bond must come from the list.
  */
 export async function checkAsset(state: PortfolioState, asset: AssetToSave, sources: Sources, today: IsoDate): Promise<AssetCheck> {
   const saved = apply(state, { type: "save-asset", asset }, today);
@@ -54,8 +54,19 @@ export async function checkAsset(state: PortfolioState, asset: AssetToSave, sour
       if (coins.length === 1) return accept(coins[0]!.id);
       return { ok: false, choose: coins };
     }
-    case "fixed-income":
-      return accept(null);
+    case "fixed-income": {
+      if (asset.bond?.kind !== "treasury-bond") return accept(null);
+      // A correction can keep a bond that has disappeared from the current list.
+      if (current && current.sourceId === asset.sourceId && current.ticker === ticker && current.bond?.maturityDate === asset.bond.maturityDate) return accept(current.sourceId);
+      try {
+        const bond = (await sources.treasuryBonds()).find((b) => b.sourceId === asset.sourceId);
+        if (!bond) return { ok: false, error: "Escolha um título do Tesouro Direto na lista atual." };
+        return { ok: true, asset: { ...asset, ticker: bond.name, sourceId: bond.sourceId, bond: { kind: "treasury-bond", maturityDate: bond.maturityDate } } };
+      } catch (error) {
+        console.warn("No treasury list:", error);
+        return { ok: false, error: "A lista do Tesouro Direto não veio. Tente de novo." };
+      }
+    }
   }
 }
 

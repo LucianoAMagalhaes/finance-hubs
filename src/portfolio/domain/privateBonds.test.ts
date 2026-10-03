@@ -13,11 +13,11 @@ import {
 
 const TODAY: IsoDate = "2026-09-25";
 
-const CDB: AssetToSave = {
+const CDB = {
   ticker: "CDB Inter 2028",
   assetClass: "fixed-income",
   bond: { kind: "private-bond", bondType: "cdb", indexer: "fixed-rate", rate: decimal(12.5), maturityDate: "2028-01-02" },
-};
+} satisfies AssetToSave;
 
 describe("registering a private bond", () => {
   it("creates it in Renda Fixa with its name as typed, its type, indexer, rate and maturity", () => {

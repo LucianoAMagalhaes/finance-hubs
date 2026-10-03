@@ -2,7 +2,7 @@
 
 import type { AssetToSave, IsoDate, PortfolioCommand, PortfolioState, Result } from "@/portfolio/domain";
 import { executePortfolioOnDatabase, loadPortfolio } from "@/portfolio/persistence";
-import { checkAsset, liveSources, refresh as refreshFromSources, type AssetCheck, type Ptax } from "@/portfolio/sources";
+import { checkAsset, liveSources, refresh as refreshFromSources, type AssetCheck, type Ptax, type TreasuryBondQuote } from "@/portfolio/sources";
 import { appDatabase, localNow, localToday } from "@/server/app";
 import { isValidDate } from "@/shared";
 
@@ -62,4 +62,10 @@ export async function suggestExchangeRate(date: IsoDate): Promise<Ptax | null> {
     console.warn(`No PTAX for ${date}:`, error);
     return null;
   }
+}
+
+/** The registration sheet can retry a failed list without losing its draft. */
+export async function listTreasuryBonds(): Promise<TreasuryBondQuote[] | null> {
+  try { return await liveSources().treasuryBonds(); }
+  catch (error) { console.warn("No treasury list:", error); return null; }
 }
