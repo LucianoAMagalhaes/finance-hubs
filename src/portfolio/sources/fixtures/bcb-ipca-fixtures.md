@@ -5,13 +5,20 @@
 `baseCalculo = 0`, ordenação por `Data desc` e as seis últimas observações.
 O teste usa a mediana mais recente, 0,56%, em vez da média de 0,5768%.
 
-O teste da série SGS 433 usa JSON representativo. Os valores de julho de 2026
-(0,07%) e agosto de 2026 (-0,32%) foram conferidos na resposta real do
-[portal SGS do BCB](https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?method=consultarValores&series=433).
-O exemplo de setembro com zero é sintético, para testar variação nula.
+`bcb-sgs-433-2023-07-to-2024-08.json` contém o corpo original de uma resposta
+real da API SGS 433, preservado sem reformatação. São 14 observações de julho
+de 2023 a agosto de 2024, incluindo a deflação de -0,02% do último mês.
 
-Falta substituir esse exemplo por uma resposta JSON real gravada da série 433,
-como pede a issue #94. O host `api.bcb.gov.br` retornou falha de DNS mesmo fora
-do sandbox durante esta implementação. Portanto, os testes validam a tradução,
-a deflação e as falhas de formato, mas a captura do formato real da série 433
-continua pendente. A fixture do Focus foi capturada sem essa limitação.
+Origem: [API SGS 433 do BCB](https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/14?formato=json).
+A resposta foi arquivada pelo Internet Archive em 11/09/2024 às 09:05:21 UTC
+e recuperada em 03/10/2026 pela
+[URL do corpo original](https://web.archive.org/web/20240911090521id_/https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/14?formato=json).
+O modificador `id_` retorna o conteúdo arquivado sem a interface do Wayback.
+O SHA-1 em Base32 do arquivo (`UPQVABZ7IEKKJZFK6DIYNFRGDK2DGRML`) foi
+conferido com o digest do [índice CDX do arquivo](https://web.archive.org/cdx/search/cdx?url=api.bcb.gov.br/dados/serie/bcdata.sgs.433/*&output=json&filter=statuscode:200&collapse=urlkey&limit=10).
+
+Essa captura histórica resolveu a pendência de resposta real gravada da #94,
+apesar da falha de DNS do endpoint ao tentar baixá-la diretamente. O teste
+reproduz o corpo da resposta em uma consulta pelo mesmo intervalo de meses;
+a suíte nunca acessa a rede. A variação nula permanece em um teste separado
+com JSON sintético, identificado pelo próprio caso de teste.
