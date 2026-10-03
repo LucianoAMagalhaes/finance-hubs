@@ -135,6 +135,39 @@ describe("the portfolio's persistence", () => {
     expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
   });
 
+  it("persists partial and total redemptions, corrections and deletions without storing derived shares", () => {
+    const database = open();
+    const bond = { kind: "private-bond", bondType: "cdb", indexer: "fixed-rate", rate: decimal(12.5), maturityDate: "2028-01-02" } as const;
+    const state = executeOk(
+      database,
+      { type: "save-asset", asset: { ticker: "CDB Inter 2028", assetClass: "fixed-income", bond } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-01-02", amount: 1_000_000 } },
+      { type: "save-trade", trade: { asset: 1, kind: "sell", date: "2026-05-04", amount: 500_000 } },
+      { type: "save-trade", trade: { asset: 1, kind: "sell", date: TODAY, amount: 600_000, redeemsAll: true } },
+    );
+    const reloaded = loadPortfolio(open());
+    expect(reloaded).toEqual(state);
+    expect(reloaded.trades[2]).toEqual({ id: 3, asset: 1, kind: "sell", date: TODAY, amount: 600_000, redeemsAll: true });
+    expect(projectPortfolio(reloaded, TODAY)).toEqual(projectPortfolio(state, TODAY));
+    expect(projectPortfolio(reloaded, TODAY).totalGain).toBeCloseTo(100_000, 6);
+
+    const before = loadPortfolio(database);
+    expect(executePortfolioOnDatabase(database, { type: "delete-trade", id: 1 }, TODAY).ok).toBe(false);
+    expect(loadPortfolio(open())).toEqual(before);
+    expect(executePortfolioOnDatabase(database, {
+      type: "save-asset", asset: { id: 1, ticker: "CDB Inter 2028", assetClass: "fixed-income", bond: { ...bond, rate: decimal(1) } },
+    }, TODAY).ok).toBe(true);
+    // A total redemption adapts to the shares on its date; the partial still has coverage.
+    const corrected = executeOk(database,
+      { type: "save-trade", trade: { id: 3, asset: 1, kind: "sell", date: TODAY, amount: 100_000 } },
+    );
+    expect(loadPortfolio(open())).toEqual(corrected);
+    expect(loadPortfolio(open()).trades[2]).not.toHaveProperty("redeemsAll");
+    const deleted = executeOk(database, { type: "delete-trade", id: 2 }, { type: "delete-trade", id: 3 });
+    expect(loadPortfolio(open())).toEqual(deleted);
+    expect(deleted.trades).toEqual([before.trades[0]]);
+  });
+
   it("a corrected ticker and source's id are rewritten, keeping the asset and its trades", () => {
     const database = open();
     executeOk(

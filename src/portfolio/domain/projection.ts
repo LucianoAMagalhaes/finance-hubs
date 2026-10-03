@@ -26,6 +26,7 @@ const STALE_AFTER_BUSINESS_DAYS = 5;
 
 /** A trade as the expanded row lists it. */
 export type TradeView = {
+  redeemsAll: boolean;
   id: number;
   date: IsoDate;
   kind: TradeKind;
@@ -260,6 +261,7 @@ function projectAsset(
       .reverse()
       .map((t) => ({
         id: t.id,
+        redeemsAll: t.redeemsAll ?? false,
         date: t.date,
         kind: t.kind,
         quantity: t.quantity,

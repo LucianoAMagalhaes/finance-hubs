@@ -149,7 +149,7 @@ export function LaunchPicker({
   /** Whether the chosen asset is a private bond. */
   privateBond?: boolean;
 }) {
-  const kinds: LaunchKind[] = [...(privateBond ? (["buy"] as const) : (["buy", "sell"] as const)), ...offer];
+  const kinds: LaunchKind[] = ["buy", "sell", ...offer];
   const names: Record<LaunchKind, string> = { ...(privateBond ? BOND_TRADE_KIND_NAMES : KIND_NAMES), ...OTHER_LAUNCH_NAMES };
   return (
     <div className="shape-picker" role="group" aria-label="Tipo do lançamento">

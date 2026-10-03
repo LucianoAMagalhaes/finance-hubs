@@ -247,6 +247,90 @@ describe("an application in a private bond", () => {
   });
 });
 
+describe("private bond redemptions", () => {
+  const invested = applyOk(emptyPortfolio(), save(CDB), apply10k(1, "2026-01-02"));
+  const redeem = (date: IsoDate, amount: number, redeemsAll = false, id?: number): PortfolioCommand => ({
+    type: "save-trade", trade: { id, asset: 1, kind: "sell", date, amount, ...(redeemsAll && { redeemsAll }) },
+  });
+
+  it("a partial redemption sells shares at the day's curve and realizes their gain", () => {
+    const state = applyOk(invested, redeem(TODAY, 500_000));
+    const view = bond(state, CDB.ticker);
+    const sale = view.trades[0]!;
+    expect(sale).toMatchObject({ kind: "sell", total: 500_000, unitPrice: decimal(1.08929742) });
+    expect(sale.quantity).toBe(decimal(4590.114608));
+    expect(sale.realizedGain).toBeCloseTo(40_988.5392, 5);
+    expect(view.cost).toBeCloseTo(1_000_000 - 459_011.4608, 5);
+    expect(view.totalGain).toBeCloseTo(89_297.42, 5);
+  });
+
+  it("refuses more than the value on the curve, naming that date and value", () => {
+    expect(apply(invested, redeem(TODAY, 1_089_298), TODAY)).toEqual({
+      ok: false, error: "Em 25/09/2026 o título valia só R$ 10.892,97 na curva.",
+    });
+  });
+
+  it("a total redemption sells every remaining share for the amount actually received", () => {
+    const state = applyOk(invested, redeem("2026-05-04", 500_000), redeem(TODAY, 600_000, true));
+    const view = bond(state, CDB.ticker);
+    expect(view).toMatchObject({ quantity: 0, cost: 0, averagePrice: null, currentValue: 0, totalGain: 100_000 });
+    expect(view.trades[0]).toMatchObject({ redeemsAll: true, total: 600_000, unitPrice: decimal(1.08929742) });
+    expect(view.trades[0]!.realizedGain! + view.trades[1]!.realizedGain!).toBeCloseTo(100_000, 6);
+  });
+
+  it("includes a total redemption below the curve in the sale result and total gain", () => {
+    const state = applyOk(invested, redeem(TODAY, 950_000, true));
+    expect(bond(state, CDB.ticker)).toMatchObject({ quantity: 0, cost: 0, totalGain: -50_000 });
+    expect(bond(state, CDB.ticker).trades[0]).toMatchObject({ quantity: decimal(10_000), realizedGain: -50_000 });
+  });
+
+  it("rejects malformed total flags, total applications and total sales of other assets", () => {
+    const total = { asset: 1, kind: "sell", date: TODAY, amount: 100, redeemsAll: true } as const;
+    expect(apply(invested, { type: "save-trade", trade: { ...total, redeemsAll: "true" as never } }, TODAY)).toEqual({
+      ok: false, error: "Informe se o resgate é total.",
+    });
+    expect(apply(invested, { type: "save-trade", trade: { ...total, kind: "buy" } }, TODAY)).toEqual({
+      ok: false, error: "Só um resgate pode ser total.",
+    });
+    const stocks = applyOk(invested, save({ ticker: "PETR4", assetClass: "domestic-stocks" }));
+    expect(apply(stocks, { type: "save-trade", trade: {
+      asset: 2, kind: "sell", date: TODAY, quantity: decimal(1), unitPrice: decimal(1), redeemsAll: true,
+    } as never }, TODAY)).toEqual({ ok: false, error: "Só o título privado tem resgate total." });
+  });
+
+  it("a total redemption with no position is refused, even before the first application", () => {
+    expect(apply(invested, redeem("2025-12-31", 100, true), TODAY).ok).toBe(false);
+    const state = applyOk(invested, redeem(TODAY, 1_100_000, true));
+    expect(apply(state, redeem(TODAY, 100, true), TODAY).ok).toBe(false);
+  });
+
+  it("protects later redemptions when correcting or deleting applications or redemptions", () => {
+    const state = applyOk(invested, redeem("2026-05-04", 500_000), redeem(TODAY, 500_000));
+    const commands: PortfolioCommand[] = [
+      { type: "delete-trade", id: 1 },
+      { type: "save-trade", trade: { id: 1, asset: 1, kind: "buy", date: "2026-01-02", amount: 100_000 } },
+      { type: "save-trade", trade: { id: 1, asset: 1, kind: "buy", date: TODAY, amount: 1_000_000 } },
+      redeem("2026-05-04", 900_000, false, 2),
+      redeem("2026-05-04", 500_000, true, 2),
+      save({ ...CDB, id: 1, bond: { ...CDB.bond!, indexer: "cdi-percentage" } }),
+    ];
+    // The two sales fit at 12.5%, but not at a lower curve or without an index.
+    const nearLimit = applyOk(invested, redeem(TODAY, 1_080_000));
+    expect(apply(nearLimit, save({ ...CDB, id: 1, bond: { ...CDB.bond!, rate: decimal(1) } }), TODAY).ok).toBe(false);
+    expect(apply(nearLimit, commands.at(-1)!, TODAY).ok).toBe(false);
+    for (const command of commands.slice(0, -1)) expect(apply(state, command, TODAY).ok).toBe(false);
+    expect(applyOk(state, { type: "delete-trade", id: 3 }).trades).toHaveLength(2);
+  });
+
+  it("replays total redemptions in date and entry order, and starts the cost again after reinvesting", () => {
+    const state = applyOk(invested, application(1, TODAY, 200_000), redeem("2026-05-04", 1_030_000, true));
+    expect(bond(state, CDB.ticker).cost).toBe(200_000);
+    expect(bond(state, CDB.ticker).totalGain).toBeCloseTo(30_000, 6);
+    const closed = applyOk(state, redeem(TODAY, 210_000, true));
+    expect(bond(closed, CDB.ticker)).toMatchObject({ quantity: 0, totalGain: 40_000 });
+  });
+});
+
 describe("Renda Fixa in the portfolio", () => {
   it("adds to the class's value and gain, its share and how far it is from the target", () => {
     const state = applyOk(

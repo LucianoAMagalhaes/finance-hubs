@@ -317,7 +317,7 @@ function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, 
               <tr key={t.id} className="clickable" onClick={() => editTrade(t.id)} title="Corrigir ou apagar">
                 <td className="num">{formatDate(t.date)}</td>
                 <td>
-                  <span className={`trade-kind ${t.kind}`}>{kindNames[t.kind]}</span>
+                  <span className={`trade-kind ${t.kind}`}>{t.redeemsAll ? "Resgate total" : kindNames[t.kind]}</span>
                 </td>
                 <td className="right num">{formatQuantity(t.quantity)}</td>
                 <td className="right num">

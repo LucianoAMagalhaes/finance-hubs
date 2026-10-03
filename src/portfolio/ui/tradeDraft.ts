@@ -27,6 +27,7 @@ export type TradeDraft = {
   exchangeRate: string;
   /** Only read for a private bond, which takes the amount in reais instead of quantity and price. */
   amount: string;
+  redeemsAll: boolean;
 };
 
 /** How the chosen asset's trade is written: quantity and price in its currency, or a private bond's amount in reais. */
@@ -43,19 +44,21 @@ export function emptyTradeDraft(today: IsoDate, asset: number | null): TradeDraf
     unitPrice: "",
     exchangeRate: "",
     amount: "",
+    redeemsAll: false,
   };
 }
 
 /** A saved trade, as the person would have typed it, to be corrected. */
 export function tradeDraftFrom(t: Trade): TradeDraft {
   const draft = { id: t.id, asset: String(t.asset), kind: t.kind, date: t.date };
-  if ("amount" in t) return { ...draft, quantity: "", unitPrice: "", exchangeRate: "", amount: centsToField(t.amount) };
+  if ("amount" in t) return { ...draft, quantity: "", unitPrice: "", exchangeRate: "", amount: centsToField(t.amount), redeemsAll: t.redeemsAll ?? false };
   return {
     ...draft,
     quantity: decimalToField(t.quantity),
     unitPrice: decimalToField(t.unitPrice),
     exchangeRate: t.exchangeRate === null ? "" : exchangeRateToField(t.exchangeRate),
     amount: "",
+    redeemsAll: false,
   };
 }
 
@@ -76,7 +79,7 @@ export function checkTradeDraft(draft: TradeDraft, shape: TradeShape): CheckedTr
     const amount = reaisToCents(draft.amount);
     const error =
       draft.asset === "" ? "Escolha o ativo." : amount === null ? "Informe o valor, como 10.000,00, com até 2 casas decimais." : null;
-    return { trade: withId({ ...common, amount: amount ?? 0 }), error, total: amount, totalInReais: null };
+    return { trade: withId({ ...common, amount: amount ?? 0, ...(draft.kind === "sell" && draft.redeemsAll && { redeemsAll: true }) }), error, total: amount, totalInReais: null };
   }
 
   const quantity = parseDecimal(draft.quantity);

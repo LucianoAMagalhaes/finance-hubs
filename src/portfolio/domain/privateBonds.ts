@@ -40,6 +40,9 @@ export type Priced = {
 /**
  * An asset's trades in units. A private bond's application becomes
  * `amount ÷ accrued price` shares, rounded to the 8 places, at that price.
+ * A partial redemption uses the same conversion; a total redemption takes
+ * every share available in date and entry order, keeping the curve price
+ * for display and the amount received for its realized gain.
  * Without an accrued price (no index yet), a share stays at R$ 1,00, so the
  * bond is worth its cost. Every other asset's trades are already in units.
  */
@@ -48,12 +51,15 @@ export function pricedTrades(asset: Asset | undefined, trades: Trade[]): Priced 
   const { bond } = asset;
   const first = inHistoryOrder(trades).find((t) => t.kind === "buy")?.date;
   const price = (date: IsoDate) => (first === undefined ? null : accruedPrice(bond, first, date));
+  let available = 0;
   return {
-    trades: trades.map((t) => {
+    trades: inHistoryOrder(trades).map((t) => {
       if (!("amount" in t)) return t;
       const unitPrice = price(t.date) ?? ONE;
       const { amount, ...rest } = t;
-      return { ...rest, quantity: sharesOf(amount, unitPrice), unitPrice, exchangeRate: null, amount };
+      const quantity = t.kind === "sell" && t.redeemsAll ? available : sharesOf(amount, unitPrice);
+      available = t.kind === "buy" ? available + quantity : Math.max(0, available - quantity);
+      return { ...rest, quantity, unitPrice, exchangeRate: null, amount };
     }),
     price,
   };
@@ -66,13 +72,13 @@ export const tradesInUnits = (state: PortfolioState, asset: number): PricedTrade
     state.trades.filter((t) => t.asset === asset),
   ).trades;
 
-/** A positive application must still buy shares at the precision the position supports. */
-export function whyUnrepresentableApplication(state: PortfolioState, id: number): string | null {
+/** An application or partial redemption must represent shares at the supported precision. */
+export function whyUnrepresentableTrade(state: PortfolioState, id: number): string | null {
   const asset = state.assets.find((a) => a.id === id);
   if (!isPrivateBond(asset)) return null;
-  const application = tradesInUnits(state, id).find((t) => t.quantity === 0);
-  return application
-    ? `O valor da aplicação de ${asset.ticker} de ${formatDate(application.date)} é pequeno demais para representar as cotas com até 8 casas decimais.`
+  const trade = tradesInUnits(state, id).find((t) => t.quantity === 0 && !t.redeemsAll);
+  return trade
+    ? `O valor ${trade.kind === "buy" ? "da aplicação" : "do resgate"} de ${asset.ticker} de ${formatDate(trade.date)} é pequeno demais para representar as cotas com até 8 casas decimais.`
     : null;
 }
 

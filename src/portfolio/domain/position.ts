@@ -4,11 +4,11 @@ import { decimalToNumber, type Decimal } from "./decimal";
 import type { UnitTrade } from "./trades";
 
 /**
- * A trade as the replay reads it: in units. A private bond's application
+ * A trade as the replay reads it: in units. A private bond's trade
  * becomes one, at the accrued price of its date, and keeps the amount in
  * reais it was recorded with, which is its total.
  */
-export type PricedTrade = UnitTrade & { amount?: Cents };
+export type PricedTrade = UnitTrade & { amount?: Cents; redeemsAll?: boolean };
 
 /** What the person has of an asset: the quantity, the average price per unit and the cost, in one currency. */
 export type Position = {
@@ -115,7 +115,10 @@ export function replay(trades: PricedTrade[], corporateActions: CorporateAction[
       position = { quantity, averagePrice: cost / decimalToNumber(quantity), cost };
       continue;
     }
-    if (t.quantity > position.quantity || position.averagePrice === null) {
+    // Compare amounts exactly so rounding to shares cannot admit a partial redemption above the curve.
+    const exceedsCurve =
+      t.amount !== undefined && !t.redeemsAll && BigInt(t.amount) * 10n ** 14n > BigInt(position.quantity) * BigInt(t.unitPrice);
+    if (exceedsCurve || t.quantity > position.quantity || position.averagePrice === null) {
       return { position, realizedGain, realizedGainBySale, uncovered: { sale: t, available: position.quantity } };
     }
     const averagePrice = position.averagePrice;

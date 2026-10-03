@@ -53,17 +53,17 @@ const bondColumns = ({ bond }: Asset): Pick<AssetRow, "bondKind" | "bondType" | 
   maturityDate: bond?.maturityDate ?? null,
 });
 
-const toTrade = ({ id, asset, kind, date, quantity, unitPrice, exchangeRate, amount }: TradeRow): Trade => {
+const toTrade = ({ id, asset, kind, date, quantity, unitPrice, exchangeRate, amount, redeemsAll }: TradeRow): Trade => {
   const base = { id, asset, kind: kind as Trade["kind"], date: date as Trade["date"] };
-  return amount !== null ? { ...base, amount } : { ...base, quantity: quantity!, unitPrice: unitPrice!, exchangeRate };
+  return amount !== null ? { ...base, amount, ...(redeemsAll && { redeemsAll }) } : { ...base, quantity: quantity!, unitPrice: unitPrice!, exchangeRate };
 };
 
 /** A trade's columns: the amount in reais, or the quantity, unit price and exchange rate. */
-const tradeColumns = (t: Trade): Omit<TradeRow, "redeemsAll"> => {
+const tradeColumns = (t: Trade): TradeRow => {
   const { id, asset, kind, date } = t;
   return "amount" in t
-    ? { id, asset, kind, date, quantity: null, unitPrice: null, exchangeRate: null, amount: t.amount }
-    : { id, asset, kind, date, quantity: t.quantity, unitPrice: t.unitPrice, exchangeRate: t.exchangeRate, amount: null };
+    ? { id, asset, kind, date, quantity: null, unitPrice: null, exchangeRate: null, amount: t.amount, redeemsAll: t.redeemsAll ?? false }
+    : { id, asset, kind, date, quantity: t.quantity, unitPrice: t.unitPrice, exchangeRate: t.exchangeRate, amount: null, redeemsAll: false };
 };
 
 const toCorporateAction = (row: CorporateActionRow): CorporateAction => ({
