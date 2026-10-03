@@ -271,5 +271,8 @@ function fakeSources({ known = [], isins = {}, coins = {} }: Answers): Sources &
     async sellingPtax() {
       throw new Error("The check doesn't ask for the PTAX.");
     },
+    async dailyCdi() {
+      throw new Error("The check doesn't ask for the CDI.");
+    },
   };
 }

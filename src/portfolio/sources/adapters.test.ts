@@ -6,6 +6,7 @@ import {
   b3Isin,
   b3Payouts,
   bcbSellingPtax,
+  bcbDailyCdi,
   coinGeckoQuote,
   coinGeckoSearch,
   SourceError,
@@ -17,6 +18,39 @@ import {
 
 // Real answers recorded in files: the suite never touches the network.
 const recorded = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
+
+describe("the BCB daily CDI adapter", () => {
+  it("rejects changed formats, invalid dates, rates and failed requests, allowing a successful empty window", async () => {
+    for (const body of ["null", "{}", "[null]", '[{"data":"30/02/2026","valor":"0.05"}]',
+      '[{"data":"04/09/2026","valor":0.05}]', '[{"data":"04/09/2026","valor":"-0.05"}]',
+      '[{"data":"04/09/2026","valor":"0.123456789"}]', '[{"data":"03/09/2026","valor":"0.05"}]']) {
+      await expect(bcbDailyCdi("2026-09-04", "2026-09-04", fakeFetch(body))).rejects.toThrow(SourceError);
+    }
+    await expect(bcbDailyCdi("2026-09-04", "2026-09-04", fakeFetch("Unavailable", 503))).rejects.toThrow(SourceError);
+    await expect(bcbDailyCdi("2026-09-04", "2026-09-04", failingFetch())).rejects.toThrow(SourceError);
+    expect(await bcbDailyCdi("2026-09-04", "2026-09-04", fakeFetch("[]"))).toEqual([]);
+    expect(await bcbDailyCdi("2026-09-04", "2026-09-04", fakeFetch('[{"data":"04/09/2026","valor":"1.000"}]'))).toEqual([
+      { kind: "cdi", date: "2026-09-04", rate: decimal(1) },
+    ]);
+  });
+  it("splits long history into consecutive windows of at most ten years, including leap dates", async () => {
+    const fetch = fakeFetch("[]");
+    expect(await bcbDailyCdi("2000-02-29", "2026-09-24", fetch)).toEqual([]);
+    expect(fetch.asked).toEqual([
+      "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=29/02/2000&dataFinal=28/02/2010",
+      "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=01/03/2010&dataFinal=29/02/2020",
+      "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=01/03/2020&dataFinal=24/09/2026",
+    ]);
+  });
+  it("translates the recorded SGS series 12 answer into exact daily percentage rates", async () => {
+    const fetch = fakeFetch(recorded("bcb-sgs-12-2025-09-26-to-2026-09-25.json"));
+    const rates = await bcbDailyCdi("2025-09-26", "2026-09-25", fetch);
+    expect(rates[0]).toEqual({ kind: "cdi", date: "2025-09-26", rate: decimal(0.055131) });
+    expect(rates).toHaveLength(250);
+    expect(rates.at(-1)).toEqual({ kind: "cdi", date: "2026-09-24", rate: decimal(0.050788) });
+    expect(fetch.asked).toEqual(["https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=26/09/2025&dataFinal=25/09/2026"]);
+  });
+});
 
 describe("the Yahoo adapter", () => {
   it("reads the last price of a B3 stock from the chart's JSON, asking by the .SA symbol", async () => {

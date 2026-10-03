@@ -1,5 +1,7 @@
 import {
   currencyOf,
+  dateOf,
+  isPrivateBond,
   hasCorporateActions,
   minutesBetween,
   type Asset,
@@ -7,6 +9,7 @@ import {
   type CurrentExchangeRate,
   type FetchKind,
   type IsoDateTime,
+  type IsoDate,
   type PortfolioCommand,
   type PortfolioState,
   type QuoteToRecord,
@@ -18,14 +21,14 @@ import type { Sources } from "./port";
 /** A quote or a current exchange rate obtained more than this many minutes ago is fetched again. */
 const FRESH_MINUTES = 15;
 
-/** Payouts and corporate actions fetched less than a day ago are not fetched again: they don't change the value of now. */
+/** Payouts, corporate actions and daily indexes are fetched again only after more than a day. */
 const FRESH_ANNOUNCED_MINUTES = 24 * 60;
 
 /**
  * Decides what to fetch and turns what the sources bring into commands; it
  * never writes. Fetches the quotes older than 15 minutes, and by the same rule
  * the current exchange rate while an asset is in dollars, and the payouts and
- * corporate actions fetched more than a day ago, or all of them when forced.
+ * corporate actions and daily indexes fetched more than a day ago, or when forced.
  * A source that fails doesn't stop the others.
  */
 export async function refresh(state: PortfolioState, sources: Sources, now: IsoDateTime, force: boolean): Promise<PortfolioCommand[]> {
@@ -33,8 +36,37 @@ export async function refresh(state: PortfolioState, sources: Sources, now: IsoD
     refreshQuotes(state, sources, now, force),
     refreshPayouts(state, sources, now, force),
     refreshCorporateActions(state, sources, now, force),
+    refreshRateIndexes(state, sources, now, force),
   ]);
   return results.flat();
+}
+
+/** Daily CDI is shared by every indexed bond, starting at their earliest application. */
+async function refreshRateIndexes(state: PortfolioState, sources: Sources, now: IsoDateTime, force: boolean): Promise<PortfolioCommand[]> {
+  if (!force && !isOld(state.lastFetch["rate-indexes"], now, FRESH_ANNOUNCED_MINUTES)) return [];
+  const ids = new Set(state.assets.filter((a) => isPrivateBond(a) && a.bond.indexer === "cdi-percentage").map((a) => a.id));
+  const first = state.trades.filter((t) => ids.has(t.asset) && t.kind === "buy").map((t) => t.date).sort()[0];
+  if (!first) return [];
+  const kept = state.rateIndexes.filter((r) => r.kind === "cdi").map((r) => r.date).sort();
+  const last = kept.at(-1);
+  const afterLast = last ? shiftDate(last, 1) : first;
+  const from = kept[0] && first >= kept[0] && afterLast > first ? afterLast : first;
+  const to = shiftDate(dateOf(now), -1);
+  if (from > to) return [];
+  try {
+    const rateIndexes = await sources.dailyCdi(from, to);
+    return [{ type: "record-rate-indexes", rateIndexes }, { type: "record-fetch", kind: "rate-indexes", at: now }];
+  } catch {
+    // Keep the previous indexes and time so the next opening retries.
+    return [];
+  }
+}
+
+/** Calendar dates for the included endpoints the source expects. */
+function shiftDate(date: IsoDate, days: number): IsoDate {
+  const shifted = new Date(`${date}T00:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10) as IsoDate;
 }
 
 /**

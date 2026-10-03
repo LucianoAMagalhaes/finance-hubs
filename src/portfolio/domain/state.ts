@@ -5,6 +5,7 @@ import type { CurrentExchangeRate } from "./exchangeRate";
 import type { Payout, PayoutOrigin } from "./payouts";
 import type { LastFetch, Quote } from "./quotes";
 import type { Trade } from "./trades";
+import type { RateIndex } from "./rateIndexes";
 
 /**
  * Everything the portfolio stores. What is derived (position, value, gain,
@@ -21,6 +22,8 @@ export type PortfolioState = {
   payoutOrigins: PayoutOrigin[];
   /** The last quote of each asset that ever had one. */
   quotes: Quote[];
+  /** The official rates by kind and date, kept across fetches. */
+  rateIndexes: RateIndex[];
   /** The last current exchange rate; null while there never was one. */
   exchangeRate: CurrentExchangeRate | null;
   lastFetch: LastFetch;
@@ -28,7 +31,7 @@ export type PortfolioState = {
 
 /** The portfolio of the first use: the default targets and no asset. */
 export function emptyPortfolio(): PortfolioState {
-  return { targets: { ...DEFAULT_TARGETS }, assets: [], trades: [], corporateActions: [], payouts: [], payoutOrigins: [], quotes: [], exchangeRate: null, lastFetch: {} };
+  return { targets: { ...DEFAULT_TARGETS }, assets: [], trades: [], corporateActions: [], payouts: [], payoutOrigins: [], quotes: [], rateIndexes: [], exchangeRate: null, lastFetch: {} };
 }
 
 export const nextId = (list: { id: number }[]) => Math.max(0, ...list.map((r) => r.id)) + 1;

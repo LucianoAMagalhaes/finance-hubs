@@ -65,7 +65,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
 
   /**
    * Asks the server for what is old, or for everything when forced, and takes
-   * only what the sources bring back: the quotes and the exchange rate, and
+   * only what the sources bring back: the quotes, rate indexes and exchange rate, and
    * the payouts and corporate actions they created. What the person saved,
    * confirmed or dismissed meanwhile keeps its result.
    */
@@ -76,6 +76,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
       setState((s) => ({
         ...s,
         quotes: fresh.quotes,
+        rateIndexes: fresh.rateIndexes,
         exchangeRate: fresh.exchangeRate,
         payouts: withCreated(s.payouts, fresh.payouts),
         payoutOrigins: withCreated(s.payoutOrigins, fresh.payoutOrigins),

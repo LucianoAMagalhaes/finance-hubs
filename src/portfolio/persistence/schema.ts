@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // The portfolio's tables, in the same SQLite file as the budget's and with no
 // relation to them (CONTEXT-MAP.md).
@@ -144,7 +144,14 @@ export const currentExchangeRate = sqliteTable("current_exchange_rate", {
 
 /** The time of the last successful fetch of each kind, one row per kind ever fetched. */
 export const lastFetch = sqliteTable("last_fetch", {
-  /** "quotes", "payouts" or "corporate-actions". */
+  /** "quotes", "payouts", "corporate-actions" or "rate-indexes". */
   kind: text("kind").primaryKey(),
   at: text("at").notNull(),
 });
+
+/** Official rates by kind and date, in daily percent scaled to 8 places. */
+export const rateIndex = sqliteTable("rate_index", {
+  kind: text("kind").notNull(),
+  date: text("date").notNull(),
+  rate: integer("rate").notNull(),
+}, (t) => [primaryKey({ columns: [t.kind, t.date] })]);

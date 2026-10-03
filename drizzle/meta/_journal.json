@@ -127,6 +127,13 @@
       "when": 1790452571363,
       "tag": "0017_portfolio_private_bonds",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1791055344126,
+      "tag": "0018_portfolio_rate_indexes",
+      "breakpoints": true
     }
   ]
 }

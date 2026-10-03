@@ -1,4 +1,4 @@
-import type { AssetClass, Decimal, ExchangeRate, IsoDate, SourceCorporateAction, SourcePayout } from "@/portfolio/domain";
+import type { AssetClass, Decimal, ExchangeRate, IsoDate, RateIndex, SourceCorporateAction, SourcePayout } from "@/portfolio/domain";
 
 /** What a source needs to know of an asset to find it; `sourceId` is its id there, when kept. */
 export type SourcedAsset = { ticker: string; assetClass: AssetClass; sourceId?: string | null };
@@ -38,6 +38,8 @@ export type Sources = {
   corporateActions(asset: SourcedAsset): Promise<AnnouncedCorporateAction[]>;
   /** The selling PTAX of the date or, on a day with none (weekend, holiday, today before it is published), the last one before. */
   sellingPtax(date: IsoDate): Promise<Ptax>;
+  /** Daily CDI between the included endpoints, translated from SGS series 12. */
+  dailyCdi(from: IsoDate, to: IsoDate): Promise<RateIndex[]>;
 };
 
 /** A source that didn't answer, or answered something we can't read. The message is for the log. */
