@@ -16,8 +16,9 @@ const ONE = decimal(1);
 /**
  * The accrued price of one share of the bond on the date: 1 on the day of the
  * first application, growing by the indexer over the business days from it,
- * included, to the date, excluded, so today's price uses the rates up to
- * yesterday. A fixed rate grows by `(1 + rate)^(business days ÷ 252)`. The
+ * included, to the earlier of the date and maturity, excluded, so today's
+ * price uses the rates up to yesterday and freezes at maturity.
+ * A fixed rate grows by `(1 + rate)^(business days ÷ 252)`. The
  * factor is computed in floating point and rounded to the 8 places. Null
  * before the first application, and while the index the indexer needs was
  * never brought.
@@ -26,7 +27,8 @@ export function accruedPrice(bond: PrivateBond, firstApplication: IsoDate, date:
   if (date < firstApplication) return null;
   // The CDI and the IPCA arrive with their tickets: until then, no bond indexed to them has a price.
   if (bond.indexer !== "fixed-rate") return null;
-  const years = businessDaysBetween(firstApplication, date) / BUSINESS_DAYS_A_YEAR;
+  const until = date < bond.maturityDate ? date : bond.maturityDate;
+  const years = businessDaysBetween(firstApplication, until) / BUSINESS_DAYS_A_YEAR;
   return decimal((1 + decimalToNumber(bond.rate) / 100) ** years);
 }
 

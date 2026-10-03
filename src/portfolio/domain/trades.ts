@@ -55,6 +55,9 @@ export function saveTrade(state: PortfolioState, data: TradeToSave, today: IsoDa
   if (!asset) return { ok: false, error: "Esse ativo não existe." };
   if (typeof data.date !== "string" || !isValidDate(data.date)) return { ok: false, error: "Informe uma data válida." };
   if (data.date > today) return { ok: false, error: "A operação não pode ter data depois de hoje." };
+  if (data.kind === "buy" && asset.bond && data.date >= asset.bond.maturityDate) {
+    return { ok: false, error: `Não é possível comprar ou aplicar no vencimento de ${formatDate(asset.bond.maturityDate)} ou depois dele.` };
+  }
   const fields = isPrivateBond(asset) ? amountFields(data) : unitFields(data, currencyOf(asset.assetClass) === "USD");
   if ("error" in fields) return { ok: false, error: fields.error };
 

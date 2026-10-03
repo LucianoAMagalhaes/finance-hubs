@@ -19,7 +19,7 @@ import type { Trade, TradeKind } from "./trades";
 // always in reais; the dollars are only to show.
 
 /** What the table's row says about the asset beyond its numbers. Each tag arrives with the ticket that sets it. */
-export type AssetTag = "no-quote" | "no-rate-index" | "no-exchange-rate" | "stale-quote" | "pending-corporate-action" | "zero-position";
+export type AssetTag = "no-quote" | "no-rate-index" | "no-exchange-rate" | "stale-quote" | "matured" | "pending-corporate-action" | "zero-position";
 
 /** A quote or a current exchange rate older than this many business days is stale: it still gives the current value. */
 const STALE_AFTER_BUSINESS_DAYS = 5;
@@ -228,12 +228,14 @@ function projectAsset(
   const zero = position.quantity === 0;
   const unrealizedGain = zero ? null : currentValue - position.cost;
   const tags: AssetTag[] = [];
+  const matured = asset.bond !== undefined && today >= asset.bond.maturityDate;
+  if (matured) tags.push("matured");
   if (privateBond) {
     if (asset.bond!.indexer !== "fixed-rate") tags.push("no-rate-index");
   } else {
     if (!quote) tags.push("no-quote");
     if (currency === "USD" && !rate) tags.push("no-exchange-rate");
-    if (quote && isStale(quote.at, today)) tags.push("stale-quote");
+    if (!matured && quote && isStale(quote.at, today)) tags.push("stale-quote");
   }
   const pending = corporateActions.filter((c) => c.status === "pending");
   if (pending.length > 0) tags.push("pending-corporate-action");
