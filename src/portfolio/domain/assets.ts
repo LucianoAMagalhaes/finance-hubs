@@ -64,6 +64,9 @@ export function saveAsset(state: PortfolioState, data: AssetToSave): Result<Port
   };
   const assets = existing ? state.assets.map((a) => (a.id === asset.id ? asset : a)) : [...state.assets, asset];
   const next = { ...state, assets };
+  if (asset.bond && state.trades.some((t) => t.asset === asset.id && t.kind === "buy" && t.date >= asset.bond!.maturityDate)) {
+    return { ok: false, error: "O vencimento precisa ser depois de todas as compras ou aplicações do título." };
+  }
   const unrepresentable = whyUnrepresentableTrade(next, asset.id);
   if (unrepresentable) return { ok: false, error: unrepresentable };
   const uncovered = whyUncovered(next, [asset.id], null);

@@ -331,6 +331,73 @@ describe("private bond redemptions", () => {
   });
 });
 
+describe("bond maturity", () => {
+  const maturityDate: IsoDate = "2026-05-04";
+  const maturedBond: AssetToSave = { ...CDB, bond: { ...CDB.bond!, maturityDate } };
+  const registered = applyOk(emptyPortfolio(), save(maturedBond));
+  const invested = applyOk(registered, apply10k(1, "2026-01-02"));
+
+  it("stops the curve at maturity without recording a redemption", () => {
+    const atMaturity = bond(invested, CDB.ticker, maturityDate);
+    expect(atMaturity.quote).toBeCloseTo(103.858461, 8); // 81 business days
+    expect(bond(invested, CDB.ticker).quote).toBe(atMaturity.quote);
+    expect(bond(invested, CDB.ticker, "2029-01-02").currentValue).toBe(atMaturity.currentValue);
+    expect(atMaturity.quantity).toBe(decimal(10_000));
+    expect(invested.trades).toHaveLength(1);
+  });
+
+  it("tags the bond from its maturity date, including a bond with no applications", () => {
+    for (const state of [registered, invested]) {
+      expect(bond(state, CDB.ticker, "2026-05-03").tags).not.toContain("matured");
+      expect(bond(state, CDB.ticker, maturityDate).tags).toContain("matured");
+      expect(bond(state, CDB.ticker).tags).toContain("matured");
+    }
+  });
+
+  it("refuses applications on or after maturity, including corrections", () => {
+    for (const date of [maturityDate, TODAY]) {
+      const command = application(1, date, 100_000);
+      expect(apply(invested, command, TODAY)).toEqual({
+        ok: false, error: "Não é possível comprar ou aplicar no vencimento de 04/05/2026 ou depois dele.",
+      });
+      expect(apply(invested, { type: "save-trade", trade: { id: 1, asset: 1, kind: "buy", date, amount: 100_000 } }, TODAY).ok).toBe(false);
+    }
+    expect(apply(invested, application(1, "2026-05-03", 100_000), TODAY).ok).toBe(true);
+  });
+
+  it("accepts partial and total redemptions after maturity at the frozen curve", () => {
+    const state = applyOk(invested,
+      { type: "save-trade", trade: { asset: 1, kind: "sell", date: "2026-06-01", amount: 500_000 } },
+      { type: "save-trade", trade: { asset: 1, kind: "sell", date: TODAY, amount: 550_000, redeemsAll: true } },
+    );
+    const view = bond(state, CDB.ticker);
+    expect(view).toMatchObject({ quantity: 0, currentValue: 0, cost: 0, totalGain: 50_000 });
+    expect(view.tags).toEqual(expect.arrayContaining(["matured", "zero-position"]));
+    expect(view.trades).toHaveLength(3);
+    expect(view.trades.slice(0, 2).map((t) => t.unitPrice)).toEqual([decimal(1.03858461), decimal(1.03858461)]);
+    expect(projectPortfolio(state, TODAY).totalGain).toBeCloseTo(50_000, 6);
+  });
+
+  it("refuses a maturity correction on or before any application, even after total redemption", () => {
+    const state = applyOk(invested, application(1, "2026-04-01", 100_000),
+      { type: "save-trade", trade: { asset: 1, kind: "sell", date: TODAY, amount: 1_200_000, redeemsAll: true } },
+    );
+    for (const date of ["2026-03-31", "2026-04-01"] as IsoDate[]) {
+      expect(apply(state, save({ ...maturedBond, id: 1, bond: { ...maturedBond.bond!, maturityDate: date } }), TODAY)).toEqual({
+        ok: false, error: "O vencimento precisa ser depois de todas as compras ou aplicações do título.",
+      });
+    }
+    expect(apply(state, save({ ...maturedBond, id: 1, bond: { ...maturedBond.bond!, maturityDate: "2026-04-02" } }), TODAY).ok).toBe(true);
+  });
+
+  it("never tags a matured bond with a stale quote, even with a stored old quote", () => {
+    const state = { ...invested, quotes: [{ asset: 1, price: decimal(1), at: "2026-01-02T12:00:00Z" as const }] };
+    expect(bond(state, CDB.ticker).tags).toContain("matured");
+    expect(bond(state, CDB.ticker).tags).not.toContain("stale-quote");
+    expect(projectPortfolio(state, TODAY).staleQuote).toBe(false);
+  });
+});
+
 describe("Renda Fixa in the portfolio", () => {
   it("adds to the class's value and gain, its share and how far it is from the target", () => {
     const state = applyOk(
