@@ -55,7 +55,7 @@ type Suggestion = { date: string; ptax: Ptax | null | undefined };
  * suggestion until the person types a rate, and a saved trade only shows it
  * beside its own rate, which never changes by itself. A saved trade opens here
  * to have any field corrected, or to be deleted for good. A private bond's
- * application takes the amount in reais instead of quantity and price.
+ * application or redemption takes the amount in reais instead of quantity and price.
  */
 export function TradeForm({
   assets,
@@ -103,7 +103,7 @@ export function TradeForm({
   }, [dollar, draft.date, trade, suggestExchangeRate]);
 
   const kind = kindNamesOf(chosen)[draft.kind];
-  const title = trade ? `Corrigir ${kind.toLowerCase()}` : asset ? `${kind} de ${asset.ticker}` : `Nova ${kind.toLowerCase()}`;
+  const title = privateBond ? "Aplicação / Resgate" : trade ? `Corrigir ${kind.toLowerCase()}` : asset ? `${kind} de ${asset.ticker}` : `Nova ${kind.toLowerCase()}`;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -136,17 +136,25 @@ export function TradeForm({
             <AssetSelect
               assets={assets}
               value={draft.asset}
-              // A private bond's redemption arrives with its ticket: its trade is an application.
-              change={(a) => edit({ asset: a, ...(isPrivateBond(assets.find((x) => String(x.id) === a)) && { kind: "buy" }) })}
+              change={(a) => edit({ asset: a, redeemsAll: false })}
             />
           )}
           <label className="field">
             <span>Data</span>
             <input type="date" required max={today} value={draft.date} onChange={(e) => edit({ date: e.target.value })} />
           </label>
+          {privateBond && draft.kind === "sell" && (
+            <label className="field">
+              <span>
+                <input type="checkbox" checked={draft.redeemsAll} onChange={(e) => edit({ redeemsAll: e.target.checked })} />
+                {" "}Resgate total
+              </span>
+              <small className="hint">Vende todas as cotas da data pelo valor recebido de fato.</small>
+            </label>
+          )}
           {privateBond ? (
             <label className="field">
-              <span>Valor (R$)</span>
+              <span>{draft.kind === "sell" && draft.redeemsAll ? "Valor recebido (R$)" : "Valor (R$)"}</span>
               <input
                 required
                 inputMode="decimal"

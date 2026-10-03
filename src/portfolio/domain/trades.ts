@@ -1,9 +1,9 @@
-import { formatDate, isValidDate, type Cents, type IsoDate, type Result } from "@/shared";
+import { formatDate, formatReais, isValidDate, type Cents, type IsoDate, type Result } from "@/shared";
 import { decimalToField, type Decimal } from "./decimal";
 import { checkExchangeRate, currencyOf, type ExchangeRate } from "./exchangeRate";
 import { isPrivateBond } from "./bonds";
-import { replay } from "./position";
-import { tradesInUnits, whyUnrepresentableApplication } from "./privateBonds";
+import { replay, tradeAmount } from "./position";
+import { tradesInUnits, whyUnrepresentableTrade } from "./privateBonds";
 import { nextId, type PortfolioState } from "./state";
 
 export type TradeKind = "buy" | "sell";
@@ -20,11 +20,15 @@ type TradeBase = { id: number; asset: number; kind: TradeKind; date: IsoDate };
 export type UnitTrade = TradeBase & { quantity: Decimal; unitPrice: Decimal; exchangeRate: ExchangeRate | null };
 
 /**
- * An application in a private bond, recorded in reais as the bank's statement
+ * An application or redemption in a private bond, recorded in reais as the bank's statement
  * says it, with no quantity nor unit price: the shares are always derived
  * from the amount and the accrued price of the date.
  */
-export type AmountTrade = TradeBase & { amount: Cents };
+export type AmountTrade = TradeBase & {
+  amount: Cents;
+  /** A sale of every share available on its date, for the amount actually received. */
+  redeemsAll?: boolean;
+};
 
 /** A private bond's trades are in reais; every other asset's, in units. */
 export type Trade = UnitTrade | AmountTrade;
@@ -57,27 +61,29 @@ export function saveTrade(state: PortfolioState, data: TradeToSave, today: IsoDa
   const trade: Trade = { id: existing?.id ?? nextId(state.trades), asset: data.asset, kind: data.kind, date: data.date, ...fields };
   const trades = existing ? state.trades.map((t) => (t.id === trade.id ? trade : t)) : [...state.trades, trade];
   const next = { ...state, trades };
-  const unrepresentable = whyUnrepresentableApplication(next, trade.asset);
+  const unrepresentable = whyUnrepresentableTrade(next, trade.asset);
   if (unrepresentable) return { ok: false, error: unrepresentable };
   const uncovered = whyUncovered(next, [trade.asset, existing?.asset], trade.id);
   if (uncovered) return { ok: false, error: uncovered };
   return { ok: true, value: next };
 }
 
-/** A private bond's application: its amount in reais, and neither quantity nor price. */
-function amountFields(data: TradeToSave): { amount: Cents } | { error: string } {
-  const { amount, quantity, unitPrice, exchangeRate } = data as Partial<AmountTrade & UnitTrade>;
+/** A private bond's application or redemption: its amount in reais, and neither quantity nor price. */
+function amountFields(data: TradeToSave): { amount: Cents; redeemsAll?: boolean } | { error: string } {
+  const { amount, quantity, unitPrice, exchangeRate, redeemsAll } = data as Partial<AmountTrade & UnitTrade>;
   if (quantity !== undefined || unitPrice !== undefined || (exchangeRate ?? null) !== null) {
     return { error: "O título privado recebe o valor em reais, sem quantidade nem preço." };
   }
-  if (data.kind === "sell") return { error: "O resgate de título privado ainda não existe." };
+  if (redeemsAll !== undefined && typeof redeemsAll !== "boolean") return { error: "Informe se o resgate é total." };
+  if (redeemsAll && data.kind !== "sell") return { error: "Só um resgate pode ser total." };
   if (!Number.isSafeInteger(amount)) return { error: "O valor aceita até 2 casas decimais." };
   if (amount! <= 0) return { error: "O valor tem que ser maior que zero." };
-  return { amount: amount! };
+  return { amount: amount!, ...(redeemsAll && { redeemsAll }) };
 }
 
 /** Any other asset's trade: quantity and unit price, and in dollars the exchange rate. */
 function unitFields(data: TradeToSave, dollar: boolean): Omit<UnitTrade, keyof TradeBase> | { error: string } {
+  if ("redeemsAll" in data && data.redeemsAll) return { error: "Só o título privado tem resgate total." };
   if ("amount" in data) return { error: "Só o título privado recebe o valor em reais." };
   const error = checkPositive(data.quantity, "A quantidade") ?? checkPositive(data.unitPrice, "O preço unitário");
   if (error) return { error };
@@ -116,8 +122,13 @@ export function whyUncovered(state: PortfolioState, assets: (number | undefined)
       state.corporateActions.filter((c) => c.asset === id),
     );
     if (!uncovered) continue;
-    const ticker = state.assets.find((a) => a.id === id)?.ticker;
+    const asset = state.assets.find((a) => a.id === id);
+    const ticker = asset?.ticker;
     const date = formatDate(uncovered.sale.date);
+    if (isPrivateBond(asset)) {
+      if (uncovered.sale.id !== saved) return `Isso deixaria sem cobertura o resgate de ${ticker} de ${date}.`;
+      return `Em ${date} o título valia só ${formatReais(tradeAmount(uncovered.available, uncovered.sale.unitPrice)).replace(/\u00a0/g, " ")} na curva.`;
+    }
     if (uncovered.sale.id !== saved) return `Isso deixaria sem cobertura a venda de ${ticker} de ${date}.`;
     if (uncovered.available === 0) return `Em ${date} não havia ${ticker} para vender.`;
     return `Em ${date} havia só ${decimalToField(uncovered.available)} ${ticker} para vender.`;

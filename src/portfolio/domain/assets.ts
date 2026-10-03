@@ -2,7 +2,8 @@ import type { Result } from "@/shared";
 import { checkBond, type Bond } from "./bonds";
 import { ASSET_CLASSES, type AssetClass } from "./classes";
 import { nextId, type PortfolioState } from "./state";
-import { whyUnrepresentableApplication } from "./privateBonds";
+import { whyUncovered } from "./trades";
+import { whyUnrepresentableTrade } from "./privateBonds";
 
 /**
  * Something the person invests in or wants to, by its ticker and class. It
@@ -63,8 +64,10 @@ export function saveAsset(state: PortfolioState, data: AssetToSave): Result<Port
   };
   const assets = existing ? state.assets.map((a) => (a.id === asset.id ? asset : a)) : [...state.assets, asset];
   const next = { ...state, assets };
-  const unrepresentable = whyUnrepresentableApplication(next, asset.id);
+  const unrepresentable = whyUnrepresentableTrade(next, asset.id);
   if (unrepresentable) return { ok: false, error: unrepresentable };
+  const uncovered = whyUncovered(next, [asset.id], null);
+  if (uncovered) return { ok: false, error: uncovered };
   return { ok: true, value: next };
 }
 
