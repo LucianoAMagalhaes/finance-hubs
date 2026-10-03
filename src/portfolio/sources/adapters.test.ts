@@ -33,15 +33,30 @@ describe("the BCB monthly inflation adapters", () => {
     expect(url.searchParams.get("$orderby")).toBe("Data desc");
     expect(url.searchParams.get("$top")).toBe("1");
   });
-  it("translates monthly SGS inflation, including deflation and zero", async () => {
-    // Representative SGS JSON; values verified against the recorded SGS portal answer.
-    const fetch = fakeFetch('[{"data":"01/07/2026","valor":"0.07"},{"data":"01/08/2026","valor":"-0.32"},{"data":"01/09/2026","valor":"0.00"}]');
-    expect(await bcbMonthlyIpca("2026-07-01", "2026-09-01", fetch)).toEqual([
-      { kind: "ipca", date: "2026-07-01", rate: decimal(0.07) },
-      { kind: "ipca", date: "2026-08-01", rate: decimal(-0.32) },
+  it("translates the recorded SGS series 433 answer into exact monthly rates, including deflation", async () => {
+    const fetch = fakeFetch(recorded("bcb-sgs-433-2023-07-to-2024-08.json"));
+    expect(await bcbMonthlyIpca("2023-07-01", "2024-08-01", fetch)).toEqual([
+      { kind: "ipca", date: "2023-07-01", rate: decimal(0.12) },
+      { kind: "ipca", date: "2023-08-01", rate: decimal(0.23) },
+      { kind: "ipca", date: "2023-09-01", rate: decimal(0.26) },
+      { kind: "ipca", date: "2023-10-01", rate: decimal(0.24) },
+      { kind: "ipca", date: "2023-11-01", rate: decimal(0.28) },
+      { kind: "ipca", date: "2023-12-01", rate: decimal(0.56) },
+      { kind: "ipca", date: "2024-01-01", rate: decimal(0.42) },
+      { kind: "ipca", date: "2024-02-01", rate: decimal(0.83) },
+      { kind: "ipca", date: "2024-03-01", rate: decimal(0.16) },
+      { kind: "ipca", date: "2024-04-01", rate: decimal(0.38) },
+      { kind: "ipca", date: "2024-05-01", rate: decimal(0.46) },
+      { kind: "ipca", date: "2024-06-01", rate: decimal(0.21) },
+      { kind: "ipca", date: "2024-07-01", rate: decimal(0.38) },
+      { kind: "ipca", date: "2024-08-01", rate: decimal(-0.02) },
+    ]);
+    expect(fetch.asked).toEqual(["https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json&dataInicial=01/07/2023&dataFinal=31/08/2024"]);
+  });
+  it("accepts a monthly inflation rate of zero", async () => {
+    expect(await bcbMonthlyIpca("2026-09-01", "2026-09-01", fakeFetch('[{"data":"01/09/2026","valor":"0.00"}]'))).toEqual([
       { kind: "ipca", date: "2026-09-01", rate: 0 },
     ]);
-    expect(fetch.asked[0]).toContain("sgs.433/dados?formato=json&dataInicial=01/07/2026&dataFinal=30/09/2026");
   });
   it("rejects invalid SGS responses and failed requests without replacing stored inflation", async () => {
     for (const body of ["null", "{}", "[null]", '[{"data":"31/02/2026","valor":"0.5"}]',
