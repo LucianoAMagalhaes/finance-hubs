@@ -15,7 +15,7 @@ import {
   type Targets,
   type Trade,
 } from "@/portfolio/domain";
-import { notInArray } from "drizzle-orm";
+import { notInArray, sql } from "drizzle-orm";
 import type { Connection, Database } from "@/persistence/database";
 import { asset, classTarget, corporateAction, currentExchangeRate, lastFetch, payout, payoutOrigin, quote, rateIndex, trade } from "./schema";
 
@@ -116,7 +116,7 @@ export function load(db: Connection): PortfolioState {
     payouts: db.select().from(payout).orderBy(payout.id).all().map(toPayout),
     payoutOrigins: db.select().from(payoutOrigin).orderBy(payoutOrigin.id).all().map(toPayoutOrigin),
     quotes: db.select().from(quote).orderBy(quote.asset).all().map(toQuote),
-    rateIndexes: db.select().from(rateIndex).orderBy(rateIndex.date).all().map((r): RateIndex => ({
+    rateIndexes: db.select().from(rateIndex).orderBy(rateIndex.date, rateIndex.kind).all().map((r): RateIndex => ({
       kind: r.kind as RateIndex["kind"], date: r.date as RateIndex["date"], rate: r.rate,
     })),
     exchangeRate: rate ? { rate: rate.rate, at: rate.at as IsoDateTime } : null,
@@ -131,6 +131,7 @@ export function load(db: Connection): PortfolioState {
  * portfolio has no trash.
  */
 export function save(tx: Connection, state: PortfolioState): void {
+  tx.delete(rateIndex).where(notInArray(sql`${rateIndex.kind} || ':' || ${rateIndex.date}`, state.rateIndexes.map((r) => `${r.kind}:${r.date}`))).run();
   tx.delete(trade).where(notInArray(trade.id, state.trades.map((t) => t.id))).run();
   tx.delete(corporateAction).where(notInArray(corporateAction.id, state.corporateActions.map((c) => c.id))).run();
   tx.delete(payout).where(notInArray(payout.id, state.payouts.map((p) => p.id))).run();

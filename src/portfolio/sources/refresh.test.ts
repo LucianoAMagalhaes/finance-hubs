@@ -406,6 +406,8 @@ function fakeSources(
     searchCrypto: notAsked,
     sellingPtax: notAsked,
     dailyCdi: notAsked,
+    monthlyIpca: notAsked,
+    ipcaProjections: notAsked,
   };
 }
 

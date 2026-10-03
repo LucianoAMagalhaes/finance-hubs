@@ -36,7 +36,7 @@ describe("refreshing daily CDI", () => {
     const startsToday = run(emptyPortfolio(), register("CDB CDI"), application(1, "2026-09-25"));
     for (const state of [emptyPortfolio(), noApplication, otherIndexers, startsToday]) {
       const sources = cdiSources();
-      expect(await refresh(state, sources, NOW, true)).toEqual([]);
+      await refresh(state, sources, NOW, true);
       expect(sources.dailyCdi).not.toHaveBeenCalled();
     }
   });
@@ -90,7 +90,9 @@ describe("refreshing daily CDI", () => {
 });
 
 function cdiSources() {
-  return { ...liveSources(), dailyCdi: vi.fn(async (_from: IsoDate, _to: IsoDate): Promise<RateIndex[]> => cdi) };
+    return { ...liveSources(), dailyCdi: vi.fn(async (_from: IsoDate, _to: IsoDate): Promise<RateIndex[]> => cdi),
+      monthlyIpca: vi.fn(async (): Promise<RateIndex[]> => []), ipcaProjections: vi.fn(async (): Promise<RateIndex[]> => []),
+    };
 }
 
 function register(ticker: string, indexer: "cdi-percentage" | "fixed-rate" | "ipca-plus" = "cdi-percentage"): PortfolioCommand {

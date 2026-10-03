@@ -66,7 +66,7 @@ export function saveTrade(state: PortfolioState, data: TradeToSave, today: IsoDa
   const next = { ...state, trades };
   const unrepresentable = whyUnrepresentableTrade(next, trade.asset);
   if (unrepresentable) return { ok: false, error: unrepresentable };
-  const uncovered = whyUncovered(next, [trade.asset, existing?.asset], trade.id);
+  const uncovered = whyUncovered(next, [trade.asset, existing?.asset], trade.id, state);
   if (uncovered) return { ok: false, error: uncovered };
   return { ok: true, value: next };
 }
@@ -106,7 +106,7 @@ export function deleteTrade(state: PortfolioState, id: number): Result<Portfolio
   const deleted = state.trades.find((t) => t.id === id);
   if (!deleted) return { ok: false, error: "Essa operação não existe." };
   const next = { ...state, trades: state.trades.filter((t) => t.id !== id) };
-  const uncovered = whyUncovered(next, [deleted.asset], null);
+  const uncovered = whyUncovered(next, [deleted.asset], null, state);
   if (uncovered) return { ok: false, error: uncovered };
   return { ok: true, value: next };
 }
@@ -117,11 +117,19 @@ export function deleteTrade(state: PortfolioState, id: number): Result<Portfolio
  * told what there was on its date; any other sale is the one that would be
  * left uncovered.
  */
-export function whyUncovered(state: PortfolioState, assets: (number | undefined)[], saved: number | null): string | null {
+export function whyUncovered(state: PortfolioState, assets: (number | undefined)[], saved: number | null, previous: PortfolioState): string | null {
   for (const id of new Set(assets)) {
     if (id === undefined) continue;
+    const clamped = tradesInUnits(previous, id)
+      .filter((t) => t.redeemsAll && t.id !== saved && !previous.trades.find((original) => original.id === t.id && "amount" in original && original.redeemsAll));
+    const previouslyClamped = new Set(clamped.map((t) => t.id));
+    // A historical revision is tolerated; an edit that further reduces its coverage is refused.
+    for (const t of tradesInUnits(state, id, previouslyClamped)) {
+      const before = clamped.find((old) => old.id === t.id);
+      if (before && BigInt(t.quantity) * BigInt(t.unitPrice) < BigInt(before.quantity) * BigInt(before.unitPrice)) previouslyClamped.delete(t.id);
+    }
     const { uncovered } = replay(
-      tradesInUnits(state, id),
+      tradesInUnits(state, id, previouslyClamped),
       state.corporateActions.filter((c) => c.asset === id),
     );
     if (!uncovered) continue;
