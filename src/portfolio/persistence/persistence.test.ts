@@ -40,6 +40,69 @@ afterEach(() => {
 });
 
 describe("the portfolio's persistence", () => {
+  it("reloads a Treasury bond with its fractional trades, interest and last quote without changing its market valuation", () => {
+    const database = open();
+    executeOk(database,
+      { type: "save-asset", asset: { ticker: "Tesouro IPCA+ 2035", assetClass: "fixed-income", sourceId: "ipca-plus|2035-05-15",
+        bond: { kind: "treasury-bond", maturityDate: "2035-05-15" } } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-01-02", quantity: decimal(0.37), unitPrice: decimal(2000) } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-02-02", quantity: decimal(0.13), unitPrice: decimal(3000) } },
+      { type: "save-trade", trade: { asset: 1, kind: "sell", date: "2026-03-02", quantity: decimal(0.2), unitPrice: decimal(2400) } },
+      { type: "save-payout", payout: { asset: 1, kind: "interest", date: "2026-05-15", amount: 1_234 } },
+      { type: "record-quotes", quotes: [{ asset: 1, price: decimal(2500), at: "2026-09-25T14:32:00" }] },
+      { type: "record-fetch", kind: "quotes", at: "2026-09-25T14:32:00" },
+    );
+    const reloaded = loadPortfolio(open());
+    expect(reloaded.assets).toEqual([{ id: 1, ticker: "Tesouro IPCA+ 2035", assetClass: "fixed-income", sourceId: "ipca-plus|2035-05-15",
+      bond: { kind: "treasury-bond", maturityDate: "2035-05-15" } }]);
+    expect(reloaded.trades).toEqual([
+      { id: 1, asset: 1, kind: "buy", date: "2026-01-02", quantity: decimal(0.37), unitPrice: decimal(2000), exchangeRate: null },
+      { id: 2, asset: 1, kind: "buy", date: "2026-02-02", quantity: decimal(0.13), unitPrice: decimal(3000), exchangeRate: null },
+      { id: 3, asset: 1, kind: "sell", date: "2026-03-02", quantity: decimal(0.2), unitPrice: decimal(2400), exchangeRate: null },
+    ]);
+    expect(reloaded.payouts).toEqual([{ id: 1, asset: 1, kind: "interest", date: "2026-05-15", amount: 1_234 }]);
+    expect(reloaded.quotes).toEqual([{ asset: 1, price: decimal(2500), at: "2026-09-25T14:32:00" }]);
+    expect(reloaded.lastFetch).toEqual({ quotes: "2026-09-25T14:32:00" });
+    const view = projectPortfolio(reloaded, TODAY);
+    const bond = view.classes.find((c) => c.key === "fixed-income")!.assets[0]!;
+    expect(bond.quantity).toBe(decimal(0.3));
+    expect(bond.averagePrice).toBeCloseTo(226_000, 6);
+    expect(bond.cost).toBeCloseTo(67_800, 6);
+    expect(bond.currentValue).toBe(75_000);
+    expect(bond.totalGain).toBeCloseTo(11_234, 6);
+    expect(view.totalGain).toBeCloseTo(11_234, 6);
+  });
+
+  it("keeps a reloaded Treasury bond matured, refuses new buys and persists the final sale and lifetime gain", () => {
+    const database = open();
+    const before = executeOk(database,
+      { type: "save-asset", asset: { ticker: "Tesouro IPCA+ 2026", assetClass: "fixed-income", sourceId: "ipca-plus|2026-05-04",
+        bond: { kind: "treasury-bond", maturityDate: "2026-05-04" } } },
+      { type: "save-trade", trade: { asset: 1, kind: "buy", date: "2026-01-02", quantity: decimal(0.5), unitPrice: decimal(2000) } },
+      { type: "record-quotes", quotes: [{ asset: 1, price: decimal(2200), at: "2026-04-30T12:00:00" }] },
+    );
+    const reopened = open();
+    const reloaded = loadPortfolio(reopened);
+    expect(reloaded).toEqual(before);
+    const fixedIncome = projectPortfolio(reloaded, TODAY).classes.find((c) => c.key === "fixed-income")!;
+    expect(fixedIncome.assets[0]).toMatchObject({
+      currentValue: 110_000, quote: 220_000, quoteAt: "2026-04-30T12:00:00", tags: ["matured"],
+    });
+    expect(executePortfolioOnDatabase(reopened, { type: "save-trade", trade: {
+      asset: 1, kind: "buy", date: "2026-05-04", quantity: decimal(0.1), unitPrice: decimal(2000),
+    } }, TODAY)).toEqual({ ok: false, error: "Não é possível comprar ou aplicar no vencimento de 04/05/2026 ou depois dele." });
+    expect(loadPortfolio(open())).toEqual(before);
+    executeOk(reopened, { type: "save-trade", trade: {
+      asset: 1, kind: "sell", date: TODAY, quantity: decimal(0.5), unitPrice: decimal(2300),
+    } });
+    const sold = loadPortfolio(open());
+    expect(sold.quotes).toEqual(before.quotes);
+    expect(sold.trades[1]).toMatchObject({ kind: "sell", date: TODAY, quantity: decimal(0.5), unitPrice: decimal(2300) });
+    expect(projectPortfolio(sold, TODAY).classes.find((c) => c.key === "fixed-income")!.assets[0]).toMatchObject({
+      quantity: 0, cost: 0, currentValue: 0, totalGain: 15_000, tags: ["matured", "zero-position"],
+    });
+  });
+
   it("keeps monthly projections across reopening and removes them when official IPCA arrives", () => {
     const database = open();
     const projected = executeOk(database, { type: "record-rate-indexes", rateIndexes: [
