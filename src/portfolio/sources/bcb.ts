@@ -1,4 +1,5 @@
-import type { IsoDate } from "@/portfolio/domain";
+import { parseDecimal, type IsoDate, type RateIndex } from "@/portfolio/domain";
+import { formatDate, isValidDate } from "@/shared";
 import { getJson, rateFrom } from "./http";
 import { SourceError, type Ptax } from "./port";
 
@@ -9,6 +10,36 @@ const API = "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata";
 
 /** How far back the last PTAX is looked for: longer than any run of days without one. */
 const WINDOW_DAYS = 14;
+
+/** The SGS series 12: daily CDI in percent, with both endpoints included. */
+export async function bcbDailyCdi(from: IsoDate, to: IsoDate, fetchFn: typeof fetch = fetch): Promise<RateIndex[]> {
+  if (!isValidDate(from) || !isValidDate(to)) throw new SourceError("BCB CDI: invalid date window.");
+  const rates: RateIndex[] = [];
+  for (let start = from; start <= to;) {
+    const anniversary = new Date(`${start}T00:00:00Z`);
+    anniversary.setUTCFullYear(anniversary.getUTCFullYear() + 10);
+    anniversary.setUTCDate(anniversary.getUTCDate() - 1);
+    const limit = anniversary.toISOString().slice(0, 10) as IsoDate;
+    const end = limit < to ? limit : to;
+    rates.push(...await cdiWindow(start, end, fetchFn));
+    start = daysBefore(end, -1);
+  }
+  return rates;
+}
+
+/** Translates one SGS answer, rejecting a changed format as a source failure. */
+async function cdiWindow(from: IsoDate, to: IsoDate, fetchFn: typeof fetch): Promise<RateIndex[]> {
+  const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=${formatDate(from)}&dataFinal=${formatDate(to)}`;
+  const answer = await getJson(url, fetchFn);
+  if (!Array.isArray(answer)) throw new SourceError("BCB CDI: no daily rates in the answer.");
+  return answer.map((row): RateIndex => {
+    const date = typeof row?.data === "string" && /^(\d{2})\/(\d{2})\/(\d{4})$/.test(row.data)
+      ? `${row.data.slice(6)}-${row.data.slice(3, 5)}-${row.data.slice(0, 2)}` : "";
+    const rate = typeof row?.valor === "string" && /^\d+(?:\.\d{1,8})?$/.test(row.valor) ? parseDecimal(row.valor.replace(".", ",")) : null;
+    if (!isValidDate(date) || date < from || date > to || rate === null) throw new SourceError("BCB CDI: invalid daily rate in the answer.");
+    return { kind: "cdi", date, rate };
+  });
+}
 
 /**
  * The selling PTAX of the date or, on a day that has none, of the last day

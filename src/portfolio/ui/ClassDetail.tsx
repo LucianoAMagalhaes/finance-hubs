@@ -92,6 +92,7 @@ export function ClassDetail({ c, today, expanded, expand, close, newTrade, editT
         <p className="hint">
           {formatShare(c.share)} da carteira · alvo {c.target}%
         </p>
+        {c.cdiThrough && <p className="hint">CDI até {formatDate(c.cdiThrough).slice(0, 5)}</p>}
       </header>
       {c.assets.length === 0 ? (
         <p className="empty-detail">Nenhum ativo nesta classe.</p>

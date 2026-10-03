@@ -11,12 +11,13 @@ import {
   type PortfolioState,
   type PrivateBond,
   type Quote,
+  type RateIndex,
   type Targets,
   type Trade,
 } from "@/portfolio/domain";
 import { notInArray } from "drizzle-orm";
 import type { Connection, Database } from "@/persistence/database";
-import { asset, classTarget, corporateAction, currentExchangeRate, lastFetch, payout, payoutOrigin, quote, trade } from "./schema";
+import { asset, classTarget, corporateAction, currentExchangeRate, lastFetch, payout, payoutOrigin, quote, rateIndex, trade } from "./schema";
 
 // No business rule here: validating and deriving belong to the domain. This
 // module only translates the portfolio's state into rows and back.
@@ -115,6 +116,9 @@ export function load(db: Connection): PortfolioState {
     payouts: db.select().from(payout).orderBy(payout.id).all().map(toPayout),
     payoutOrigins: db.select().from(payoutOrigin).orderBy(payoutOrigin.id).all().map(toPayoutOrigin),
     quotes: db.select().from(quote).orderBy(quote.asset).all().map(toQuote),
+    rateIndexes: db.select().from(rateIndex).orderBy(rateIndex.date).all().map((r): RateIndex => ({
+      kind: r.kind as RateIndex["kind"], date: r.date as RateIndex["date"], rate: r.rate,
+    })),
     exchangeRate: rate ? { rate: rate.rate, at: rate.at as IsoDateTime } : null,
     lastFetch: fetched,
   };
@@ -166,6 +170,9 @@ export function save(tx: Connection, state: PortfolioState): void {
     tx.insert(currentExchangeRate).values(row).onConflictDoUpdate({ target: currentExchangeRate.id, set: row }).run();
   } else {
     tx.delete(currentExchangeRate).run();
+  }
+  for (const r of state.rateIndexes) {
+    tx.insert(rateIndex).values(r).onConflictDoUpdate({ target: [rateIndex.kind, rateIndex.date], set: r }).run();
   }
   for (const [kind, at] of Object.entries(state.lastFetch)) {
     const row = { kind, at };

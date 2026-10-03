@@ -405,6 +405,7 @@ function fakeSources(
     isin: notAsked,
     searchCrypto: notAsked,
     sellingPtax: notAsked,
+    dailyCdi: notAsked,
   };
 }
 

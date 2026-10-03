@@ -1,5 +1,5 @@
 import { b3CorporateActions, b3Isin, b3Payouts } from "./b3";
-import { bcbSellingPtax } from "./bcb";
+import { bcbDailyCdi, bcbSellingPtax } from "./bcb";
 import { coinGeckoQuote, coinGeckoSearch } from "./coingecko";
 import { SourceError, type Sources } from "./port";
 import { yahooCorporateActions, yahooExchangeRate, yahooQuote, yahooTickerExists } from "./yahoo";
@@ -7,7 +7,7 @@ import { yahooCorporateActions, yahooExchangeRate, yahooQuote, yahooTickerExists
 /**
  * The port answered by the real sources: Yahoo and the B3 for the B3's
  * classes, Yahoo for the American stocks and the current exchange rate,
- * CoinGecko for crypto, the BCB for the PTAX, the B3 for the payouts, and
+ * CoinGecko for crypto, the BCB for the PTAX and daily CDI, the B3 for the payouts, and
  * for the corporate actions the B3 in its classes and Yahoo in the American
  * stocks.
  */
@@ -33,5 +33,6 @@ export function liveSources(fetchFn: typeof fetch = fetch): Sources {
     corporateActions: (asset) =>
       asset.assetClass === "international-stocks" ? yahooCorporateActions(asset, fetchFn) : b3CorporateActions(asset, fetchFn),
     sellingPtax: (date) => bcbSellingPtax(date, fetchFn),
+    dailyCdi: (from, to) => bcbDailyCdi(from, to, fetchFn),
   };
 }

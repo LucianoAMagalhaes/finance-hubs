@@ -12,6 +12,7 @@ import { pricedTrades } from "./privateBonds";
 import type { Quote } from "./quotes";
 import type { PortfolioState } from "./state";
 import type { Trade, TradeKind } from "./trades";
+import type { RateIndex } from "./rateIndexes";
 
 // Every amount here is in reais, in cents, unless its name says dollars, and
 // may carry a fraction of a cent: it is only rounded for display, like the
@@ -120,6 +121,8 @@ export type AssetView = {
 export type ClassView = {
   key: AssetClass;
   name: string;
+  /** The last daily CDI stored, shown in the fixed-income header; null in every other class or without CDI. */
+  cdiThrough: IsoDate | null;
   /** The current value of the class's assets. */
   value: Cents;
   /** The class's share of the portfolio's current value, from 0 to 100; 0 while the portfolio is worth nothing. */
@@ -161,6 +164,7 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
       state.payouts.filter((p) => p.asset === a.id),
       state.quotes.find((q) => q.asset === a.id) ?? null,
       state.exchangeRate,
+      state.rateIndexes,
       today,
     ),
   );
@@ -177,6 +181,7 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
     return {
       key: id,
       name,
+      cdiThrough: id === "fixed-income" ? (state.rateIndexes.filter((r) => r.kind === "cdi").map((r) => r.date).sort().at(-1) ?? null) : null,
       value,
       share: currentValue > 0 ? (value / currentValue) * 100 : 0,
       target,
@@ -209,10 +214,11 @@ function projectAsset(
   payouts: Payout[],
   quote: Quote | null,
   rate: CurrentExchangeRate | null,
+  rateIndexes: RateIndex[],
   today: IsoDate,
 ): AssetView {
   const currency = currencyOf(asset.assetClass);
-  const priced = pricedTrades(asset, trades);
+  const priced = pricedTrades(asset, trades, rateIndexes);
   const inReais = replay(priced.trades, corporateActions, tradeTotalInReais);
   const { position, realizedGain, realizedGainBySale } = inReais;
   const privateBond = isPrivateBond(asset);
@@ -231,7 +237,7 @@ function projectAsset(
   const matured = asset.bond !== undefined && today >= asset.bond.maturityDate;
   if (matured) tags.push("matured");
   if (privateBond) {
-    if (asset.bond!.indexer !== "fixed-rate") tags.push("no-rate-index");
+    if (asset.bond!.indexer !== "fixed-rate" && accrued === null) tags.push("no-rate-index");
   } else {
     if (!quote) tags.push("no-quote");
     if (currency === "USD" && !rate) tags.push("no-exchange-rate");

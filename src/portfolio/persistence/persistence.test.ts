@@ -40,6 +40,22 @@ afterEach(() => {
 });
 
 describe("the portfolio's persistence", () => {
+  it("keeps exact daily indexes and their last fetch across reopening, replacing a repeated date", () => {
+    const database = open();
+    executeOk(database, { type: "record-rate-indexes", rateIndexes: [
+      { kind: "cdi", date: "2026-09-23", rate: decimal(0.055131) },
+      { kind: "cdi", date: "2026-09-24", rate: decimal(0.055131) },
+    ] });
+    executeOk(database, { type: "record-rate-indexes", rateIndexes: [
+      { kind: "cdi", date: "2026-09-23", rate: decimal(0.054) },
+    ] });
+    const state = executeOk(database, { type: "record-fetch", kind: "rate-indexes", at: "2026-09-25T14:32:00" });
+    expect(loadPortfolio(open())).toEqual(state);
+    expect(state).toMatchObject({ rateIndexes: [
+      { kind: "cdi", date: "2026-09-23", rate: decimal(0.054) },
+      { kind: "cdi", date: "2026-09-24", rate: decimal(0.055131) },
+    ], lastFetch: { "rate-indexes": "2026-09-25T14:32:00" } });
+  });
   it("a new database opens the portfolio with the default targets", () => {
     expect(loadPortfolio(open())).toEqual(emptyPortfolio());
     expect(loadPortfolio(open()).targets).toEqual(DEFAULT_TARGETS);
