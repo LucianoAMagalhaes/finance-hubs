@@ -145,6 +145,8 @@ export type ClassView = {
 
 /** The whole snapshot, derived and never stored, that feeds the screen. */
 export type PortfolioView = {
+  /** Assets with an incomplete questionnaire, including those never evaluated. */
+  pendingEvaluations: number;
   currentValue: Cents;
   cost: Cents;
   totalGain: Cents;
@@ -201,6 +203,7 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
   });
   return {
     currentValue,
+    pendingEvaluations: assets.filter(a => a.questionnaire !== null && a.score === null).length,
     cost: sum(assets, (a) => a.cost),
     totalGain: sum(assets, (a) => a.totalGain),
     payoutsReceived: sum(assets, (a) => a.payoutsReceived),

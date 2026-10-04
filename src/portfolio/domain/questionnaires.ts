@@ -3,10 +3,41 @@ import type { IsoDate, Result } from "@/shared";
 import type { AssetClass } from "./classes";
 
 export type Question = { id: number; text: string };
+export type QuestionToSave = { id?: number; text: string };
 export type Questionnaire = { id: "stocks" | "real-estate-funds"; questions: Question[] };
 export type Answer = { asset: number; question: number; value: boolean };
 export type QuestionnaireEvaluation = { asset: number; evaluatedAt: IsoDate };
 export type QuestionnaireView = { id: Questionnaire["id"]; questions: (Question & { answer: boolean | null })[] };
+
+/** Saves the current ordered questions together, keeping answers only for retained identities. */
+export function saveQuestionnaire(state: PortfolioState, id: Questionnaire["id"], input: QuestionToSave[]): Result<PortfolioState> {
+  const current = state.questionnaires.find(q => q.id === id);
+  if (!current) return { ok: false, error: "Esse questionário não existe." };
+  if (!Array.isArray(input)) return { ok: false, error: "Informe as perguntas do questionário." };
+  if (input.length === 0) return { ok: false, error: "Mantenha pelo menos uma pergunta no questionário." };
+  const retained = new Set<number>();
+  let nextId = Math.max(0, ...state.questionnaires.flatMap(q => q.questions.map(p => p.id))) + 1;
+  const questions: Question[] = [];
+  for (const question of input) {
+    if (!question || typeof question.text !== "string" || !question.text.trim()) {
+      return { ok: false, error: "Escreva o texto de cada pergunta." };
+    }
+    if (question.id !== undefined) {
+      if (!current.questions.some(p => p.id === question.id)) {
+        return { ok: false, error: "Essa pergunta não pertence ao questionário." };
+      }
+      if (retained.has(question.id)) return { ok: false, error: "Uma pergunta não pode aparecer duas vezes." };
+      retained.add(question.id);
+    }
+    questions.push({ id: question.id ?? nextId++, text: question.text.trim() });
+  }
+  const removed = new Set(current.questions.filter(p => !retained.has(p.id)).map(p => p.id));
+  return { ok: true, value: {
+    ...state,
+    questionnaires: state.questionnaires.map(q => q.id === id ? { id, questions } : q),
+    answers: state.answers.filter(a => !removed.has(a.question)),
+  } };
+}
 
 export function questionnaireId(assetClass: AssetClass): Questionnaire["id"] | null {
   if (assetClass === "domestic-stocks" || assetClass === "international-stocks") return "stocks";

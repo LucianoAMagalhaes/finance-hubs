@@ -98,3 +98,98 @@ it.each(["QQQ", "VNQ"])("evaluates an international ETF or REIT with stock quest
   expect(viewOf(state, 3)).toMatchObject({ score: 11, evaluatedAt: TODAY });
   expect(viewOf(state, 1)).toMatchObject({ score: null, evaluatedAt: null });
 });
+
+function evaluatedClasses(): PortfolioState {
+  let state = emptyPortfolio();
+  for (const [ticker, assetClass] of [["PETR4", "domestic-stocks"], ["AAPL", "international-stocks"], ["HGLG11", "real-estate-funds"]] as const) {
+    state = run(state, { type: "save-asset", asset: { ticker, assetClass } });
+    const asset = state.assets.at(-1)!;
+    for (const question of viewOf(state, asset.id).questionnaire!.questions) {
+      state = run(state, { type: "save-answer", asset: asset.id, question: question.id, value: question.id !== 1 });
+    }
+  }
+  return state;
+}
+
+it("adding a stock question makes both stock classes pending while funds and evaluation dates stay unchanged", () => {
+  const original = evaluatedClasses();
+  const state = run(original, {
+    type: "save-questionnaire", id: "stocks",
+    questions: [...original.questionnaires[0]!.questions, { text: "Tem receita recorrente?" }],
+  }, "2026-10-02");
+  for (const asset of [1, 2]) {
+    expect(viewOf(state, asset)).toMatchObject({ score: null, evaluatedAt: TODAY });
+    expect(viewOf(state, asset).questionnaire?.questions.at(-1)).toMatchObject({ text: "Tem receita recorrente?", answer: null });
+  }
+  expect(projectPortfolio(state, TODAY).pendingEvaluations).toBe(2);
+  expect(viewOf(state, 3)).toEqual(viewOf(original, 3));
+  expect(viewOf(original, 1).score).toBe(9);
+  const question = viewOf(state, 1).questionnaire!.questions.at(-1)!.id;
+  const completed = run(state, { type: "save-answer", asset: 1, question, value: true }, "2026-10-03");
+  expect(viewOf(completed, 1)).toMatchObject({ score: 10, evaluatedAt: "2026-10-03" });
+  expect(projectPortfolio(completed, TODAY).pendingEvaluations).toBe(1);
+});
+
+it("rewrites and reorders stock questions by identity without changing either stock score, answers or dates", () => {
+  const original = evaluatedClasses();
+  const questions = [...original.questionnaires[0]!.questions].reverse().map(q => q.id === 1 ? { ...q, text: "  Minha nova redação?  " } : q);
+  const state = run(original, { type: "save-questionnaire", id: "stocks", questions }, "2026-10-02");
+  for (const asset of [1, 2]) {
+    expect(viewOf(state, asset)).toMatchObject({ score: 9, evaluatedAt: TODAY });
+    expect(viewOf(state, asset).questionnaire?.questions.map(q => q.id)).toEqual([11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+    expect(viewOf(state, asset).questionnaire?.questions.at(-1)).toEqual({ id: 1, text: "Minha nova redação?", answer: false });
+  }
+  expect(state.answers).toEqual(original.answers);
+  expect(state.questionnaireEvaluations).toEqual(original.questionnaireEvaluations);
+  expect(viewOf(state, 3)).toEqual(viewOf(original, 3));
+  expect(original.questionnaires[0]?.questions[0]?.text).toContain("ROE");
+});
+
+it("removes answers for both stock classes and recomputes their scores without changing dates", () => {
+  const original = evaluatedClasses();
+  const state = run(original, { type: "save-questionnaire", id: "stocks", questions: original.questionnaires[0]!.questions.slice(1) }, "2026-10-02");
+  expect(state.answers.some(a => a.question === 1)).toBe(false);
+  for (const asset of [1, 2]) expect(viewOf(state, asset)).toMatchObject({ score: 10, evaluatedAt: TODAY });
+  expect(viewOf(state, 3)).toEqual(viewOf(original, 3));
+  expect(apply(state, { type: "save-answer", asset: 1, question: 1, value: true }, TODAY).ok).toBe(false);
+});
+
+it("adds and removes fund questions independently and completes pending evaluations by removing the unanswered question", () => {
+  const original = evaluatedClasses();
+  const pending = run(original, { type: "save-questionnaire", id: "real-estate-funds", questions: [...original.questionnaires[1]!.questions, { text: "Tem vários imóveis?" }] }, "2026-10-02");
+  expect(viewOf(pending, 3)).toMatchObject({ score: null, evaluatedAt: TODAY });
+  expect(projectPortfolio(pending, TODAY).pendingEvaluations).toBe(1);
+  for (const asset of [1, 2]) expect(viewOf(pending, asset)).toEqual(viewOf(original, asset));
+  const completed = run(pending, { type: "save-questionnaire", id: "real-estate-funds", questions: original.questionnaires[1]!.questions }, "2026-10-03");
+  expect(viewOf(completed, 3)).toMatchObject({ score: 6, evaluatedAt: TODAY });
+  expect(projectPortfolio(completed, TODAY).pendingEvaluations).toBe(0);
+});
+
+it.each(["stocks", "real-estate-funds"] as const)("protects the last question in %s and keeps its answers and date", id => {
+  const original = evaluatedClasses();
+  const question = original.questionnaires.find(q => q.id === id)!.questions[0]!;
+  const state = run(original, { type: "save-questionnaire", id, questions: [question] });
+  const before = projectPortfolio(state, TODAY);
+  expect(apply(state, { type: "save-questionnaire", id, questions: [] }, "2026-10-02")).toEqual({ ok: false, error: "Mantenha pelo menos uma pergunta no questionário." });
+  expect(projectPortfolio(state, TODAY)).toEqual(before);
+  expect(viewOf(state, id === "stocks" ? 1 : 3)).toMatchObject({ score: id === "stocks" ? -1 : 1, evaluatedAt: TODAY });
+});
+
+it("refuses missing questionnaires, foreign or repeated identities and malformed questions without changing state", () => {
+  const state = evaluatedClasses();
+  const before = projectPortfolio(state, TODAY);
+  for (const [input, error] of [
+    [{ id: "crypto", questions: [{ text: "Pergunta?" }] }, "Esse questionário não existe."],
+    [{ id: "stocks", questions: null }, "Informe as perguntas do questionário."],
+    [{ id: "stocks", questions: [null] }, "Escreva o texto de cada pergunta."],
+    [{ id: "stocks", questions: [{ text: 123 }] }, "Escreva o texto de cada pergunta."],
+    [{ id: "stocks", questions: [{ text: "   " }] }, "Escreva o texto de cada pergunta."],
+    [{ id: "stocks", questions: [{ id: 12, text: "Pergunta?" }] }, "Essa pergunta não pertence ao questionário."],
+    [{ id: "stocks", questions: [{ id: 999, text: "Pergunta?" }] }, "Essa pergunta não pertence ao questionário."],
+    [{ id: "stocks", questions: [{ id: 1, text: "Pergunta?" }, { id: 1, text: "Outra?" }] }, "Uma pergunta não pode aparecer duas vezes."],
+  ] as const) {
+    const command: PortfolioCommand = JSON.parse(JSON.stringify({ type: "save-questionnaire", ...input }));
+    expect(apply(state, command, TODAY)).toEqual({ ok: false, error });
+  }
+  expect(projectPortfolio(state, TODAY)).toEqual(before);
+});

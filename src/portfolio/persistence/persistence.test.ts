@@ -635,3 +635,60 @@ it("does not restore customized question text, order or removed questions when r
   executeOk(open(), { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } });
   expect(loadPortfolio(open()).questionnaires).toEqual(state.questionnaires);
 });
+
+it("reopens edited questionnaires with retained answers, derived scores and dates, then completes pending stocks", () => {
+  const database = open();
+  const budget = loadState(database);
+  let state = executeOk(database,
+    { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
+    { type: "save-asset", asset: { ticker: "AAPL", assetClass: "international-stocks" } },
+    { type: "save-asset", asset: { ticker: "HGLG11", assetClass: "real-estate-funds" } },
+  );
+  for (const asset of [1, 2, 3]) {
+    const questions = asset === 3 ? state.questionnaires[1]!.questions : state.questionnaires[0]!.questions;
+    for (const question of questions) state = executeOk(database, { type: "save-answer", asset, question: question.id, value: question.id !== 1 });
+  }
+  const edited = executePortfolioOnDatabase(database, {
+    type: "save-questionnaire", id: "stocks", questions: [
+      { id: 11, text: "Minha pergunta reescrita?" },
+      ...state.questionnaires[0]!.questions.slice(1, -1),
+      { text: "Minha pergunta nova?" },
+    ],
+  }, "2026-09-26");
+  if (!edited.ok) throw new Error(edited.error);
+  state = edited.value;
+  const fundEdit = executePortfolioOnDatabase(database, { type: "save-questionnaire", id: "real-estate-funds", questions: [{ id: 12, text: "Minha pergunta de FIIs?" }] }, "2026-09-26");
+  if (!fundEdit.ok) throw new Error(fundEdit.error);
+  state = fundEdit.value;
+  const newQuestion = state.questionnaires[0]!.questions.at(-1)!.id;
+  // Close all connections before reopening and running the real migrations again.
+  for (const connection of opened.splice(0)) connection.close();
+  const reopened = open();
+  expect(loadPortfolio(reopened)).toEqual(state);
+  const snapshot = projectPortfolio(loadPortfolio(reopened), "2026-09-26");
+  expect(snapshot.pendingEvaluations).toBe(2);
+  const views = snapshot.classes.flatMap(c => c.assets);
+  for (const asset of [1, 2]) {
+    expect(views.find(a => a.id === asset)).toMatchObject({ score: null, evaluatedAt: TODAY });
+    expect(views.find(a => a.id === asset)?.questionnaire?.questions.map(q => q.id)).toEqual([11, 2, 3, 4, 5, 6, 7, 8, 9, 10, newQuestion]);
+  }
+  expect(views.find(a => a.id === 3)).toMatchObject({ score: 1, evaluatedAt: TODAY });
+  expect(state.answers.some(a => a.question === 1 || a.question > 12)).toBe(false);
+  expect(executePortfolioOnDatabase(reopened, { type: "save-questionnaire", id: "real-estate-funds", questions: [] }, "2026-09-26")).toEqual({ ok: false, error: "Mantenha pelo menos uma pergunta no questionário." });
+  expect(loadPortfolio(reopened)).toEqual(state);
+  for (const asset of [1, 2]) {
+    const result = executePortfolioOnDatabase(reopened, { type: "save-answer", asset, question: newQuestion, value: asset === 1 }, "2026-09-27");
+    if (!result.ok) throw new Error(result.error);
+    state = result.value;
+  }
+  for (const connection of opened.splice(0)) connection.close();
+  const finalDatabase = open();
+  expect(loadPortfolio(finalDatabase).answers).toEqual(expect.arrayContaining(state.answers));
+  expect(loadPortfolio(finalDatabase).answers).toHaveLength(state.answers.length);
+  expect(projectPortfolio(loadPortfolio(finalDatabase), "2026-09-27")).toEqual(projectPortfolio(state, "2026-09-27"));
+  const finalView = projectPortfolio(loadPortfolio(finalDatabase), "2026-09-27");
+  expect(finalView.pendingEvaluations).toBe(0);
+  expect(finalView.classes.flatMap(c => c.assets).find(a => a.id === 1)).toMatchObject({ score: 11, evaluatedAt: "2026-09-27" });
+  expect(finalView.classes.flatMap(c => c.assets).find(a => a.id === 2)).toMatchObject({ score: 9, evaluatedAt: "2026-09-27" });
+  expect(loadState(finalDatabase)).toEqual(budget);
+});

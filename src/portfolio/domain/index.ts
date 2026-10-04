@@ -66,4 +66,4 @@ export {
 
 export type { ManualScore } from "./scores";
 
-export type { Question, Questionnaire, Answer, QuestionnaireEvaluation, QuestionnaireView } from "./questionnaires";
+export type { Question, QuestionToSave, Questionnaire, Answer, QuestionnaireEvaluation, QuestionnaireView } from "./questionnaires";

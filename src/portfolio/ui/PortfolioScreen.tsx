@@ -15,6 +15,7 @@ import {
   type PortfolioCommand,
   type PortfolioState,
   type PortfolioView,
+  type Questionnaire,
   type TradeKind,
 } from "@/portfolio/domain";
 import { execute, refresh, saveAsset, suggestExchangeRate } from "@/portfolio/server/actions";
@@ -26,6 +27,7 @@ import { ClassDetail } from "./ClassDetail";
 import { CorporateActionForm } from "./CorporateActionForm";
 import { PayoutForm } from "./PayoutForm";
 import { QuestionnaireForm } from "./QuestionnaireForm";
+import { QuestionnaireEditor } from "./QuestionnaireEditor";
 import { ScoreForm } from "./ScoreForm";
 import { TargetsForm } from "./TargetsForm";
 import { TradeForm } from "./TradeForm";
@@ -42,6 +44,7 @@ type Props = { initialState: PortfolioState; today: IsoDate };
  * one comes from the + Operação of its row, turned from a trade and back.
  */
 type OpenSheet =
+  | { kind: "questionnaire"; id: Questionnaire["id"] }
   | { kind: "score"; asset: number }
   | { kind: "targets" }
   | { kind: "asset"; asset: Asset | null }
@@ -160,7 +163,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
 
   return (
     <main className="wrap">
-      <header className="topbar">
+      <header className="topbar portfolio-topbar">
         <h1 className="portfolio-title">Carteira</h1>
         <div className="status">
           <QuotesChip view={view} today={today} />
@@ -173,6 +176,12 @@ export function PortfolioScreen({ initialState, today }: Props) {
           </Link>
           <button type="button" className="btn" onClick={() => setSheet({ kind: "asset", asset: null })}>
             + Ativo
+          </button>
+          <button type="button" className="btn" onClick={() => setSheet({ kind: "questionnaire", id: "stocks" })}>
+            Questionário de ações
+          </button>
+          <button type="button" className="btn" onClick={() => setSheet({ kind: "questionnaire", id: "real-estate-funds" })}>
+            Questionário de FIIs
           </button>
           <button
             type="button"
@@ -190,6 +199,11 @@ export function PortfolioScreen({ initialState, today }: Props) {
       </header>
 
       <Band view={view} />
+      <p className="evaluation-pending" role="status" aria-live="polite">
+        {view.pendingEvaluations === 0
+          ? "Nenhum ativo com avaliação pendente nos questionários."
+          : `${view.pendingEvaluations} ${view.pendingEvaluations === 1 ? "ativo com avaliação pendente" : "ativos com avaliação pendente"} nos questionários. Abra Avaliar no detalhe de cada ativo para completar.`}
+      </p>
 
       <div className="section">
         <h2>Onde está × onde deveria estar</h2>
@@ -241,6 +255,13 @@ export function PortfolioScreen({ initialState, today }: Props) {
         <div className="grid">{cards}</div>
       )}
 
+      {sheet?.kind === "questionnaire" && (
+        <QuestionnaireEditor
+          questionnaire={state.questionnaires.find(q => q.id === sheet.id)!}
+          save={questions => run({ type: "save-questionnaire", id: sheet.id, questions })}
+          close={() => setSheet(null)}
+        />
+      )}
       {sheet?.kind === "score" && evaluatedAsset && (evaluatedAsset.questionnaire ? (
         <QuestionnaireForm asset={evaluatedAsset} questionnaire={evaluatedAsset.questionnaire} save={answer} close={() => setSheet(null)} />
       ) : (
