@@ -1,4 +1,4 @@
-import { saveAnswer } from "./questionnaires";
+import { saveAnswer, saveQuestionnaire, type Questionnaire, type QuestionToSave } from "./questionnaires";
 import { saveScore } from "./scores";
 import type { IsoDate, IsoDateTime, Result } from "@/shared";
 import { deleteAsset, saveAsset, type AssetToSave } from "./assets";
@@ -24,6 +24,7 @@ import { recordRateIndexes, type RateIndex } from "./rateIndexes";
  * Each command arrives with the ticket that uses it.
  */
 export type PortfolioCommand =
+  | { type: "save-questionnaire"; id: Questionnaire["id"]; questions: QuestionToSave[] }
   | { type: "save-answer"; asset: number; question: number; value: boolean }
   | { type: "save-score"; asset: number; score: number }
   | { type: "save-targets"; targets: Targets }
@@ -51,6 +52,8 @@ export type PortfolioCommand =
  */
 export function apply(state: PortfolioState, command: PortfolioCommand, today: IsoDate): Result<PortfolioState> {
   switch (command?.type) {
+    case "save-questionnaire":
+      return saveQuestionnaire(state, command.id, command.questions);
     case "save-targets": {
       const error = validateTargets(command.targets);
       if (error) return { ok: false, error };

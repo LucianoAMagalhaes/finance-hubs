@@ -590,7 +590,8 @@ dialog.sheet::backdrop {
   color: var(--ink-2);
 }
 .field input,
-.field select {
+.field select,
+.field textarea {
   font: inherit;
   font-size: 15px;
   color: var(--ink);
@@ -600,7 +601,8 @@ dialog.sheet::backdrop {
   padding: 7px 10px;
 }
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
@@ -1577,4 +1579,28 @@ dialog.sheet.trash {
   gap: 8px;
   min-height: 44px;
   cursor: pointer;
+}
+
+.evaluation-pending {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.portfolio-topbar .actions {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.questionnaire-question textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.questionnaire-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.questionnaire-tools .btn {
+  min-height: 44px;
 }
