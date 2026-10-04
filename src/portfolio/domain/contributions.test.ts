@@ -76,7 +76,7 @@ describe("contribution suggestions through the portfolio", () => {
     let state = run(emptyPortfolio(), { type: "save-targets", targets: targets(0, 100) });
     state = run(state, { type: "save-asset", asset: { ticker: "CDB", assetClass: "fixed-income", bond: { kind: "private-bond", bondType: "cdb", indexer: "fixed-rate", rate: decimal(12), maturityDate: "2028-01-03" } } });
     state = run(state, { type: "save-score", asset: 1, score: 10 });
-    expect(suggest(state, 1).classes.find(c => c.key === "fixed-income")!.assets[0]).toMatchObject({ price: 100, amount: 1, exclusions: [] });
+    expect(suggest(state, 1).classes.find(c => c.key === "fixed-income")!.assets[0]).toMatchObject({ price: 100, quantity: null, bondKind: "private-bond", amount: 1, exclusions: [] });
   });
   it.each(["cdi-percentage", "ipca-plus"] as const)("requires the necessary index before a first %s application", indexer => {
     let state = run(emptyPortfolio(), { type: "save-targets", targets: targets(0, 100) });
@@ -224,4 +224,122 @@ describe("contribution suggestions through the portfolio", () => {
       }
     }
   });
+});
+
+
+describe("buyable contribution units", () => {
+  it.each(["domestic-stocks", "real-estate-funds"] as const)("rounds %s down and keeps the remainder in its class", assetClass => {
+    let state = run(emptyPortfolio(), { type: "save-targets", targets: { ...targets(0), [assetClass]: 100 } });
+    state = add(state, { ticker: "AAA", assetClass }, 10, 30);
+    const result = suggest(state, 10000);
+    expect(result.classes.find(c => c.key === assetClass)).toMatchObject({ amount: 9000, unallocated: 1000, assets: [{ quantity: decimal(3), amount: 9000 }] });
+    expect(result).toMatchObject({ distributed: 9000, unallocated: 1000 });
+  });
+});
+
+
+describe("additional steps and fractional allocations", () => {
+  it("repeatedly chooses the greatest remaining shortfall whose step fits, with stable ties", () => {
+    let state = run(emptyPortfolio(), { type: "save-targets", targets: { ...targets(0), "domestic-stocks": 100 } });
+    for (const [ticker, price] of [["EXPENSIVE", 90], ["SMALL", 7], ["OTHER", 7]] as const) state = add(state, { ticker, assetClass: "domestic-stocks" }, 10, price);
+    const result = suggest(state, 9000);
+    expect(result.classes[0]).toMatchObject({ amount: 8400, unallocated: 600 });
+    expect(result.classes[0]!.assets.map(a => [a.quantity, a.amount])).toEqual([[0, 0], [decimal(6), 4200], [decimal(6), 4200]]);
+    expect(result).toMatchObject({ distributed: 8400, unallocated: 600 });
+  });
+  it("can cross an ideal by less than one step when buying the greatest shortfall", () => {
+    let state = run(emptyPortfolio(), { type: "save-targets", targets: { ...targets(0), "domestic-stocks": 100 } });
+    for (const [ticker, price] of [["AAA", 60], ["BBB", 20], ["CCC", 20]] as const) state = add(state, { ticker, assetClass: "domestic-stocks" }, 10, price);
+    expect(suggest(state).classes[0]!.assets.map(a => [a.quantity, a.amount])).toEqual([[decimal(1), 6000], [decimal(1), 2000], [decimal(1), 2000]]);
+  });
+  it("uses hundredths of a treasury title and reserves cents for a subcent step price", () => {
+    let state = run(emptyPortfolio(), { type: "save-targets", targets: targets(0, 100) });
+    state = add(state, { ticker: "Treasury", assetClass: "fixed-income", sourceId: "treasury", bond: { kind: "treasury-bond", maturityDate: "2035-05-15" } }, 10, 123.45);
+    expect(suggest(state, 10000)).toMatchObject({ distributed: 10000, unallocated: 0 });
+    expect(suggest(state, 10000).classes[2]!.assets[0]).toMatchObject({ quantity: decimal(0.81), amount: 10000 });
+  });
+  it("preserves reais for fractions at the current exchange rate and floors technical precision", () => {
+    let state = run(emptyPortfolio(), { type: "save-targets", targets: targets(50, 0, 50) });
+    state = add(state, { ticker: "BTC", assetClass: "crypto" }, 10, 3);
+    state = add(state, { ticker: "AAPL", assetClass: "international-stocks" }, 10, 3);
+    state = run(state, { type: "record-quotes", quotes: [], exchangeRate: { rate: 50000, at: `${TODAY}T12:00:00` } });
+    const result = suggest(state, 100);
+    expect(result.classes.find(c => c.key === "crypto")!.assets[0]).toMatchObject({ quantity: 16666666, amount: 50 });
+    expect(result.classes.find(c => c.key === "international-stocks")!.assets[0]).toMatchObject({ quantity: 3333333, amount: 50, exchangeRate: 50000 });
+    expect(result).toMatchObject({ distributed: 100, unallocated: 0 });
+  });
+  it("adds class rounding remainder to the amount already left between classes", () => {
+    let state = run(emptyPortfolio(), { type: "save-targets", targets: { ...targets(50), "domestic-stocks": 50 } });
+    state = add(state, { ticker: "AAA", assetClass: "domestic-stocks" }, 10, 30);
+    const result = suggest(state);
+    expect(result.classes[0]).toMatchObject({ amount: 3000, unallocated: 2000 });
+    expect(result).toMatchObject({ distributed: 3000, unallocated: 7000 });
+  });
+});
+
+
+it("conserves cents across all five classes including treasury and private applications", () => {
+  let state = run(emptyPortfolio(), { type: "save-targets", targets: { crypto: 20, "fixed-income": 20, "international-stocks": 20, "domestic-stocks": 20, "real-estate-funds": 20 } });
+  state = add(state, { ticker: "STOCK", assetClass: "domestic-stocks" }, 10, 7);
+  state = add(state, { ticker: "FUND", assetClass: "real-estate-funds" }, 10, 9);
+  state = add(state, { ticker: "Treasury", assetClass: "fixed-income", sourceId: "treasury", bond: { kind: "treasury-bond", maturityDate: "2035-05-15" } }, 10, 123.45);
+  state = add(state, { ticker: "CDB", assetClass: "fixed-income", bond: { kind: "private-bond", bondType: "cdb", indexer: "fixed-rate", rate: decimal(12), maturityDate: "2028-01-03" } });
+  state = add(state, { ticker: "AAPL", assetClass: "international-stocks" }, 10, 3);
+  state = add(state, { ticker: "BTC", assetClass: "crypto" }, 10, 3);
+  state = run(state, { type: "record-quotes", quotes: [], exchangeRate: { rate: 50000, at: `${TODAY}T12:00:00` } });
+  const result = suggest(state);
+  expect(result.classes.map(c => [c.amount, c.unallocated])).toEqual([[1400, 600], [2000, 0], [1988, 12], [1800, 200], [2000, 0]]);
+  expect(result.classes[2]!.assets.map(a => [a.quantity, a.amount])).toEqual([[null, 1000], [decimal(0.08), 988]]);
+  expect(result).toMatchObject({ distributed: 9188, unallocated: 812 });
+  expect(result.classes.flatMap(c => c.assets).reduce((sum, a) => sum + a.amount, result.unallocated)).toBe(10000);
+});
+
+
+it("keeps tiny quotes finite and within representable quantity precision", () => {
+  let state = run(emptyPortfolio(), { type: "save-targets", targets: { ...targets(0), "domestic-stocks": 100 } });
+  state = add(state, { ticker: "AAA", assetClass: "domestic-stocks" }, 10, 0.3);
+  state = add(state, { ticker: "BBB", assetClass: "domestic-stocks" }, 10, 0.00000001);
+  const result = suggest(state, 100);
+  expect(result).toMatchObject({ distributed: 100, unallocated: 0 });
+  expect(result.classes[0]!.assets.map(a => a.amount)).toEqual([30, 70]);
+  expect(result.classes[0]!.assets.every(a => Number.isSafeInteger(a.quantity))).toBe(true);
+});
+
+
+it("reports unallocated money when fractional quantity reaches its supported precision", () => {
+  let state = run(emptyPortfolio(), { type: "save-targets", targets: targets() });
+  state = add(state, { ticker: "BTC", assetClass: "crypto" }, 10, 1);
+  const result = suggest(state, 10000000000);
+  expect(result.classes.find(c => c.key === "crypto")!.assets[0]).toMatchObject({ quantity: Number.MAX_SAFE_INTEGER, quantityLimited: true, amount: 9007199255 });
+  expect(result).toMatchObject({ distributed: 9007199255, unallocated: 992800745 });
+});
+
+it("batches repeated affordable steps when an expensive asset cannot receive the remainder", () => {
+  let state = run(emptyPortfolio(), { type: "save-targets", targets: { ...targets(0), "domestic-stocks": 100 } });
+  state = add(state, { ticker: "AAA", assetClass: "domestic-stocks" }, 10, 1000000);
+  state = add(state, { ticker: "BBB", assetClass: "domestic-stocks" }, 10, 0.01);
+  const result = suggest(state, 100000000);
+  expect(result.classes[0]!.assets.map(a => a.amount)).toEqual([0, 90071992]);
+  expect(result).toMatchObject({ distributed: 90071992, unallocated: 9928008 });
+});
+
+
+it("batches balanced cycles between affordable recipients without changing stable ties", () => {
+  let state = run(emptyPortfolio(), { type: "save-targets", targets: { ...targets(0), "domestic-stocks": 100 } });
+  state = add(state, { ticker: "AAA", assetClass: "domestic-stocks" }, 10, 1000000);
+  state = add(state, { ticker: "BBB", assetClass: "domestic-stocks" }, 10, 0.01);
+  state = add(state, { ticker: "CCC", assetClass: "domestic-stocks" }, 10, 0.01);
+  const result = suggest(state, 100000000);
+  expect(result.classes[0]!.assets.map(a => [a.quantity, a.amount])).toEqual([[0, 0], [decimal(50000000), 50000000], [decimal(50000000), 50000000]]);
+  expect(result).toMatchObject({ distributed: 100000000, unallocated: 0 });
+});
+
+
+it("identifies precision as the reason when balanced cycles reach quantity capacity", () => {
+  let state = run(emptyPortfolio(), { type: "save-targets", targets: { ...targets(0), "domestic-stocks": 100 } });
+  state = add(state, { ticker: "AAA", assetClass: "domestic-stocks" }, 10, 2000000);
+  for (const ticker of ["BBB", "CCC"]) state = add(state, { ticker, assetClass: "domestic-stocks" }, 10, 0.01);
+  const result = suggest(state, 200000000);
+  expect(result.classes[0]!.assets.slice(1).map(a => [a.amount, a.quantityLimited])).toEqual([[90071992, true], [90071992, true]]);
+  expect(result).toMatchObject({ distributed: 180143984, unallocated: 19856016 });
 });
