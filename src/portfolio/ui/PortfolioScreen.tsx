@@ -11,6 +11,7 @@ import {
   type AssetClass,
   type AssetToSave,
   type ClassView,
+  type ContributionSuggestion,
   type IsoDate,
   type PortfolioCommand,
   type PortfolioState,
@@ -31,6 +32,8 @@ import { QuestionnaireEditor } from "./QuestionnaireEditor";
 import { ScoreForm } from "./ScoreForm";
 import { TargetsForm } from "./TargetsForm";
 import { TradeForm } from "./TradeForm";
+import { ContributionForm } from "./ContributionForm";
+import { ContributionResult } from "./ContributionResult";
 import { classColor, formatMoment, formatShare, Gain, ToTarget } from "./parts";
 
 type Props = { initialState: PortfolioState; today: IsoDate };
@@ -44,6 +47,7 @@ type Props = { initialState: PortfolioState; today: IsoDate };
  * one comes from the + Operação of its row, turned from a trade and back.
  */
 type OpenSheet =
+  | { kind: "contribution"; suggestion: ContributionSuggestion }
   | { kind: "questionnaire"; id: Questionnaire["id"] }
   | { kind: "score"; asset: number }
   | { kind: "targets" }
@@ -198,7 +202,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
         </div>
       </header>
 
-      <Band view={view} />
+      <Band view={view} state={state} today={today} suggest={suggestion => setSheet({ kind: "contribution", suggestion })} />
       <p className="evaluation-pending" role="status" aria-live="polite">
         {view.pendingEvaluations === 0
           ? "Nenhum ativo com avaliação pendente nos questionários."
@@ -255,6 +259,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
         <div className="grid">{cards}</div>
       )}
 
+      {sheet?.kind === "contribution" && <ContributionResult suggestion={sheet.suggestion} close={() => setSheet(null)} />}
       {sheet?.kind === "questionnaire" && (
         <QuestionnaireEditor
           questionnaire={state.questionnaires.find(q => q.id === sheet.id)!}
@@ -372,7 +377,7 @@ function ExchangeRateChip({ view, today }: { view: PortfolioView; today: IsoDate
 const fromTopBar = (sheet: { asset: number | null; trade?: number | null; payout?: number | null }) =>
   sheet.asset === null && (sheet.trade ?? sheet.payout ?? null) === null;
 
-function Band({ view }: { view: PortfolioView }) {
+function Band({ view, state, today, suggest }: { view: PortfolioView; state: PortfolioState; today: IsoDate; suggest: (suggestion: ContributionSuggestion) => void }) {
   return (
     <div className="band portfolio-band">
       <div className="aggregate">
@@ -387,6 +392,7 @@ function Band({ view }: { view: PortfolioView }) {
         </span>
         <span className="h">dos quais {formatReais(view.payoutsReceived)} em proventos</span>
       </div>
+      <ContributionForm state={state} today={today} show={suggest} />
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { decimalToNumber, type Decimal } from "./decimal";
 import { currencyOf, exchangeRateToNumber, type Currency, type CurrentExchangeRate, type ExchangeRate } from "./exchangeRate";
 import type { Payout, PayoutKind } from "./payouts";
 import { inHistoryOrder, replay, tradeAmount, tradeTotal, tradeTotalInReais, type Replay } from "./position";
-import { pricedTrades } from "./privateBonds";
+import { accruedPrice, pricedTrades } from "./privateBonds";
 import type { Quote } from "./quotes";
 import { questionnaireId, type QuestionnaireView } from "./questionnaires";
 import type { PortfolioState } from "./state";
@@ -21,7 +21,7 @@ import type { RateIndex } from "./rateIndexes";
 // always in reais; the dollars are only to show.
 
 /** What the table's row says about the asset beyond its numbers. Each tag arrives with the ticket that sets it. */
-export type AssetTag = "no-score" | "non-positive-score" | "no-quote" | "no-rate-index" | "no-exchange-rate" | "stale-quote" | "matured" | "pending-corporate-action" | "zero-position";
+export type AssetTag = "no-score" | "non-positive-score" | "no-quote" | "no-rate-index" | "no-exchange-rate" | "stale-quote" | "stale-exchange-rate" | "matured" | "pending-corporate-action" | "zero-position";
 
 /** A quote or a current exchange rate older than this many business days is stale: it still gives the current value. */
 const STALE_AFTER_BUSINESS_DAYS = 5;
@@ -91,6 +91,8 @@ export type AssetView = {
    * first application and with no index.
    */
   quote: Cents | null;
+  /** Price available for a contribution; a private bond's first application starts at R$ 1 when its indexes are available. */
+  contributionPrice: Cents | null;
   /** When the last quote was obtained; null while the asset never had one, and always in a private bond. */
   quoteAt: IsoDateTime | null;
   /**
@@ -237,6 +239,9 @@ function projectAsset(
   // A private bond has no quote from any source: its price is accrued on its curve.
   const accrued = privateBond ? priced.price(today) : null;
   const price = privateBond ? accrued : (quote?.price ?? null);
+  const contributionPrice = privateBond && !trades.some(t => t.kind === "buy")
+    ? accruedPrice(asset.bond, today, today, rateIndexes)
+    : price;
   const quoted = price === null ? null : tradeAmount(position.quantity, price);
   // An asset that never had a quote, or in dollars a current exchange rate, or
   // a private bond with no index, is worth its cost, so the portfolio loses no
@@ -249,11 +254,12 @@ function projectAsset(
   const matured = asset.bond !== undefined && today >= asset.bond.maturityDate;
   if (matured) tags.push("matured");
   if (privateBond) {
-    if (asset.bond.indexer !== "fixed-rate" && accrued === null) tags.push("no-rate-index");
+    if (asset.bond.indexer !== "fixed-rate" && contributionPrice === null) tags.push("no-rate-index");
   } else {
     if (!quote) tags.push("no-quote");
     if (currency === "USD" && !rate) tags.push("no-exchange-rate");
     if (!matured && quote && isStale(quote.at, today)) tags.push("stale-quote");
+    if (currency === "USD" && rate && isStale(rate.at, today)) tags.push("stale-exchange-rate");
   }
   const pending = corporateActions.filter((c) => c.status === "pending");
   if (pending.length > 0) tags.push("pending-corporate-action");
@@ -271,6 +277,7 @@ function projectAsset(
     currency,
     ...position,
     quote: price === null ? null : decimalToNumber(price) * 100,
+    contributionPrice: contributionPrice === null ? null : decimalToNumber(contributionPrice) * 100,
     quoteAt: privateBond ? null : (quote?.at ?? null),
     currentValue,
     unrealizedGain,
