@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { exchangeRateToField, formatReais, type ContributionSuggestion } from "@/portfolio/domain";
 import { Sheet } from "@/ui/Sheet";
-import { classColor, formatAccruedPrice, formatShare, Tags } from "./parts";
+import { classColor, formatAccruedPrice, formatQuantity, formatShare, Tags } from "./parts";
 
 export function ContributionResult({ suggestion, close }: { suggestion: ContributionSuggestion; close: () => void }) {
   const heading = useRef<HTMLHeadingElement>(null);
@@ -14,7 +14,7 @@ export function ContributionResult({ suggestion, close }: { suggestion: Contribu
     <Sheet labelledBy="contribution-title" className="contribution-result" close={close}>
       <header>
         <h2 id="contribution-title" ref={heading} tabIndex={-1}>Sugestão de aporte</h2>
-        <p className="hint">Distribuição em reais com os dados atuais. As quantidades compráveis ainda não foram calculadas.</p>
+        <p className="hint">Quantidades compráveis e aplicações em reais com os dados atuais.</p>
       </header>
       <div className="content">
         <dl className="contribution-totals">
@@ -25,7 +25,7 @@ export function ContributionResult({ suggestion, close }: { suggestion: Contribu
         {withoutRecipient.length > 0 && (
           <p className="hint">Classes com alvo positivo sem destinatário: {withoutRecipient.map(c => c.name).join(", ")}. O dinheiro sem destino não é transferido a outras classes.</p>
         )}
-        {suggestion.unallocated > 0 && (
+        {suggestion.unallocated > suggestion.classes.reduce((sum, c) => sum + c.unallocated, 0) && (
           <p className="hint">Sem destino: as faltas das classes aptas não absorvem todo o aporte em centavos. Frações de centavo ficam sem destino para não ultrapassar essas faltas.</p>
         )}
         {suggestion.classes.map(c => (
@@ -34,6 +34,7 @@ export function ContributionResult({ suggestion, close }: { suggestion: Contribu
             <p className="hint">Alvo {c.target}% · valor atual {formatReais(c.currentValue)} · falta após o aporte {formatReais(c.shortfall)}</p>
             {c.target === 0 ? <p className="hint">Alvo zero: esta classe não recebe.</p>
               : c.shortfall === 0 && <p className="hint">Sem falta para o alvo após o aporte.</p>}
+            {c.unallocated > 0 && <p className="hint">Sem destino em {c.name}: {formatReais(c.unallocated)}. {c.assets.some(a => a.quantityLimited) ? "O limite de precisão das quantidades impede aplicar todo o valor." : "Nenhum passo adicional cabe neste valor."} O dinheiro permanece nesta classe.</p>}
             {c.assets.length === 0 && <p className="hint">Nenhum ativo cadastrado.</p>}
             <ul className="contribution-assets">
               {c.assets.map(a => (
@@ -41,10 +42,12 @@ export function ContributionResult({ suggestion, close }: { suggestion: Contribu
                   <div className="contribution-asset-heading"><strong>{a.ticker}</strong><span className="num">{formatReais(a.amount)}</span></div>
                   <Tags tags={a.exclusions} />
                   <p className="hint">Nota {a.score ?? "não informada"} · valor atual {formatReais(a.currentValue)}</p>
-                  <p className="hint">Preço usado: {a.price === null ? "indisponível" : a.currency === "USD" ? `US$ ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 8 }).format(a.price / 100)}` : formatAccruedPrice(a.price)}
+                  {a.quantity === null ? <p className="hint">Aplicação em reais: {formatReais(a.amount)}</p>
+                    : <p className="hint">Quantidade sugerida: <span className="num">{formatQuantity(a.quantity)}</span>{a.bondKind === "treasury-bond" ? " título(s)" : " unidade(s)"}</p>}
+                  {a.bondKind !== "private-bond" && <p className="hint">Preço usado: {a.price === null ? "indisponível" : a.currency === "USD" ? `US$ ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 8 }).format(a.price / 100)}` : formatAccruedPrice(a.price)}
                     {a.currency === "USD" && ` · câmbio: ${a.exchangeRate === null ? "indisponível" : `R$ ${exchangeRateToField(a.exchangeRate)} por US$ 1`}`}
-                  </p>
-                  {a.idealWeight !== null && <p className="hint">Peso ideal {formatShare(a.idealWeight * 100)} · falta {formatReais(a.shortfall)}{a.shortfall === 0 ? " · sem falta: não recebe" : ""}</p>}
+                  </p>}
+                  {a.idealWeight !== null && <p className="hint">Peso ideal {formatShare(a.idealWeight * 100)} · falta {formatReais(a.shortfall)}{a.shortfall === 0 && a.amount === 0 ? " · sem falta: não recebe" : ""}</p>}
                 </li>
               ))}
             </ul>
