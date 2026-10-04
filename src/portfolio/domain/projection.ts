@@ -10,7 +10,7 @@ import type { Payout, PayoutKind } from "./payouts";
 import { inHistoryOrder, replay, tradeAmount, tradeTotal, tradeTotalInReais, type Replay } from "./position";
 import { pricedTrades } from "./privateBonds";
 import type { Quote } from "./quotes";
-import type { ManualScore } from "./scores";
+import { questionnaireId, type QuestionnaireView } from "./questionnaires";
 import type { PortfolioState } from "./state";
 import type { Trade, TradeKind } from "./trades";
 import type { RateIndex } from "./rateIndexes";
@@ -75,6 +75,7 @@ export type AssetView = {
   id: number;
   ticker: string;
   score: number | null;
+  questionnaire: QuestionnaireView | null;
   evaluatedAt: IsoDate | null;
   assetClass: AssetClass;
   /** The fixed-income part, for the row's line with the indexer and the maturity; null outside Renda Fixa. */
@@ -170,7 +171,7 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
       state.quotes.find((q) => q.asset === a.id) ?? null,
       state.exchangeRate,
       state.rateIndexes,
-      state.scores.find((s) => s.asset === a.id) ?? null,
+      evaluationOf(state, a),
       today,
     ),
   );
@@ -222,7 +223,7 @@ function projectAsset(
   quote: Quote | null,
   rate: CurrentExchangeRate | null,
   rateIndexes: RateIndex[],
-  evaluation: ManualScore | null,
+  evaluation: { score: number | null; evaluatedAt: IsoDate | null; questionnaire: QuestionnaireView | null },
   today: IsoDate,
 ): AssetView {
   const currency = currencyOf(asset.assetClass);
@@ -254,15 +255,14 @@ function projectAsset(
   const pending = corporateActions.filter((c) => c.status === "pending");
   if (pending.length > 0) tags.push("pending-corporate-action");
   if (zero) tags.push("zero-position");
-  if (evaluation === null) tags.push("no-score");
+  if (evaluation.score === null) tags.push("no-score");
   else if (evaluation.score <= 0) tags.push("non-positive-score");
   const payoutsReceived = payouts.reduce((s, p) => s + p.amount, 0);
   const totalGain = (unrealizedGain ?? 0) + realizedGain + payoutsReceived;
   return {
     id: asset.id,
     ticker: asset.ticker,
-    score: evaluation?.score ?? null,
-    evaluatedAt: evaluation?.evaluatedAt ?? null,
+    ...evaluation,
     assetClass: asset.assetClass,
     bond: asset.bond ?? null,
     currency,
@@ -319,3 +319,16 @@ function inDollars({ position, realizedGain }: Replay, quoted: Cents | null): Do
 }
 
 const isStale = (at: IsoDateTime, today: IsoDate) => businessDaysAfter(dateOf(at), today) > STALE_AFTER_BUSINESS_DAYS;
+
+/** Scores are derived only after every question of the asset's questionnaire is answered. */
+function evaluationOf(state: PortfolioState, asset: Asset) {
+  const id = questionnaireId(asset.assetClass);
+  if (id === null) {
+    const manual = state.scores.find(s => s.asset === asset.id);
+    return { score: manual?.score ?? null, evaluatedAt: manual?.evaluatedAt ?? null, questionnaire: null };
+  }
+  const questionnaire = state.questionnaires.find(q => q.id === id)!;
+  const questions = questionnaire.questions.map(q => ({ ...q, answer: state.answers.find(a => a.asset === asset.id && a.question === q.id)?.value ?? null }));
+  const score = questions.every(q => q.answer !== null) ? questions.reduce((sum, q) => sum + (q.answer ? 1 : -1), 0) : null;
+  return { score, evaluatedAt: state.questionnaireEvaluations.find(e => e.asset === asset.id)?.evaluatedAt ?? null, questionnaire: { id, questions } };
+}

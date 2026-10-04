@@ -1,3 +1,4 @@
+import { saveAnswer } from "./questionnaires";
 import { saveScore } from "./scores";
 import type { IsoDate, IsoDateTime, Result } from "@/shared";
 import { deleteAsset, saveAsset, type AssetToSave } from "./assets";
@@ -23,6 +24,7 @@ import { recordRateIndexes, type RateIndex } from "./rateIndexes";
  * Each command arrives with the ticket that uses it.
  */
 export type PortfolioCommand =
+  | { type: "save-answer"; asset: number; question: number; value: boolean }
   | { type: "save-score"; asset: number; score: number }
   | { type: "save-targets"; targets: Targets }
   | { type: "save-asset"; asset: AssetToSave }
@@ -54,6 +56,8 @@ export function apply(state: PortfolioState, command: PortfolioCommand, today: I
       if (error) return { ok: false, error };
       return { ok: true, value: { ...state, targets: { ...command.targets } } };
     }
+    case "save-answer":
+      return saveAnswer(state, command.asset, command.question, command.value, today);
     case "save-score":
       return saveScore(state, command.asset, command.score, today);
     case "save-asset":

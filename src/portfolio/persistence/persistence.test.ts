@@ -43,11 +43,11 @@ afterEach(() => {
 });
 
 describe("the portfolio's persistence", () => {
-  it("migrates an existing portfolio without changing holdings, sources, values or the budget", () => {
+  it.each([18, 19])("migrates an existing portfolio at migration %s without changing holdings, sources, values or the budget", (lastMigration) => {
     const migrations = path.join(folder, "old-migrations");
     mkdirSync(path.join(migrations, "meta"), { recursive: true });
     const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8"));
-    journal.entries = journal.entries.filter((entry: { idx: number }) => entry.idx <= 18);
+    journal.entries = journal.entries.filter((entry: { idx: number }) => entry.idx <= lastMigration);
     writeFileSync(path.join(migrations, "meta/_journal.json"), JSON.stringify(journal));
     for (const { tag } of journal.entries) copyFileSync(`drizzle/${tag}.sql`, path.join(migrations, `${tag}.sql`));
     mkdirSync(path.dirname(file), { recursive: true });
@@ -56,7 +56,7 @@ describe("the portfolio's persistence", () => {
       migrate(drizzle(sqlite), { migrationsFolder: migrations });
       sqlite.exec(`
         INSERT INTO income (id, date, description, source, payment_method, amount) VALUES (1, '2026-09-25', 'Salário', 'salary', 'pix', 500000);
-        INSERT INTO asset (id, ticker, asset_class, source_id) VALUES (1, 'BTC', 'crypto', 'bitcoin');
+        INSERT INTO asset (id, ticker, asset_class, source_id) VALUES (1, 'BTC', 'crypto', 'bitcoin'), (2, 'PETR4', 'domestic-stocks', 'BRPETRACNPR6');
         INSERT INTO trade (id, asset, kind, date, quantity, unit_price) VALUES (1, 1, 'buy', '2026-09-01', 200000000, 10000000000);
         INSERT INTO payout_origin (id, asset, kind, record_date, payment_date) VALUES (1, 1, 'interest', '2026-09-01', '2026-09-02');
         INSERT INTO payout (id, asset, date, kind, amount, origin) VALUES (1, 1, '2026-09-02', 'interest', 500, 1);
@@ -66,13 +66,14 @@ describe("the portfolio's persistence", () => {
         INSERT INTO rate_index (kind, date, rate) VALUES ('cdi', '2026-09-24', 5500000);
         UPDATE class_target SET target = CASE asset_class WHEN 'crypto' THEN 100 ELSE 0 END;
       `);
+      if (lastMigration === 19) sqlite.exec("INSERT INTO manual_score (asset, score, evaluated_at) VALUES (1, 10, '2026-09-24');");
     } finally { sqlite.close(); }
     const database = open();
     const originalBudget = loadState(database);
     expect(originalBudget.incomes).toEqual([expect.objectContaining({ description: "Salário", amount: 500000 })]);
     const before = loadPortfolio(database);
     expect(before).toMatchObject({
-      assets: [{ id: 1, ticker: "BTC", assetClass: "crypto", sourceId: "bitcoin" }],
+      assets: [{ id: 1, ticker: "BTC", assetClass: "crypto", sourceId: "bitcoin" }, { id: 2, ticker: "PETR4", assetClass: "domestic-stocks" }],
       trades: [{ id: 1, quantity: decimal(2), unitPrice: decimal(100) }],
       payouts: [{ id: 1, amount: 500, origin: 1 }],
       payoutOrigins: [{ id: 1, recordDate: "2026-09-01", paymentDate: "2026-09-02" }],
@@ -80,9 +81,11 @@ describe("the portfolio's persistence", () => {
       exchangeRate: { rate: 50000, at: "2026-09-25T12:00:00" },
       rateIndexes: [{ kind: "cdi", date: "2026-09-24", rate: decimal(0.055) }],
       lastFetch: { quotes: "2026-09-25T12:00:00" },
-      scores: [], targets: { crypto: 100 },
+      scores: lastMigration === 19 ? [{ asset: 1, score: 10, evaluatedAt: "2026-09-24" }] : [], targets: { crypto: 100 },
+      questionnaires: emptyPortfolio().questionnaires, answers: [], questionnaireEvaluations: [],
     });
     expect(projectPortfolio(before, TODAY)).toMatchObject({ currentValue: 24000, totalGain: 4500 });
+    expect(projectPortfolio(before, TODAY).classes[0]?.assets[0]).toMatchObject({ score: null, evaluatedAt: null });
     executeOk(database, { type: "save-score", asset: 1, score: 0 });
     const after = loadPortfolio(open());
     expect(after).toEqual({ ...before, scores: [{ asset: 1, score: 0, evaluatedAt: TODAY }] });
@@ -593,3 +596,42 @@ function executeOk(database: Database, ...commands: PortfolioCommand[]): Portfol
   }
   return state;
 }
+
+it("initializes questionnaires once and reopens current answers and dates without changing the budget", () => {
+  const database = open();
+  const budget = loadState(database);
+  let state = loadPortfolio(database);
+  expect(state.questionnaires.map(q => q.questions.length)).toEqual([11, 6]);
+  state = executeOk(database, { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } });
+  state = executeOk(database, { type: "save-asset", asset: { ticker: "VNQ", assetClass: "international-stocks" } });
+  for (let question = 1; question <= 11; question++) state = executeOk(database, { type: "save-answer", asset: 1, question, value: true });
+  const correction = executePortfolioOnDatabase(database, { type: "save-answer", asset: 1, question: 1, value: false }, "2026-09-26");
+  if (!correction.ok) throw new Error(correction.error);
+  state = correction.value;
+  const reopened = open();
+  expect(loadPortfolio(reopened)).toEqual(state);
+  expect(projectPortfolio(loadPortfolio(reopened), "2026-09-26").classes[0]?.assets[0]).toMatchObject({ score: 9, evaluatedAt: "2026-09-26" });
+  expect(loadState(reopened)).toEqual(budget);
+  expect(executePortfolioOnDatabase(reopened, { type: "save-answer", asset: 2, question: 12, value: true }, TODAY).ok).toBe(false);
+  expect(loadPortfolio(reopened)).toEqual(state);
+  const deleted = executeOk(reopened, { type: "delete-asset", id: 1 });
+  expect(loadPortfolio(open())).toEqual(deleted);
+  expect(deleted.answers).toEqual([]);
+  expect(deleted.questionnaireEvaluations).toEqual([]);
+});
+
+
+it("does not restore customized question text, order or removed questions when reopening", () => {
+  open();
+  // Fixture: a portfolio whose questionnaires were customized before reopening.
+  const sqlite = new SQLite(file);
+  try {
+    sqlite.exec("UPDATE question SET text = 'A empresa atende ao meu critério?' WHERE id = 1; UPDATE question SET position = 20 WHERE id = 1; DELETE FROM question WHERE id = 17;");
+  } finally { sqlite.close(); }
+  const state = loadPortfolio(open());
+  expect(state.questionnaires[0]?.questions.map(q => q.id)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 1]);
+  expect(state.questionnaires[0]?.questions.at(-1)?.text).toBe("A empresa atende ao meu critério?");
+  expect(state.questionnaires[1]?.questions).toHaveLength(5);
+  executeOk(open(), { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } });
+  expect(loadPortfolio(open()).questionnaires).toEqual(state.questionnaires);
+});

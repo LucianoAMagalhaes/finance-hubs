@@ -1550,3 +1550,31 @@ dialog.sheet.trash {
     font-size: 10.5px;
   }
 }
+
+/* Questionnaire answers retain touch targets without widening narrow sheets. */
+.questionnaire-questions {
+  display: grid;
+  gap: 20px;
+}
+.questionnaire-question {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.questionnaire-question legend {
+  padding: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.questionnaire-answers {
+  display: flex;
+  gap: 24px;
+}
+.questionnaire-answers label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}

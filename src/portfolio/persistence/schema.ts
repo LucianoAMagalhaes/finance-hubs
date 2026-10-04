@@ -162,3 +162,28 @@ export const manualScore = sqliteTable("manual_score", {
   score: integer("score").notNull(),
   evaluatedAt: text("evaluated_at").notNull(),
 });
+
+/** The two questionnaires, shared by the stock classes and specific to funds. */
+export const questionnaire = sqliteTable("questionnaire", {
+  id: text("id").primaryKey(),
+});
+
+export const question = sqliteTable("question", {
+  id: integer("id").primaryKey(),
+  questionnaire: text("questionnaire").notNull().references(() => questionnaire.id),
+  position: integer("position").notNull(),
+  text: text("text").notNull(),
+});
+
+/** Only the current answer for each asset and question. */
+export const answer = sqliteTable("answer", {
+  asset: integer("asset").notNull().references(() => asset.id),
+  question: integer("question").notNull().references(() => question.id),
+  value: integer("value", { mode: "boolean" }).notNull(),
+}, t => [primaryKey({ columns: [t.asset, t.question] })]);
+
+/** Kept apart from answers so questionnaire edits cannot change the evaluation date. */
+export const questionnaireEvaluation = sqliteTable("questionnaire_evaluation", {
+  asset: integer("asset").primaryKey().references(() => asset.id),
+  evaluatedAt: text("evaluated_at").notNull(),
+});

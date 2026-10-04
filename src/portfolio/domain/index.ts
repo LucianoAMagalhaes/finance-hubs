@@ -65,3 +65,5 @@ export {
 } from "@/shared";
 
 export type { ManualScore } from "./scores";
+
+export type { Question, Questionnaire, Answer, QuestionnaireEvaluation, QuestionnaireView } from "./questionnaires";
