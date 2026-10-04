@@ -7,6 +7,8 @@ import {
   type IsoDateTime,
   type LastFetch,
   type ManualScore,
+  type Questionnaire,
+  type QuestionnaireEvaluation,
   type Payout,
   type PayoutOrigin,
   type PortfolioState,
@@ -16,9 +18,9 @@ import {
   type Targets,
   type Trade,
 } from "@/portfolio/domain";
-import { notInArray, sql } from "drizzle-orm";
+import { desc, notInArray, sql } from "drizzle-orm";
 import type { Connection, Database } from "@/persistence/database";
-import { asset, classTarget, corporateAction, currentExchangeRate, lastFetch, manualScore, payout, payoutOrigin, quote, rateIndex, trade } from "./schema";
+import { answer, question, questionnaire, questionnaireEvaluation, asset, classTarget, corporateAction, currentExchangeRate, lastFetch, manualScore, payout, payoutOrigin, quote, rateIndex, trade } from "./schema";
 
 // No business rule here: validating and deriving belong to the domain. This
 // module only translates the portfolio's state into rows and back.
@@ -110,8 +112,15 @@ export function load(db: Connection): PortfolioState {
   const fetched: LastFetch = {};
   for (const row of db.select().from(lastFetch).all()) fetched[row.kind as FetchKind] = row.at as LastFetch[FetchKind];
   const rate = db.select().from(currentExchangeRate).get();
+  const questions = db.select().from(question).orderBy(question.position).all();
   return {
     targets,
+    questionnaires: db.select().from(questionnaire).orderBy(desc(questionnaire.id)).all().map(q => ({
+      id: q.id as Questionnaire["id"],
+      questions: questions.filter(p => p.questionnaire === q.id).map(({ id, text }) => ({ id, text })),
+    })),
+    answers: db.select().from(answer).orderBy(answer.asset, answer.question).all(),
+    questionnaireEvaluations: db.select().from(questionnaireEvaluation).orderBy(questionnaireEvaluation.asset).all().map(e => ({ ...e, evaluatedAt: e.evaluatedAt as QuestionnaireEvaluation["evaluatedAt"] })),
     assets: db.select().from(asset).orderBy(asset.id).all().map(toAsset),
     scores: db.select().from(manualScore).orderBy(manualScore.asset).all().map((s): ManualScore => ({ ...s, evaluatedAt: s.evaluatedAt as ManualScore["evaluatedAt"] })),
     trades: db.select().from(trade).orderBy(trade.id).all().map(toTrade),
@@ -134,6 +143,9 @@ export function load(db: Connection): PortfolioState {
  * portfolio has no trash.
  */
 export function save(tx: Connection, state: PortfolioState): void {
+  tx.delete(answer).where(notInArray(sql`${answer.asset} || ':' || ${answer.question}`, state.answers.map(a => `${a.asset}:${a.question}`))).run();
+  tx.delete(questionnaireEvaluation).where(notInArray(questionnaireEvaluation.asset, state.questionnaireEvaluations.map(e => e.asset))).run();
+  tx.delete(question).where(notInArray(question.id, state.questionnaires.flatMap(q => q.questions.map(p => p.id)))).run();
   tx.delete(rateIndex).where(notInArray(sql`${rateIndex.kind} || ':' || ${rateIndex.date}`, state.rateIndexes.map((r) => `${r.kind}:${r.date}`))).run();
   tx.delete(trade).where(notInArray(trade.id, state.trades.map((t) => t.id))).run();
   tx.delete(corporateAction).where(notInArray(corporateAction.id, state.corporateActions.map((c) => c.id))).run();
@@ -149,6 +161,19 @@ export function save(tx: Connection, state: PortfolioState): void {
   for (const a of state.assets) {
     const row: AssetRow = { id: a.id, ticker: a.ticker, assetClass: a.assetClass, sourceId: a.sourceId, ...bondColumns(a) };
     tx.insert(asset).values(row).onConflictDoUpdate({ target: asset.id, set: row }).run();
+  }
+  for (const q of state.questionnaires) {
+    tx.insert(questionnaire).values({ id: q.id }).onConflictDoNothing().run();
+    for (const [position, p] of q.questions.entries()) {
+      const row = { ...p, questionnaire: q.id, position };
+      tx.insert(question).values(row).onConflictDoUpdate({ target: question.id, set: row }).run();
+    }
+  }
+  for (const a of state.answers) {
+    tx.insert(answer).values(a).onConflictDoUpdate({ target: [answer.asset, answer.question], set: a }).run();
+  }
+  for (const e of state.questionnaireEvaluations) {
+    tx.insert(questionnaireEvaluation).values(e).onConflictDoUpdate({ target: questionnaireEvaluation.asset, set: e }).run();
   }
   for (const s of state.scores) {
     tx.insert(manualScore).values(s).onConflictDoUpdate({ target: manualScore.asset, set: s }).run();

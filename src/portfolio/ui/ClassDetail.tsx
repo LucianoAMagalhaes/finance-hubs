@@ -254,9 +254,7 @@ function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, 
       <div className="history-head">
         <h3>Operações</h3>
         <span className="history-actions">
-          {(a.assetClass === "crypto" || a.assetClass === "fixed-income") && (
-            <button type="button" className="btn" onClick={evaluate}>Avaliar</button>
-          )}
+          <button type="button" className="btn" onClick={evaluate}>Avaliar</button>
           {a.bond ? (
             <button type="button" className="btn" onClick={editAsset}>
               Corrigir título

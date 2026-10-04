@@ -25,6 +25,7 @@ import { DeleteAssetForm } from "./DeleteAssetForm";
 import { ClassDetail } from "./ClassDetail";
 import { CorporateActionForm } from "./CorporateActionForm";
 import { PayoutForm } from "./PayoutForm";
+import { QuestionnaireForm } from "./QuestionnaireForm";
 import { ScoreForm } from "./ScoreForm";
 import { TargetsForm } from "./TargetsForm";
 import { TradeForm } from "./TradeForm";
@@ -113,6 +114,17 @@ export function PortfolioScreen({ initialState, today }: Props) {
     after?.(result.value);
     return null;
   }
+
+  /** Saves one answer while keeping the questionnaire open for the next response. */
+  async function answer(question: number, value: boolean): Promise<string | null> {
+    if (sheet?.kind !== "score") return null;
+    const result = await execute({ type: "save-answer", asset: sheet.asset, question, value });
+    if (!result.ok) return result.error;
+    setState(result.value);
+    return null;
+  }
+
+  const evaluatedAsset = sheet?.kind === "score" ? view.classes.flatMap(c => c.assets).find(a => a.id === sheet.asset) : undefined;
 
   /**
    * Saves the asset after the source checks its ticker. A new asset's class
@@ -229,13 +241,15 @@ export function PortfolioScreen({ initialState, today }: Props) {
         <div className="grid">{cards}</div>
       )}
 
-      {sheet?.kind === "score" && (
+      {sheet?.kind === "score" && evaluatedAsset && (evaluatedAsset.questionnaire ? (
+        <QuestionnaireForm asset={evaluatedAsset} questionnaire={evaluatedAsset.questionnaire} save={answer} close={() => setSheet(null)} />
+      ) : (
         <ScoreForm
-          asset={view.classes.flatMap((c) => c.assets).find((a) => a.id === sheet.asset)!}
+          asset={evaluatedAsset}
           save={(score) => run({ type: "save-score", asset: sheet.asset, score })}
           close={() => setSheet(null)}
         />
-      )}
+      ))}
       {sheet?.kind === "targets" && (
         <TargetsForm targets={state.targets} save={(targets) => run({ type: "save-targets", targets })} close={() => setSheet(null)} />
       )}
