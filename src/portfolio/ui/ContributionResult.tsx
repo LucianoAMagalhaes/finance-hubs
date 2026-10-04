@@ -5,7 +5,7 @@ import { exchangeRateToField, formatReais, type ContributionSuggestion } from "@
 import { Sheet } from "@/ui/Sheet";
 import { classColor, formatAccruedPrice, formatQuantity, formatShare, Tags } from "./parts";
 
-export function ContributionResult({ suggestion, close }: { suggestion: ContributionSuggestion; close: () => void }) {
+export function ContributionResult({ suggestion, close, review }: { suggestion: ContributionSuggestion; close: () => void; review: () => void }) {
   const heading = useRef<HTMLHeadingElement>(null);
   // Show the totals first instead of scrolling to the footer's only button.
   useEffect(() => heading.current?.focus(), []);
@@ -54,7 +54,7 @@ export function ContributionResult({ suggestion, close }: { suggestion: Contribu
           </section>
         ))}
       </div>
-      <footer><button type="button" className="btn" onClick={close}>Fechar</button></footer>
+      <footer><button type="button" className="btn" onClick={close}>Fechar</button><button type="button" className="btn primary" disabled={!suggestion.classes.some(c => c.assets.some(a => a.amount > 0 && (a.quantity === null || a.quantity > 0)))} onClick={review}>Registrar compras</button></footer>
     </Sheet>
   );
 }

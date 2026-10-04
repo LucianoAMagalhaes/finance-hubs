@@ -41,6 +41,28 @@ export type TradeToSave =
   | (Omit<UnitTrade, "id" | "exchangeRate"> & { id?: number; exchangeRate?: ExchangeRate | null })
   | (Omit<AmountTrade, "id"> & { id?: number });
 
+/** A new purchase in a review; the batch supplies its common date and kind. */
+export type BuyToSave =
+  | { asset: number; quantity: Decimal; unitPrice: Decimal; exchangeRate?: ExchangeRate | null }
+  | { asset: number; amount: Cents };
+
+/** Applies ordinary buy validation sequentially, returning no partial state on refusal. */
+export function saveBuys(state: PortfolioState, buys: BuyToSave[], date: IsoDate, today: IsoDate): Result<PortfolioState> {
+  if (!Array.isArray(buys) || buys.length === 0) return { ok: false, error: "Mantenha pelo menos uma compra para registrar." };
+  let next = state;
+  for (const [index, buy] of buys.entries()) {
+    const ticker = state.assets.find(a => a.id === buy?.asset)?.ticker;
+    const line = `Linha ${index + 1}${ticker ? ` (${ticker})` : ""}`;
+    if (!buy || typeof buy !== "object" || "id" in buy || "kind" in buy || "date" in buy) {
+      return { ok: false, error: `${line}: a revisão registra apenas novas compras com a data comum.` };
+    }
+    const result = saveTrade(next, { ...buy, kind: "buy", date }, today);
+    if (!result.ok) return { ok: false, error: `${line}: ${result.error}` };
+    next = result.value;
+  }
+  return { ok: true, value: next };
+}
+
 /**
  * Creates the trade, or corrects any of its fields. Checks every field,
  * because the command comes from the browser, and refuses what would make the

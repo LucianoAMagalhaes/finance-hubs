@@ -16,7 +16,7 @@ import type { CurrentExchangeRate } from "./exchangeRate";
 import { deletePayout, recordSourcePayouts, savePayout, type PayoutToSave, type SourcePayout } from "./payouts";
 import { recordFetch, recordQuotes, type FetchKind, type QuoteToRecord } from "./quotes";
 import type { PortfolioState } from "./state";
-import { deleteTrade, saveTrade, type TradeToSave } from "./trades";
+import { deleteTrade, saveTrade, saveBuys, type BuyToSave, type TradeToSave } from "./trades";
 import { recordRateIndexes, type RateIndex } from "./rateIndexes";
 
 /**
@@ -30,6 +30,7 @@ export type PortfolioCommand =
   | { type: "save-targets"; targets: Targets }
   | { type: "save-asset"; asset: AssetToSave }
   | { type: "delete-asset"; id: number }
+  | { type: "save-buys"; date: IsoDate; buys: BuyToSave[] }
   | { type: "save-trade"; trade: TradeToSave }
   | { type: "delete-trade"; id: number }
   | { type: "save-corporate-action"; action: CorporateActionToSave }
@@ -67,6 +68,8 @@ export function apply(state: PortfolioState, command: PortfolioCommand, today: I
       return saveAsset(state, command.asset);
     case "delete-asset":
       return deleteAsset(state, command.id);
+    case "save-buys":
+      return saveBuys(state, command.buys, command.date, today);
     case "save-trade":
       return saveTrade(state, command.trade, today);
     case "delete-trade":

@@ -8,6 +8,8 @@ type Props = {
   /** Added to `sheet`, for the ones that are not a form. */
   className?: string;
   close: () => void;
+  /** Keeps an in-flight form mounted until its response arrives. */
+  closingDisabled?: boolean;
   children: ReactNode;
 };
 
@@ -18,7 +20,7 @@ type Props = {
  * The header, the footer and the `<form>` stay with whoever opens it, because
  * they differ in every one.
  */
-export function Sheet({ labelledBy, className, close, children }: Props) {
+export function Sheet({ labelledBy, className, close, closingDisabled = false, children }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => dialog.current?.showModal(), []);
@@ -27,8 +29,9 @@ export function Sheet({ labelledBy, className, close, children }: Props) {
     <dialog
       ref={dialog}
       className={className ? `sheet ${className}` : "sheet"}
-      onClose={close}
-      onClick={(e) => e.target === dialog.current && close()}
+      onCancel={(e) => { if (closingDisabled) e.preventDefault(); }}
+      onClose={() => { if (!closingDisabled) close(); }}
+      onClick={(e) => !closingDisabled && e.target === dialog.current && close()}
       aria-labelledby={labelledBy}
     >
       {children}

@@ -692,3 +692,72 @@ it("reopens edited questionnaires with retained answers, derived scores and date
   expect(finalView.classes.flatMap(c => c.assets).find(a => a.id === 2)).toMatchObject({ score: 9, evaluatedAt: "2026-09-27" });
   expect(loadState(finalDatabase)).toEqual(budget);
 });
+
+it("records a mixed buy batch as ordinary trades in one transaction without touching the budget", () => {
+  const database = open();
+  const budget = executeOnDatabase(database, { type: "save-percentages", month: "2026-09", percentages: { "fixed-costs": 40, "financial-freedom": 20, comfort: 15, goals: 10, knowledge: 10, pleasures: 5 } }, TODAY);
+  expect(budget.ok).toBe(true);
+  const beforeBudget = loadState(database);
+  executeOk(database,
+    { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
+    { type: "save-asset", asset: { ticker: "AAPL", assetClass: "international-stocks" } },
+    { type: "save-asset", asset: { ticker: "BTC", assetClass: "crypto", sourceId: "bitcoin" } },
+    { type: "save-asset", asset: { ticker: "CDB", assetClass: "fixed-income", bond: { kind: "private-bond", bondType: "cdb", indexer: "fixed-rate", rate: decimal(10), maturityDate: "2028-01-01" } } },
+  );
+  const saved = executeOk(database, { type: "save-buys", date: TODAY, buys: [
+    { asset: 1, quantity: decimal(2), unitPrice: decimal(30) },
+    { asset: 2, quantity: decimal(0.5), unitPrice: decimal(100), exchangeRate: 54000 },
+    { asset: 3, quantity: decimal(0.001), unitPrice: decimal(300000) },
+    { asset: 4, amount: 100000 },
+  ] });
+  const reopened = open();
+  expect(loadPortfolio(reopened)).toEqual(saved);
+  const views = projectPortfolio(loadPortfolio(reopened), TODAY).classes.flatMap(c => c.assets);
+  expect(views.find(a => a.id === 1)).toMatchObject({ quantity: decimal(2), cost: 6000 });
+  expect(views.find(a => a.id === 2)).toMatchObject({ quantity: decimal(0.5) });
+  expect(views.find(a => a.id === 2)!.cost).toBeCloseTo(27000, 6);
+  expect(views.find(a => a.id === 3)).toMatchObject({ quantity: decimal(0.001), cost: 30000 });
+  expect(views.find(a => a.id === 4)).toMatchObject({ quantity: decimal(1000), cost: 100000 });
+  expect(saved.trades.every(t => t.kind === "buy" && t.date === TODAY)).toBe(true);
+  expect(loadState(reopened)).toEqual(beforeBudget);
+  const corrected = executeOk(reopened, { type: "save-trade", trade: { ...saved.trades[0]!, quantity: decimal(3), unitPrice: decimal(31) } });
+  const deleted = executeOk(reopened, { type: "delete-trade", id: corrected.trades[0]!.id });
+  expect(loadPortfolio(open())).toEqual(deleted);
+});
+
+it.each([
+  { asset: 3, quantity: decimal(1), unitPrice: 0, exchangeRate: 54000 },
+  { asset: 3, quantity: decimal(1), unitPrice: decimal(100) },
+  { asset: 99, quantity: decimal(1), unitPrice: decimal(100) },
+])("refuses the final buy after multiple valid lines without changing either persisted context: %j", refusedBuy => {
+  const database = open();
+  executeOnDatabase(database, { type: "save-percentages", month: "2026-09", percentages: { "fixed-costs": 40, "financial-freedom": 20, comfort: 15, goals: 10, knowledge: 10, pleasures: 5 } }, TODAY);
+  const before = executeOk(database,
+    { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } },
+    { type: "save-asset", asset: { ticker: "BTC", assetClass: "crypto", sourceId: "bitcoin" } },
+    { type: "save-asset", asset: { ticker: "AAPL", assetClass: "international-stocks" } },
+    { type: "save-trade", trade: { asset: 1, kind: "buy", date: TODAY, quantity: decimal(1), unitPrice: decimal(28) } },
+    { type: "save-score", asset: 2, score: 8 },
+    { type: "record-quotes", quotes: [{ asset: 1, price: decimal(30), at: `${TODAY}T12:00:00` }] },
+  );
+  const budgetBefore = loadState(database);
+  const result = executePortfolioOnDatabase(database, { type: "save-buys", date: TODAY, buys: [
+    { asset: 1, quantity: decimal(2), unitPrice: decimal(30) },
+    { asset: 2, quantity: decimal(0.001), unitPrice: decimal(300000) },
+    refusedBuy,
+  ] }, TODAY);
+  expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/^Linha 3.*: /) });
+  for (const connection of opened.splice(0)) connection.close();
+  const reopened = open();
+  expect(loadPortfolio(reopened)).toEqual(before);
+  expect(projectPortfolio(loadPortfolio(reopened), TODAY)).toEqual(projectPortfolio(before, TODAY));
+  expect(loadState(reopened)).toEqual(budgetBefore);
+});
+
+it("validates a reviewed bond purchase against the asset currently stored on the server", () => {
+  const database = open();
+  let before = executeOk(database, { type: "save-asset", asset: { ticker: "Tesouro", assetClass: "fixed-income", sourceId: "treasury", bond: { kind: "treasury-bond", maturityDate: "2028-01-01" } } });
+  before = executeOk(database, { type: "save-asset", asset: { ...before.assets[0]!, bond: { kind: "treasury-bond", maturityDate: TODAY } } });
+  expect(executePortfolioOnDatabase(database, { type: "save-buys", date: TODAY, buys: [{ asset: 1, quantity: decimal(0.01), unitPrice: decimal(3000) }] }, TODAY)).toMatchObject({ ok: false, error: expect.stringContaining("vencimento") });
+  expect(loadPortfolio(open())).toEqual(before);
+});
