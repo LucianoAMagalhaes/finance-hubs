@@ -51,7 +51,7 @@ export function BuyReviewForm({ suggestion, today, suggestExchangeRate, save, cl
 
   const currentPtax = ptax?.date === draft.date ? ptax : null;
   return (
-    <Sheet labelledBy="buy-review-title" className="buy-review" close={close}>
+    <Sheet labelledBy="buy-review-title" className="buy-review" close={close} closingDisabled={running}>
       <form onSubmit={submit}>
         <header>
           <h2 id="buy-review-title">Revisar compras</h2>

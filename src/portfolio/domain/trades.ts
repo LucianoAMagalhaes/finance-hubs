@@ -53,7 +53,7 @@ export function saveBuys(state: PortfolioState, buys: BuyToSave[], date: IsoDate
   for (const [index, buy] of buys.entries()) {
     const ticker = state.assets.find(a => a.id === buy?.asset)?.ticker;
     const line = `Linha ${index + 1}${ticker ? ` (${ticker})` : ""}`;
-    if (!buy || "id" in buy || "kind" in buy || "date" in buy) {
+    if (!buy || typeof buy !== "object" || "id" in buy || "kind" in buy || "date" in buy) {
       return { ok: false, error: `${line}: a revisão registra apenas novas compras com a data comum.` };
     }
     const result = saveTrade(next, { ...buy, kind: "buy", date }, today);
