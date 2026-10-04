@@ -33,7 +33,7 @@ describe("Treasury bonds in the portfolio", () => {
     expect(state.assets).toEqual([{ id: 1, ...TREASURY }]);
     expect(assetView(state)).toMatchObject({
       ticker: "Tesouro IPCA+ 2035", bond: { kind: "treasury-bond", maturityDate: "2035-05-15" },
-      currency: "BRL", quantity: 0, currentValue: 0, tags: ["no-quote", "zero-position"],
+      currency: "BRL", quantity: 0, currentValue: 0, tags: ["no-quote", "zero-position", "no-score"],
     });
     expect(apply(run(state, register({ ticker: "PETR4", assetClass: "domestic-stocks" })),
       register({ ...TREASURY, ticker: "tesouro ipca+ 2035" }), TODAY)).toEqual({
@@ -78,7 +78,7 @@ describe("Treasury bonds in the portfolio", () => {
 
   it("keeps the cost and a no-quote tag until the first market quote arrives", () => {
     const state = run(emptyPortfolio(), register(), trade("buy", "2026-01-02", 0.37, 2000));
-    expect(assetView(state)).toMatchObject({ quote: null, quoteAt: null, cost: 74_000, currentValue: 74_000, totalGain: 0, tags: ["no-quote"] });
+    expect(assetView(state)).toMatchObject({ quote: null, quoteAt: null, cost: 74_000, currentValue: 74_000, totalGain: 0, tags: ["no-quote", "no-score"] });
   });
 
   it("includes manual interest in total gain before and after selling every title", () => {
@@ -88,7 +88,7 @@ describe("Treasury bonds in the portfolio", () => {
     expect(assetView(state).totalGain).toBeCloseTo(19_734, 6);
     expect(projectPortfolio(state, TODAY).payoutsReceived).toBe(1_234);
     const sold = run(state, trade("sell", TODAY, 0.37, 2200));
-    expect(assetView(sold)).toMatchObject({ quantity: 0, cost: 0, currentValue: 0, payoutsReceived: 1_234, tags: ["zero-position"] });
+    expect(assetView(sold)).toMatchObject({ quantity: 0, cost: 0, currentValue: 0, payoutsReceived: 1_234, tags: ["zero-position", "no-score"] });
     expect(assetView(sold).realizedGain).toBeCloseTo(7_400, 6);
     expect(projectPortfolio(sold, TODAY).totalGain).toBeCloseTo(8_634, 6);
   });
@@ -133,7 +133,7 @@ describe("Treasury bond maturity", () => {
     }
     for (const date of [maturityDate, TODAY, "2030-01-02"] as IsoDate[]) {
       expect(assetView(invested, date)).toMatchObject({ quantity: decimal(0.5), quote: 220_000,
-        quoteAt: "2026-08-03T12:00:00", currentValue: 110_000, totalGain: 10_000, tags: ["matured"] });
+        quoteAt: "2026-08-03T12:00:00", currentValue: 110_000, totalGain: 10_000, tags: ["matured", "no-score"] });
       expect(projectPortfolio(invested, date).staleQuote).toBe(false);
     }
     expect(invested.trades).toHaveLength(1);
@@ -155,7 +155,7 @@ describe("Treasury bond maturity", () => {
     expect(assetView(partial).quantity).toBe(decimal(0.3));
     expect(assetView(partial).totalGain).toBeCloseTo(14_000, 6);
     const sold = run(partial, trade("sell", TODAY, 0.3, 2300));
-    expect(assetView(sold)).toMatchObject({ quantity: 0, cost: 0, currentValue: 0, tags: ["matured", "zero-position"] });
+    expect(assetView(sold)).toMatchObject({ quantity: 0, cost: 0, currentValue: 0, tags: ["matured", "zero-position", "no-score"] });
     expect(assetView(sold).totalGain).toBeCloseTo(17_000, 6);
     expect(assetView(sold).trades.map((t) => t.date)).toEqual([TODAY, "2026-09-02", "2026-01-02"]);
   });

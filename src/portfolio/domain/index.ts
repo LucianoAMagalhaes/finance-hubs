@@ -63,3 +63,5 @@ export {
   type IsoDateTime,
   type Result,
 } from "@/shared";
+
+export type { ManualScore } from "./scores";

@@ -1,6 +1,9 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import SQLite from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { executeOnDatabase, loadState, openDatabase, type Database } from "@/persistence";
 import {
@@ -40,6 +43,70 @@ afterEach(() => {
 });
 
 describe("the portfolio's persistence", () => {
+  it("migrates an existing portfolio without changing holdings, sources, values or the budget", () => {
+    const migrations = path.join(folder, "old-migrations");
+    mkdirSync(path.join(migrations, "meta"), { recursive: true });
+    const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8"));
+    journal.entries = journal.entries.filter((entry: { idx: number }) => entry.idx <= 18);
+    writeFileSync(path.join(migrations, "meta/_journal.json"), JSON.stringify(journal));
+    for (const { tag } of journal.entries) copyFileSync(`drizzle/${tag}.sql`, path.join(migrations, `${tag}.sql`));
+    mkdirSync(path.dirname(file), { recursive: true });
+    const sqlite = new SQLite(file);
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: migrations });
+      sqlite.exec(`
+        INSERT INTO income (id, date, description, source, payment_method, amount) VALUES (1, '2026-09-25', 'Salário', 'salary', 'pix', 500000);
+        INSERT INTO asset (id, ticker, asset_class, source_id) VALUES (1, 'BTC', 'crypto', 'bitcoin');
+        INSERT INTO trade (id, asset, kind, date, quantity, unit_price) VALUES (1, 1, 'buy', '2026-09-01', 200000000, 10000000000);
+        INSERT INTO payout_origin (id, asset, kind, record_date, payment_date) VALUES (1, 1, 'interest', '2026-09-01', '2026-09-02');
+        INSERT INTO payout (id, asset, date, kind, amount, origin) VALUES (1, 1, '2026-09-02', 'interest', 500, 1);
+        INSERT INTO quote (asset, price, at) VALUES (1, 12000000000, '2026-09-25T12:00:00');
+        INSERT INTO current_exchange_rate (id, rate, at) VALUES (1, 50000, '2026-09-25T12:00:00');
+        INSERT INTO last_fetch (kind, at) VALUES ('quotes', '2026-09-25T12:00:00');
+        INSERT INTO rate_index (kind, date, rate) VALUES ('cdi', '2026-09-24', 5500000);
+        UPDATE class_target SET target = CASE asset_class WHEN 'crypto' THEN 100 ELSE 0 END;
+      `);
+    } finally { sqlite.close(); }
+    const database = open();
+    const originalBudget = loadState(database);
+    expect(originalBudget.incomes).toEqual([expect.objectContaining({ description: "Salário", amount: 500000 })]);
+    const before = loadPortfolio(database);
+    expect(before).toMatchObject({
+      assets: [{ id: 1, ticker: "BTC", assetClass: "crypto", sourceId: "bitcoin" }],
+      trades: [{ id: 1, quantity: decimal(2), unitPrice: decimal(100) }],
+      payouts: [{ id: 1, amount: 500, origin: 1 }],
+      payoutOrigins: [{ id: 1, recordDate: "2026-09-01", paymentDate: "2026-09-02" }],
+      quotes: [{ asset: 1, price: decimal(120), at: "2026-09-25T12:00:00" }],
+      exchangeRate: { rate: 50000, at: "2026-09-25T12:00:00" },
+      rateIndexes: [{ kind: "cdi", date: "2026-09-24", rate: decimal(0.055) }],
+      lastFetch: { quotes: "2026-09-25T12:00:00" },
+      scores: [], targets: { crypto: 100 },
+    });
+    expect(projectPortfolio(before, TODAY)).toMatchObject({ currentValue: 24000, totalGain: 4500 });
+    executeOk(database, { type: "save-score", asset: 1, score: 0 });
+    const after = loadPortfolio(open());
+    expect(after).toEqual({ ...before, scores: [{ asset: 1, score: 0, evaluatedAt: TODAY }] });
+    expect(projectPortfolio(after, TODAY)).toMatchObject({ currentValue: 24000, totalGain: 4500 });
+    expect(loadState(open())).toEqual(originalBudget);
+  });
+
+  it("keeps only the current score and date after reopening and deletes the evaluation with an unused asset", () => {
+    const database = open();
+    const budget = loadState(database);
+    executeOk(database, { type: "save-asset", asset: { ticker: "BTC", assetClass: "crypto", sourceId: "bitcoin" } });
+    executeOk(database, { type: "save-score", asset: 1, score: 0 });
+    expect(projectPortfolio(loadPortfolio(open()), TODAY).classes.find(c => c.key === "crypto")!.assets[0]).toMatchObject({ score: 0, evaluatedAt: TODAY });
+    const corrected = executePortfolioOnDatabase(database, { type: "save-score", asset: 1, score: 10 }, "2026-09-26");
+    expect(corrected.ok).toBe(true);
+    expect(loadPortfolio(open()).scores).toEqual([{ asset: 1, score: 10, evaluatedAt: "2026-09-26" }]);
+    expect(executePortfolioOnDatabase(database, { type: "save-score", asset: 1, score: 11 }, TODAY).ok).toBe(false);
+    expect(loadPortfolio(open()).scores).toEqual([{ asset: 1, score: 10, evaluatedAt: "2026-09-26" }]);
+    executeOk(database, { type: "delete-asset", id: 1 });
+    expect(loadPortfolio(open()).scores).toEqual([]);
+    executeOk(database, { type: "save-asset", asset: { ticker: "ETH", assetClass: "crypto" } });
+    expect(projectPortfolio(loadPortfolio(open()), TODAY).classes.find(c => c.key === "crypto")!.assets[0]?.score).toBeNull();
+    expect(loadState(open())).toEqual(budget);
+  });
   it("reloads a Treasury bond with its fractional trades, interest and last quote without changing its market valuation", () => {
     const database = open();
     executeOk(database,
@@ -86,7 +153,7 @@ describe("the portfolio's persistence", () => {
     expect(reloaded).toEqual(before);
     const fixedIncome = projectPortfolio(reloaded, TODAY).classes.find((c) => c.key === "fixed-income")!;
     expect(fixedIncome.assets[0]).toMatchObject({
-      currentValue: 110_000, quote: 220_000, quoteAt: "2026-04-30T12:00:00", tags: ["matured"],
+      currentValue: 110_000, quote: 220_000, quoteAt: "2026-04-30T12:00:00", tags: ["matured", "no-score"],
     });
     expect(executePortfolioOnDatabase(reopened, { type: "save-trade", trade: {
       asset: 1, kind: "buy", date: "2026-05-04", quantity: decimal(0.1), unitPrice: decimal(2000),
@@ -99,7 +166,7 @@ describe("the portfolio's persistence", () => {
     expect(sold.quotes).toEqual(before.quotes);
     expect(sold.trades[1]).toMatchObject({ kind: "sell", date: TODAY, quantity: decimal(0.5), unitPrice: decimal(2300) });
     expect(projectPortfolio(sold, TODAY).classes.find((c) => c.key === "fixed-income")!.assets[0]).toMatchObject({
-      quantity: 0, cost: 0, currentValue: 0, totalGain: 15_000, tags: ["matured", "zero-position"],
+      quantity: 0, cost: 0, currentValue: 0, totalGain: 15_000, tags: ["matured", "zero-position", "no-score"],
     });
   });
 

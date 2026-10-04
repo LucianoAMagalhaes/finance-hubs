@@ -29,7 +29,7 @@ describe("registering a private bond", () => {
       quantity: 0,
       currentValue: 0,
       bond: CDB.bond,
-      tags: ["zero-position"],
+      tags: ["zero-position", "no-score"],
     });
   });
 
@@ -124,7 +124,7 @@ describe("an application in a private bond", () => {
       cost: 1_000_000,
       quote: 100,
       currentValue: 1_000_000,
-      tags: [],
+      tags: ["no-score"],
     });
     expect(bond(state, "CDB Inter 2028", "2026-01-02").trades).toEqual([
       expect.objectContaining({ kind: "buy", quantity: decimal(10_000), unitPrice: decimal(1), total: 1_000_000 }),
@@ -197,7 +197,7 @@ describe("an application in a private bond", () => {
         quote: null,
         currentValue: 1_000_000,
         unrealizedGain: 0,
-        tags: ["no-rate-index"],
+        tags: ["no-rate-index", "no-score"],
       });
     }
   });

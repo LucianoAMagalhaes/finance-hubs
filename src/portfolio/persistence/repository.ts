@@ -6,6 +6,7 @@ import {
   type FetchKind,
   type IsoDateTime,
   type LastFetch,
+  type ManualScore,
   type Payout,
   type PayoutOrigin,
   type PortfolioState,
@@ -17,7 +18,7 @@ import {
 } from "@/portfolio/domain";
 import { notInArray, sql } from "drizzle-orm";
 import type { Connection, Database } from "@/persistence/database";
-import { asset, classTarget, corporateAction, currentExchangeRate, lastFetch, payout, payoutOrigin, quote, rateIndex, trade } from "./schema";
+import { asset, classTarget, corporateAction, currentExchangeRate, lastFetch, manualScore, payout, payoutOrigin, quote, rateIndex, trade } from "./schema";
 
 // No business rule here: validating and deriving belong to the domain. This
 // module only translates the portfolio's state into rows and back.
@@ -112,6 +113,7 @@ export function load(db: Connection): PortfolioState {
   return {
     targets,
     assets: db.select().from(asset).orderBy(asset.id).all().map(toAsset),
+    scores: db.select().from(manualScore).orderBy(manualScore.asset).all().map((s): ManualScore => ({ ...s, evaluatedAt: s.evaluatedAt as ManualScore["evaluatedAt"] })),
     trades: db.select().from(trade).orderBy(trade.id).all().map(toTrade),
     corporateActions: db.select().from(corporateAction).orderBy(corporateAction.id).all().map(toCorporateAction),
     payouts: db.select().from(payout).orderBy(payout.id).all().map(toPayout),
@@ -138,6 +140,7 @@ export function save(tx: Connection, state: PortfolioState): void {
   tx.delete(payout).where(notInArray(payout.id, state.payouts.map((p) => p.id))).run();
   tx.delete(payoutOrigin).where(notInArray(payoutOrigin.id, state.payoutOrigins.map((o) => o.id))).run();
   tx.delete(quote).where(notInArray(quote.asset, state.quotes.map((q) => q.asset))).run();
+  tx.delete(manualScore).where(notInArray(manualScore.asset, state.scores.map((s) => s.asset))).run();
   tx.delete(asset).where(notInArray(asset.id, state.assets.map((a) => a.id))).run();
   for (const { id } of ASSET_CLASSES) {
     const row = { assetClass: id, target: state.targets[id] };
@@ -146,6 +149,9 @@ export function save(tx: Connection, state: PortfolioState): void {
   for (const a of state.assets) {
     const row: AssetRow = { id: a.id, ticker: a.ticker, assetClass: a.assetClass, sourceId: a.sourceId, ...bondColumns(a) };
     tx.insert(asset).values(row).onConflictDoUpdate({ target: asset.id, set: row }).run();
+  }
+  for (const s of state.scores) {
+    tx.insert(manualScore).values(s).onConflictDoUpdate({ target: manualScore.asset, set: s }).run();
   }
   for (const t of state.trades) {
     const row = tradeColumns(t);

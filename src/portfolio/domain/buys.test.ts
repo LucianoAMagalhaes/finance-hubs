@@ -173,7 +173,7 @@ describe("without a quote", () => {
       quote: null,
       currentValue: 368_000,
       totalGain: 0,
-      tags: ["no-quote"],
+      tags: ["no-quote", "no-score"],
     });
   });
 
@@ -181,7 +181,7 @@ describe("without a quote", () => {
     expect(asset(withAssets(["PETR4", "domestic-stocks"]), "PETR4")).toMatchObject({
       quantity: 0,
       currentValue: 0,
-      tags: ["no-quote", "zero-position"],
+      tags: ["no-quote", "zero-position", "no-score"],
     });
   });
 });

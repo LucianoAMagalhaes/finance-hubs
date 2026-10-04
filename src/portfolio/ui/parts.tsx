@@ -192,6 +192,8 @@ export function AssetSelect({ assets, value, change }: { assets: Asset[]; value:
 
 /** The tag's words on the row; null for a tag the row shows in another way (the zero position is dimmed). */
 const TAG_NAMES: Record<AssetTag, string | null> = {
+  "no-score": "sem nota",
+  "non-positive-score": "nota não positiva",
   "no-quote": "sem cotação",
   "no-rate-index": "sem índice",
   "no-exchange-rate": "sem câmbio",
