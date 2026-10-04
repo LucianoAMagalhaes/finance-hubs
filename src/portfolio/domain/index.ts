@@ -2,6 +2,7 @@
 // the budget's domain (CONTEXT-MAP.md). Runs the same on the server and in the
 // browser (ADR-0004). `today` always comes in as a parameter.
 export { apply, type PortfolioCommand } from "./commands";
+export { suggestContribution, validateContribution, type ContributionSuggestion, type ContributionAsset, type ContributionClass } from "./contributions";
 export {
   projectPortfolio,
   type AssetTag,
