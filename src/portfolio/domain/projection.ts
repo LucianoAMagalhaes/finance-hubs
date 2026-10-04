@@ -10,6 +10,7 @@ import type { Payout, PayoutKind } from "./payouts";
 import { inHistoryOrder, replay, tradeAmount, tradeTotal, tradeTotalInReais, type Replay } from "./position";
 import { pricedTrades } from "./privateBonds";
 import type { Quote } from "./quotes";
+import type { ManualScore } from "./scores";
 import type { PortfolioState } from "./state";
 import type { Trade, TradeKind } from "./trades";
 import type { RateIndex } from "./rateIndexes";
@@ -20,7 +21,7 @@ import type { RateIndex } from "./rateIndexes";
 // always in reais; the dollars are only to show.
 
 /** What the table's row says about the asset beyond its numbers. Each tag arrives with the ticket that sets it. */
-export type AssetTag = "no-quote" | "no-rate-index" | "no-exchange-rate" | "stale-quote" | "matured" | "pending-corporate-action" | "zero-position";
+export type AssetTag = "no-score" | "non-positive-score" | "no-quote" | "no-rate-index" | "no-exchange-rate" | "stale-quote" | "matured" | "pending-corporate-action" | "zero-position";
 
 /** A quote or a current exchange rate older than this many business days is stale: it still gives the current value. */
 const STALE_AFTER_BUSINESS_DAYS = 5;
@@ -73,6 +74,8 @@ export type PayoutView = { id: number; date: IsoDate; kind: PayoutKind; amount: 
 export type AssetView = {
   id: number;
   ticker: string;
+  score: number | null;
+  evaluatedAt: IsoDate | null;
   assetClass: AssetClass;
   /** The fixed-income part, for the row's line with the indexer and the maturity; null outside Renda Fixa. */
   bond: Bond | null;
@@ -167,6 +170,7 @@ export function projectPortfolio(state: PortfolioState, today: IsoDate): Portfol
       state.quotes.find((q) => q.asset === a.id) ?? null,
       state.exchangeRate,
       state.rateIndexes,
+      state.scores.find((s) => s.asset === a.id) ?? null,
       today,
     ),
   );
@@ -218,6 +222,7 @@ function projectAsset(
   quote: Quote | null,
   rate: CurrentExchangeRate | null,
   rateIndexes: RateIndex[],
+  evaluation: ManualScore | null,
   today: IsoDate,
 ): AssetView {
   const currency = currencyOf(asset.assetClass);
@@ -249,11 +254,15 @@ function projectAsset(
   const pending = corporateActions.filter((c) => c.status === "pending");
   if (pending.length > 0) tags.push("pending-corporate-action");
   if (zero) tags.push("zero-position");
+  if (evaluation === null) tags.push("no-score");
+  else if (evaluation.score <= 0) tags.push("non-positive-score");
   const payoutsReceived = payouts.reduce((s, p) => s + p.amount, 0);
   const totalGain = (unrealizedGain ?? 0) + realizedGain + payoutsReceived;
   return {
     id: asset.id,
     ticker: asset.ticker,
+    score: evaluation?.score ?? null,
+    evaluatedAt: evaluation?.evaluatedAt ?? null,
     assetClass: asset.assetClass,
     bond: asset.bond ?? null,
     currency,

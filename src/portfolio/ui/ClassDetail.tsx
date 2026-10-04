@@ -60,6 +60,7 @@ type Props = {
   editAsset: (asset: number) => void;
   /** Opens the deletion of the asset. */
   deleteAsset: (asset: number) => void;
+  evaluate: (asset: number) => void;
 };
 
 /**
@@ -69,7 +70,7 @@ type Props = {
  * asset in dollars shows its prices in dollars, and its average price, value
  * and gain in both currencies; the class's numbers stay in reais.
  */
-export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, editAction, decideAction, newPayout, editPayout, editAsset, deleteAsset }: Props) {
+export function ClassDetail({ c, today, expanded, expand, close, newTrade, editTrade, editAction, decideAction, newPayout, editPayout, editAsset, deleteAsset, evaluate }: Props) {
   return (
     <section className="detail class-detail" aria-label={c.name} style={classColor(c.key)}>
       <header>
@@ -103,6 +104,7 @@ export function ClassDetail({ c, today, expanded, expand, close, newTrade, editT
             <thead>
               <tr>
                 <th>Ativo</th>
+                <th className="right">Nota</th>
                 <th className="right">Quantidade</th>
                 <th className="right">Preço médio</th>
                 <th className="right">Cotação</th>
@@ -126,6 +128,7 @@ export function ClassDetail({ c, today, expanded, expand, close, newTrade, editT
                   editPayout={editPayout}
                   editAsset={() => editAsset(a.id)}
                   deleteAsset={() => deleteAsset(a.id)}
+                  evaluate={() => evaluate(a.id)}
                 />
               ))}
             </tbody>
@@ -149,6 +152,7 @@ type RowProps = {
   editPayout: (payout: number) => void;
   editAsset: () => void;
   deleteAsset: () => void;
+  evaluate: () => void;
 };
 
 function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
@@ -168,6 +172,7 @@ function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
           </span>
           {a.bond && <small className="sub bond-line">{describeBond(a.bond)}</small>}
         </td>
+        <td className="right num">{a.score === null ? "—" : a.score}</td>
         <td className="right num">{zero ? "—" : formatQuantity(a.quantity)}</td>
         <td className="right num">
           {usd ? (
@@ -207,7 +212,7 @@ function AssetRow({ a, today, open, toggle, ...actions }: RowProps) {
       </tr>
       {open && (
         <tr className="inline-row">
-          <td colSpan={6}>
+          <td colSpan={7}>
             <History a={a} {...actions} />
           </td>
         </tr>
@@ -236,7 +241,7 @@ function tradesAndActions(a: AssetView): ({ trade: TradeView } | { action: Corpo
  * its total in dollars and in reais. An action has no price: only its ratio.
  * What the source proposed comes on top, to be confirmed or dismissed there.
  */
-function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, editPayout, editAsset, deleteAsset }: Omit<RowProps, "today" | "open" | "toggle">) {
+function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, editPayout, editAsset, deleteAsset, evaluate }: Omit<RowProps, "today" | "open" | "toggle">) {
   const dollar = a.currency === "USD";
   const privateBond = isPrivateBond(a);
   const kindNames = kindNamesOf(a);
@@ -245,9 +250,13 @@ function History({ a, newTrade, editTrade, editAction, decideAction, newPayout, 
   const decide = (action: number, decision: Decision) => run(() => decideAction(action, decision));
   return (
     <div className="history">
+      <p className="hint">{a.evaluatedAt === null ? "Sem avaliação" : `Última avaliação: ${formatDate(a.evaluatedAt)}`}</p>
       <div className="history-head">
         <h3>Operações</h3>
         <span className="history-actions">
+          {(a.assetClass === "crypto" || a.assetClass === "fixed-income") && (
+            <button type="button" className="btn" onClick={evaluate}>Avaliar</button>
+          )}
           {a.bond ? (
             <button type="button" className="btn" onClick={editAsset}>
               Corrigir título

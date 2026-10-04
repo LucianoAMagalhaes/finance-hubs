@@ -23,7 +23,7 @@ describe("bonds yielding a percentage of CDI", () => {
       application("2026-09-04"), indexes(["2026-09-04", 0.05], ["2026-09-08", 0.06], ["2026-09-09", 1]),
     );
     expect(asset(state).quote).toBeCloseTo(100.121036, 8);
-    expect(asset(state).tags).toEqual(["matured"]);
+    expect(asset(state).tags).toEqual(["matured", "no-score"]);
   });
   it("converts later applications and redemptions with the CDI curve, keeping the gain after a total redemption", () => {
     const state = run(emptyPortfolio(), CDI_BOND, indexes(["2026-09-04", 0.05]),
@@ -40,9 +40,9 @@ describe("bonds yielding a percentage of CDI", () => {
   });
   it("stays at cost without CDI from the first application onward, then loses the no-index tag", () => {
     const state = run(emptyPortfolio(), CDI_BOND, application("2026-09-04"), indexes(["2026-09-03", 0.05]));
-    expect(asset(state)).toMatchObject({ currentValue: 1_000_000, quote: null, tags: ["no-rate-index"] });
+    expect(asset(state)).toMatchObject({ currentValue: 1_000_000, quote: null, tags: ["no-rate-index", "no-score"] });
     const withIndex = run(state, indexes(["2026-09-04", 0.05]));
-    expect(asset(withIndex, "2026-09-08")).toMatchObject({ quote: 100.055, tags: [] });
+    expect(asset(withIndex, "2026-09-08")).toMatchObject({ quote: 100.055, tags: ["no-score"] });
   });
   it("carries the last daily CDI when the next business day has no recorded rate", () => {
     const state = run(emptyPortfolio(), CDI_BOND, application("2026-09-04"), indexes(["2026-09-04", 0.05]));

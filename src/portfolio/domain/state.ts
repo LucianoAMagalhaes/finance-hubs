@@ -1,3 +1,4 @@
+import type { ManualScore } from "./scores";
 import type { Asset } from "./assets";
 import { DEFAULT_TARGETS, type Targets } from "./classes";
 import type { CorporateAction } from "./corporateActions";
@@ -15,6 +16,7 @@ export type PortfolioState = {
   /** Only the current targets: changing one keeps no history. */
   targets: Targets;
   assets: Asset[];
+  scores: ManualScore[];
   trades: Trade[];
   corporateActions: CorporateAction[];
   payouts: Payout[];
@@ -31,7 +33,7 @@ export type PortfolioState = {
 
 /** The portfolio of the first use: the default targets and no asset. */
 export function emptyPortfolio(): PortfolioState {
-  return { targets: { ...DEFAULT_TARGETS }, assets: [], trades: [], corporateActions: [], payouts: [], payoutOrigins: [], quotes: [], rateIndexes: [], exchangeRate: null, lastFetch: {} };
+  return { targets: { ...DEFAULT_TARGETS }, assets: [], scores: [], trades: [], corporateActions: [], payouts: [], payoutOrigins: [], quotes: [], rateIndexes: [], exchangeRate: null, lastFetch: {} };
 }
 
 export const nextId = (list: { id: number }[]) => Math.max(0, ...list.map((r) => r.id)) + 1;

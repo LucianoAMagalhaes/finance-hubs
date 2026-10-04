@@ -33,7 +33,7 @@ describe("IPCA plus bonds", () => {
   });
   it("requires the first application month's index and uses the prior month before the fifteenth", () => {
     const state = run(emptyPortfolio(), bond, buy("2026-09-01"), index("2026-08-01", 1));
-    expect(view(state)).toMatchObject({ quote: null, currentValue: 100_000, tags: ["no-rate-index"] });
+    expect(view(state)).toMatchObject({ quote: null, currentValue: 100_000, tags: ["no-rate-index", "no-score"] });
     const ready = run(state, index("2026-09-01", 0));
     // Sep 1 -> Sep 15: 9/20 of August inflation and nine days of the spread.
     expect(view(ready, "2026-09-15").quote).toBeCloseTo(100.658024, 6);

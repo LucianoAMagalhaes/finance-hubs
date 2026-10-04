@@ -99,6 +99,7 @@ export function deleteAsset(state: PortfolioState, id: number): Result<Portfolio
       ...state,
       assets,
       quotes,
+      scores: state.scores.filter((s) => s.asset !== id),
       corporateActions: state.corporateActions.filter((c) => c.asset !== id),
       payoutOrigins: state.payoutOrigins.filter((o) => o.asset !== id),
     },

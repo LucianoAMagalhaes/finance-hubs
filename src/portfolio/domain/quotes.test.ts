@@ -90,11 +90,11 @@ describe("the current value by the last quote", () => {
     expect(asset(state, "PETR4").cost).toBeCloseTo(300_000, 6);
     expect(asset(state, "PETR4").unrealizedGain).toBeCloseTo(60_000, 6);
     expect(asset(state, "PETR4").totalGain).toBeCloseTo(60_000, 6);
-    expect(asset(state, "PETR4").tags).toEqual([]);
+    expect(asset(state, "PETR4").tags).toEqual(["no-score"]);
   });
 
   it("an asset that never had a quote is worth its cost, tagged as such", () => {
-    expect(asset(state, "BTC")).toMatchObject({ quote: null, quoteAt: null, tags: ["no-quote"] });
+    expect(asset(state, "BTC")).toMatchObject({ quote: null, quoteAt: null, tags: ["no-quote", "no-score"] });
     expect(asset(state, "BTC").currentValue).toBeCloseTo(15_000_000, 6);
     expect(asset(state, "BTC").unrealizedGain).toBeCloseTo(0, 6);
   });
@@ -117,7 +117,7 @@ describe("the current value by the last quote", () => {
   it("a zero position has no unrealized gain, and its total gain keeps the sale's result", () => {
     const sold = run(state, sell(1, "2026-09-01", 100, 35));
 
-    expect(asset(sold, "PETR4")).toMatchObject({ currentValue: 0, unrealizedGain: null, tags: ["zero-position"] });
+    expect(asset(sold, "PETR4")).toMatchObject({ currentValue: 0, unrealizedGain: null, tags: ["zero-position", "no-score"] });
     expect(asset(sold, "PETR4").totalGain).toBeCloseTo(50_000, 6);
   });
 });
@@ -129,7 +129,7 @@ describe("the stale quote", () => {
     // From Thursday 17/09 to Friday 25/09: 18, 21, 22, 23, 24, 25 are six business days.
     const state = run(bought, recordQuotes(quote(1, 36, "2026-09-17T18:00:00")));
 
-    expect(asset(state, "PETR4").tags).toEqual(["stale-quote"]);
+    expect(asset(state, "PETR4").tags).toEqual(["stale-quote", "no-score"]);
     expect(asset(state, "PETR4").currentValue).toBe(36_000);
     expect(projectPortfolio(state, TODAY).staleQuote).toBe(true);
   });
@@ -138,7 +138,7 @@ describe("the stale quote", () => {
     // From Friday 18/09 to Friday 25/09: 21, 22, 23, 24, 25.
     const state = run(bought, recordQuotes(quote(1, 36, "2026-09-18T09:00:00")));
 
-    expect(asset(state, "PETR4").tags).toEqual([]);
+    expect(asset(state, "PETR4").tags).toEqual(["no-score"]);
     expect(projectPortfolio(state, TODAY).staleQuote).toBe(false);
     expect(projectPortfolio(state, "2026-09-27").staleQuote).toBe(false); // Sunday: still 5
     expect(projectPortfolio(state, "2026-09-28").staleQuote).toBe(true); // Monday: 6
@@ -155,7 +155,7 @@ describe("the stale quote", () => {
   it("an asset with no position doesn't raise the portfolio's warning", () => {
     const state = run(withAssets(["PETR4", "domestic-stocks"]), recordQuotes(quote(1, 36, "2026-09-01T09:00:00")));
 
-    expect(asset(state, "PETR4").tags).toEqual(["stale-quote", "zero-position"]);
+    expect(asset(state, "PETR4").tags).toEqual(["stale-quote", "zero-position", "no-score"]);
     expect(projectPortfolio(state, TODAY).staleQuote).toBe(false);
   });
 });

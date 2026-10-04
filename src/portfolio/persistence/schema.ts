@@ -155,3 +155,10 @@ export const rateIndex = sqliteTable("rate_index", {
   date: text("date").notNull(),
   rate: integer("rate").notNull(),
 }, (t) => [primaryKey({ columns: [t.kind, t.date] })]);
+
+/** Current manual score, removed when its asset is deleted. */
+export const manualScore = sqliteTable("manual_score", {
+  asset: integer("asset").primaryKey().references(() => asset.id),
+  score: integer("score").notNull(),
+  evaluatedAt: text("evaluated_at").notNull(),
+});

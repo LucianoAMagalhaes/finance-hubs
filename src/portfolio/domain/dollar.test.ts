@@ -131,7 +131,7 @@ describe("the current value in reais", () => {
     expect(aapl.inDollars).toMatchObject({ currentValue: 345_000 });
     expect(aapl.inDollars!.unrealizedGain).toBeCloseTo(30_000, 6);
     expect(aapl.inDollars!.totalGain).toBeCloseTo(50_000, 6); // 300 + the sale's 200
-    expect(aapl.tags).toEqual([]);
+    expect(aapl.tags).toEqual(["no-score"]);
   });
 
   it("the classes and the portfolio stay in reais", () => {
@@ -164,7 +164,7 @@ describe("the current value in reais", () => {
     const state = run(sold, recordQuotes([quote(1, 230)]));
     const aapl = asset(state, "AAPL");
 
-    expect(aapl.tags).toEqual(["no-exchange-rate"]);
+    expect(aapl.tags).toEqual(["no-exchange-rate", "no-score"]);
     expect(aapl.currentValue).toBeCloseTo(1_657_500, 6);
     expect(aapl.unrealizedGain).toBeCloseTo(0, 6);
     expect(aapl.inDollars).toMatchObject({ currentValue: 345_000 });
@@ -175,7 +175,7 @@ describe("the current value in reais", () => {
     const state = run(sold, recordQuotes([], rate(5.4, "2026-09-25T14:32:00")));
     const aapl = asset(state, "AAPL");
 
-    expect(aapl.tags).toEqual(["no-quote"]);
+    expect(aapl.tags).toEqual(["no-quote", "no-score"]);
     expect(aapl.currentValue).toBeCloseTo(1_657_500, 6);
     expect(aapl.inDollars!.currentValue).toBeCloseTo(315_000, 6);
   });

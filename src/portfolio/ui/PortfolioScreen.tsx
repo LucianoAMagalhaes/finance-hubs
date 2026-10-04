@@ -25,6 +25,7 @@ import { DeleteAssetForm } from "./DeleteAssetForm";
 import { ClassDetail } from "./ClassDetail";
 import { CorporateActionForm } from "./CorporateActionForm";
 import { PayoutForm } from "./PayoutForm";
+import { ScoreForm } from "./ScoreForm";
 import { TargetsForm } from "./TargetsForm";
 import { TradeForm } from "./TradeForm";
 import { classColor, formatMoment, formatShare, Gain, ToTarget } from "./parts";
@@ -40,6 +41,7 @@ type Props = { initialState: PortfolioState; today: IsoDate };
  * one comes from the + Operação of its row, turned from a trade and back.
  */
 type OpenSheet =
+  | { kind: "score"; asset: number }
   | { kind: "targets" }
   | { kind: "asset"; asset: Asset | null }
   | { kind: "delete-asset"; asset: Asset }
@@ -212,6 +214,7 @@ export function PortfolioScreen({ initialState, today }: Props) {
             decideAction={(id, decision) => run({ type: `${decision}-corporate-action`, id })}
             newPayout={(asset) => setSheet({ kind: "payout", asset, payout: null })}
             editPayout={(payout) => setSheet({ kind: "payout", asset: null, payout })}
+            evaluate={(asset) => setSheet({ kind: "score", asset })}
             editAsset={(id) => {
               const asset = state.assets.find((a) => a.id === id);
               if (asset) setSheet({ kind: "asset", asset });
@@ -226,6 +229,13 @@ export function PortfolioScreen({ initialState, today }: Props) {
         <div className="grid">{cards}</div>
       )}
 
+      {sheet?.kind === "score" && (
+        <ScoreForm
+          asset={view.classes.flatMap((c) => c.assets).find((a) => a.id === sheet.asset)!}
+          save={(score) => run({ type: "save-score", asset: sheet.asset, score })}
+          close={() => setSheet(null)}
+        />
+      )}
       {sheet?.kind === "targets" && (
         <TargetsForm targets={state.targets} save={(targets) => run({ type: "save-targets", targets })} close={() => setSheet(null)} />
       )}
