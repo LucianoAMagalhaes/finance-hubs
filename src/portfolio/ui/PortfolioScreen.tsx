@@ -33,6 +33,7 @@ import { ScoreForm } from "./ScoreForm";
 import { TargetsForm } from "./TargetsForm";
 import { TradeForm } from "./TradeForm";
 import { ContributionForm } from "./ContributionForm";
+import { BuyReviewForm } from "./BuyReviewForm";
 import { ContributionResult } from "./ContributionResult";
 import { classColor, formatMoment, formatShare, Gain, ToTarget } from "./parts";
 
@@ -47,6 +48,7 @@ type Props = { initialState: PortfolioState; today: IsoDate };
  * one comes from the + Operação of its row, turned from a trade and back.
  */
 type OpenSheet =
+  | { kind: "buy-review"; suggestion: ContributionSuggestion }
   | { kind: "contribution"; suggestion: ContributionSuggestion }
   | { kind: "questionnaire"; id: Questionnaire["id"] }
   | { kind: "score"; asset: number }
@@ -259,7 +261,11 @@ export function PortfolioScreen({ initialState, today }: Props) {
         <div className="grid">{cards}</div>
       )}
 
-      {sheet?.kind === "contribution" && <ContributionResult suggestion={sheet.suggestion} close={() => setSheet(null)} />}
+      {sheet?.kind === "contribution" && <ContributionResult suggestion={sheet.suggestion} close={() => setSheet(null)} review={() => setSheet({ kind: "buy-review", suggestion: sheet.suggestion })} />}
+      {sheet?.kind === "buy-review" && (
+        <BuyReviewForm suggestion={sheet.suggestion} today={today} suggestExchangeRate={suggestExchangeRate}
+          save={command => run(command)} close={() => setSheet({ kind: "contribution", suggestion: sheet.suggestion })} />
+      )}
       {sheet?.kind === "questionnaire" && (
         <QuestionnaireEditor
           questionnaire={state.questionnaires.find(q => q.id === sheet.id)!}

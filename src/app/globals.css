@@ -1630,3 +1630,7 @@ dialog.sheet.contribution-result { width: min(640px, calc(100vw - 32px)); }
 .questionnaire-tools .btn {
   min-height: 44px;
 }
+
+.buy-review-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.buy-review-line { min-width: 0; margin: 16px 0; padding: 16px; border: 1px solid var(--line); border-radius: 8px; }
+.buy-review-line legend { max-width: 100%; overflow-wrap: anywhere; padding: 0 6px; font-weight: 600; }
