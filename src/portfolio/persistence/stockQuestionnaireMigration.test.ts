@@ -1,14 +1,12 @@
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import SQLite from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { afterEach, beforeEach, expect, it } from "vitest";
-import { openDatabase, loadState, executeOnDatabase, type Database } from "@/persistence";
+import { expect, it } from "vitest";
+import { loadState, executeOnDatabase } from "@/persistence";
 import * as schema from "@/persistence/schema";
-import { decimal, emptyPortfolio, projectPortfolio, type PortfolioCommand, type PortfolioState } from "@/portfolio/domain";
+import { decimal, emptyPortfolio, projectPortfolio, type PortfolioState } from "@/portfolio/domain";
 import { executePortfolioOnDatabase, loadPortfolio } from "@/portfolio/persistence";
+
+import { questionnaireDatabaseFixture } from "./questionnaireDatabaseFixture";
 
 const TODAY = "2026-10-08";
 const STOCK_TEXTS = [
@@ -27,43 +25,8 @@ const STOCK_TEXTS = [
   'É livre de controle estatal ou possui base diversificada de clientes, sem dependência de cliente único?',
   'Empresas: P/FCL e EV/FCL < 15? Bancos: P/L < 12x?',
 ];
-let folder: string;
-let file: string;
-const opened: Database[] = [];
-beforeEach(() => {
-  folder = mkdtempSync(path.join(tmpdir(), "stock-questionnaire-"));
-  file = path.join(folder, "portfolio.db");
-});
-afterEach(() => {
-  for (const database of opened.splice(0)) database.close();
-  rmSync(folder, { recursive: true, force: true });
-});
-function open() {
-  const database = openDatabase(file);
-  opened.push(database);
-  return database;
-}
-function execute(database: Database, ...commands: PortfolioCommand[]) {
-  for (const command of commands) {
-    const result = executePortfolioOnDatabase(database, command, TODAY);
-    if (!result.ok) throw new Error(result.error);
-  }
-  return loadPortfolio(database);
-}
-function legacy(fill: (database: Database) => void) {
-  const migrations = path.join(folder, "migrations");
-  mkdirSync(path.join(migrations, "meta"), { recursive: true });
-  const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8"));
-  journal.entries = journal.entries.filter((entry: { idx: number }) => entry.idx <= 20);
-  writeFileSync(path.join(migrations, "meta/_journal.json"), JSON.stringify(journal));
-  for (const { tag } of journal.entries) copyFileSync(`drizzle/${tag}.sql`, path.join(migrations, `${tag}.sql`));
-  const sqlite = new SQLite(file);
-  try {
-    const db = drizzle(sqlite, { schema });
-    migrate(db, { migrationsFolder: migrations });
-    fill({ db, close: () => sqlite.close() });
-  } finally { sqlite.close(); }
-}
+const fixture = questionnaireDatabaseFixture(20, TODAY);
+const { open, execute, legacy, close } = fixture;
 const assets = (state: PortfolioState) => projectPortfolio(state, TODAY).classes.flatMap(c => c.assets);
 
 it.each(["fresh", "legacy"])("shows the fourteen ordered stock criteria in both classes on a %s database", kind => {
@@ -81,7 +44,7 @@ it.each(["fresh", "legacy"])("shows the fourteen ordered stock criteria in both 
   expect(state.questionnaires).toEqual(emptyPortfolio().questionnaires);
   const ids = state.questionnaires.flatMap(q => q.questions.map(p => p.id));
   expect(ids.every(id => Number.isSafeInteger(id) && id > 0)).toBe(true);
-  expect(new Set(ids).size).toBe(20);
+  expect(new Set(ids).size).toBe(26);
   expect(loadPortfolio(open())).toEqual(state);
 });
 
@@ -102,7 +65,7 @@ it.each(["answered", "edited", "reordered", "added", "removed"])("refuses a lega
   });
   for (let attempt = 0; attempt < 2; attempt++) {
     expect(() => open()).toThrow(/questionário de ações.*respostas ou personalizações/);
-    const sqlite = new SQLite(file);
+    const sqlite = new SQLite(fixture.file);
     try {
       const database = { db: drizzle(sqlite, { schema }), close: () => sqlite.close() };
       expect(loadPortfolio(database)).toEqual(before!);
@@ -111,7 +74,7 @@ it.each(["answered", "edited", "reordered", "added", "removed"])("refuses a lega
   }
 });
 
-it("preserves fund customizations, evaluations and all other records, then keeps later stock edits on reopening", () => {
+it("preserves fund customizations, evaluations and all other records through later stock edits and reopening", () => {
   let before: PortfolioState;
   let budget: ReturnType<typeof loadState>;
   legacy(database => {
@@ -133,7 +96,7 @@ it("preserves fund customizations, evaluations and all other records, then keeps
     for (const question of fund.questions) execute(database, { type: "save-answer", asset: 3, question: question.id, value: true });
     before = loadPortfolio(database);
     budget = loadState(database);
-  });
+  }, 22);
   const database = open();
   const state = loadPortfolio(database);
   expect(state).toEqual({ ...before!, questionnaires: [state.questionnaires[0], before!.questionnaires[1]] });
@@ -144,7 +107,7 @@ it("preserves fund customizations, evaluations and all other records, then keeps
   for (const asset of [1, 2]) expect(assets(state).find(a => a.id === asset)).toMatchObject({ score: null, evaluatedAt: null });
   expect(loadState(database)).toEqual(budget!);
   const edited = execute(database, { type: "save-questionnaire", id: "stocks", questions: state.questionnaires[0]!.questions.map((q, i) => i === 0 ? { ...q, text: "Meu novo critério?" } : q) });
-  for (const connection of opened.splice(0)) connection.close();
+  close();
   expect(loadPortfolio(open())).toEqual(edited);
   expect(loadState(open())).toEqual(budget!);
 });

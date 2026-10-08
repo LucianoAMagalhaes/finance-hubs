@@ -601,7 +601,7 @@ it("initializes questionnaires once and reopens current answers and dates withou
   const database = open();
   const budget = loadState(database);
   let state = loadPortfolio(database);
-  expect(state.questionnaires.map(q => q.questions.length)).toEqual([14, 6]);
+  expect(state.questionnaires.map(q => q.questions.length)).toEqual([14, 12]);
   state = executeOk(database, { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } });
   state = executeOk(database, { type: "save-asset", asset: { ticker: "VNQ", assetClass: "international-stocks" } });
   for (const { id: question } of state.questionnaires[0]!.questions) state = executeOk(database, { type: "save-answer", asset: 1, question, value: true });
@@ -631,7 +631,7 @@ it("does not restore customized question text, order or removed questions when r
   const state = loadPortfolio(open());
   expect(state.questionnaires[0]?.questions.map(q => q.id)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 18, 19, 20, 1]);
   expect(state.questionnaires[0]?.questions.at(-1)?.text).toBe("A empresa atende ao meu critério?");
-  expect(state.questionnaires[1]?.questions).toHaveLength(5);
+  expect(state.questionnaires[1]?.questions).toHaveLength(11);
   executeOk(open(), { type: "save-asset", asset: { ticker: "PETR4", assetClass: "domestic-stocks" } });
   expect(loadPortfolio(open()).questionnaires).toEqual(state.questionnaires);
 });
@@ -673,7 +673,7 @@ it("reopens edited questionnaires with retained answers, derived scores and date
     expect(views.find(a => a.id === asset)?.questionnaire?.questions.map(q => q.id)).toEqual([20, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 18, 19, newQuestion]);
   }
   expect(views.find(a => a.id === 3)).toMatchObject({ score: 1, evaluatedAt: TODAY });
-  expect(state.answers.some(a => a.question === 1 || (a.question >= 13 && a.question <= 17))).toBe(false);
+  expect(state.answers.some(a => a.question === 1 || (a.question >= 13 && a.question <= 17) || (a.question >= 21 && a.question <= 26))).toBe(false);
   expect(executePortfolioOnDatabase(reopened, { type: "save-questionnaire", id: "real-estate-funds", questions: [] }, "2026-09-26")).toEqual({ ok: false, error: "Mantenha pelo menos uma pergunta no questionário." });
   expect(loadPortfolio(reopened)).toEqual(state);
   for (const asset of [1, 2]) {
