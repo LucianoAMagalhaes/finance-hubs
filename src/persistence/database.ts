@@ -22,6 +22,15 @@ export function openDatabase(file: string): Database {
   const sqlite = new SQLite(file);
   sqlite.pragma("journal_mode = WAL");
   const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  try {
+    migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  } catch (error) {
+    sqlite.close();
+    // Drizzle wraps SQLite errors; surface the migration's actionable message.
+    if (error instanceof Error && error.cause instanceof Error) {
+      throw new Error(error.cause.message, { cause: error });
+    }
+    throw error;
+  }
   return { db, close: () => sqlite.close() };
 }

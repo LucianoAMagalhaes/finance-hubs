@@ -137,7 +137,7 @@ describe("contribution suggestions through the portfolio", () => {
     state = run(state, { type: "record-quotes", quotes: [{ asset: 1, price: decimal(10), at: `${TODAY}T12:00:00` }] });
     expect(suggest(state).classes[0]!.assets[0]).toMatchObject({ amount: 0, exclusions: ["no-score"] });
     for (const q of state.questionnaires.find(q => q.id === "stocks")!.questions) state = run(state, { type: "save-answer", asset: 1, question: q.id, value: false });
-    expect(suggest(state).classes[0]!.assets[0]).toMatchObject({ score: -11, amount: 0, exclusions: ["non-positive-score"] });
+    expect(suggest(state).classes[0]!.assets[0]).toMatchObject({ score: -14, amount: 0, exclusions: ["non-positive-score"] });
   });
   it("excludes a pending corporate action until the person decides it", () => {
     let state = run(emptyPortfolio(), { type: "save-targets", targets: { ...targets(0), "domestic-stocks": 100 } });

@@ -148,6 +148,13 @@
       "when": 1791123235828,
       "tag": "0020_portfolio_questionnaires",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1791446400000,
+      "tag": "0021_stock_questionnaire",
+      "breakpoints": true
     }
   ]
 }
