@@ -48,17 +48,20 @@ export function questionnaireId(assetClass: AssetClass): Questionnaire["id"] | n
 /** Each fresh portfolio gets its own questions; database migrations seed them only once. */
 export function defaultQuestionnaires(): Questionnaire[] {
   const stocks = [
-    "ROE historicamente maior que 5%? (Considere anos anteriores).",
-    "Tem um crescimento de receitas (Ou lucro) superior a 5% nos últimos 5 anos?",
-    "A empresa tem um histórico de pagamento de dividendos?",
-    "A empresa investe amplamente em pesquisa e inovação? Setor Obsoleto = SEMPRE NÃO",
-    "Tem mais de 30 anos de mercado? (Fundação)",
-    "É líder nacional ou mundial no setor em que atua? (Só considera se for LÍDER, primeira colocada)",
-    "O setor em que a empresa atua tem mais de 100 anos?",
-    "A empresa é uma BLUE CHIP?",
-    "A empresa tem uma boa gestão? Histórico de corrupção = SEMPRE NÃO",
-    "É livre de controle ESTATAL ou concentração em cliente único?",
-    "Div. Líquida/EBITDA é menor que 2 nos últimos 5 anos?",
+    "Empresas: Dívida Líquida/EBITDA < 2,5x? Bancos: Índice de Basileia ≥ 14%? (Histórico de 5 anos)",
+    "Empresas: Liquidez Corrente > 1? Bancos: Índice de Inadimplência acima de 90 dias < 3,5%? (Histórico de 5 anos)",
+    "A empresa demonstra alta eficiência operacional, mantendo Margem Líquida > 10%? (Histórico de 5 anos)",
+    "A ação possui liquidez média diária maior ou igual a R$ 50 milhões?",
+    "Empresas: ROE e ROIC > 10%? Bancos: ROE > 10%? (Histórico de 5 anos)",
+    "A empresa apresenta crescimento composto (CAGR) de receitas ou lucros > 5% ao ano? (Histórico de 5 anos)",
+    "A empresa investe amplamente em pesquisa, inovação e tecnologia, atuando em um modelo de negócio livre do risco de obsolescência? (Histórico de 5 anos)",
+    "A empresa possui mais de 30 anos de mercado desde a sua fundação?",
+    "O setor em que a empresa atua possui mais de 100 anos de existência e continuará sendo demandado nas próximas décadas?",
+    "A empresa tem uma boa gestão? Histórico de corrupção = SEMPRE NÃO.",
+    "É uma Blue Chip, líder no seu segmento ou está entre as três maiores do setor?",
+    "Possui Tag Along de 100% ou está no Novo Mercado?",
+    "É livre de controle estatal ou possui base diversificada de clientes, sem dependência de cliente único?",
+    "Empresas: P/FCL e EV/FCL < 15? Bancos: P/L < 12x?",
   ];
   const funds = [
     "Os imóveis desse Fundo Imobiliário estão localizados em regiões nobres?",
@@ -69,7 +72,7 @@ export function defaultQuestionnaires(): Questionnaire[] {
     "O Yield está dentro ou acima da média para fundos imobiliários do mesmo tipo?",
   ];
   return [
-    { id: "stocks", questions: stocks.map((text, index) => ({ id: index + 1, text })) },
+    { id: "stocks", questions: stocks.map((text, index) => ({ id: index < 11 ? index + 1 : index + 7, text })) },
     { id: "real-estate-funds", questions: funds.map((text, index) => ({ id: index + 12, text })) },
   ];
 }

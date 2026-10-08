@@ -10,7 +10,7 @@ function run(state: PortfolioState, command: PortfolioCommand, today: IsoDate = 
 const viewOf = (state: PortfolioState, id: number) => projectPortfolio(state, TODAY).classes.flatMap(c => c.assets).find(a => a.id === id)!;
 
 describe("questionnaire evaluations through the portfolio", () => {
-  it("starts with the shared eleven stock questions and six fund questions in research order", () => {
+  it("starts with the shared fourteen stock questions and six fund questions in research order", () => {
     let state = emptyPortfolio();
     for (const [ticker, assetClass] of [["PETR4", "domestic-stocks"], ["QQQ", "international-stocks"], ["VNQ", "international-stocks"], ["HGLG11", "real-estate-funds"]] as const) {
       state = run(state, { type: "save-asset", asset: { ticker, assetClass } });
@@ -18,11 +18,11 @@ describe("questionnaire evaluations through the portfolio", () => {
     expect(state.questionnaires).toHaveLength(2);
     expect(viewOf(state, 1).questionnaire).toEqual(viewOf(state, 2).questionnaire);
     expect(viewOf(state, 2).questionnaire).toEqual(viewOf(state, 3).questionnaire);
-    expect(viewOf(state, 1).questionnaire?.questions).toHaveLength(11);
+    expect(viewOf(state, 1).questionnaire?.questions).toHaveLength(14);
     expect(viewOf(state, 4).questionnaire?.questions).toHaveLength(6);
-    expect(viewOf(state, 1).questionnaire?.questions[0]?.text).toBe("ROE historicamente maior que 5%? (Considere anos anteriores).");
+    expect(viewOf(state, 1).questionnaire?.questions[0]?.text).toBe("Empresas: Dívida Líquida/EBITDA < 2,5x? Bancos: Índice de Basileia ≥ 14%? (Histórico de 5 anos)");
     expect(viewOf(state, 1)).toMatchObject({ score: null, evaluatedAt: null });
-    expect(new Set(state.questionnaires.flatMap(q => q.questions.map(p => p.id))).size).toBe(17);
+    expect(new Set(state.questionnaires.flatMap(q => q.questions.map(p => p.id))).size).toBe(20);
   });
 });
 
@@ -38,15 +38,15 @@ it("keeps incomplete evaluations without a provisional score, reaches both extre
   expect(viewOf(state, 1)).toMatchObject({ score: null, evaluatedAt: TODAY, tags: expect.arrayContaining(["no-score"]) });
   expect(viewOf(state, 1).questionnaire?.questions[0]?.answer).toBe(true);
   expect(viewOf(original, 1).questionnaire?.questions[0]?.answer).toBeNull();
-  for (let question = 2; question <= 11; question++) state = run(state, { type: "save-answer", asset: 1, question, value: true });
-  expect(viewOf(state, 1)).toMatchObject({ score: 11, evaluatedAt: TODAY });
+  for (const { id: question } of original.questionnaires[0]!.questions.slice(1)) state = run(state, { type: "save-answer", asset: 1, question, value: true });
+  expect(viewOf(state, 1)).toMatchObject({ score: 14, evaluatedAt: TODAY });
   expect(viewOf(state, 1).tags).not.toContain("no-score");
   state = run(state, { type: "save-answer", asset: 1, question: 1, value: false }, "2026-10-02");
-  expect(viewOf(state, 1)).toMatchObject({ score: 9, evaluatedAt: "2026-10-02" });
-  for (let question = 2; question <= 11; question++) state = run(state, { type: "save-answer", asset: 1, question, value: false }, "2026-10-03");
-  expect(viewOf(state, 1)).toMatchObject({ score: -11, evaluatedAt: "2026-10-03", tags: expect.arrayContaining(["non-positive-score"]) });
+  expect(viewOf(state, 1)).toMatchObject({ score: 12, evaluatedAt: "2026-10-02" });
+  for (const { id: question } of original.questionnaires[0]!.questions.slice(1)) state = run(state, { type: "save-answer", asset: 1, question, value: false }, "2026-10-03");
+  expect(viewOf(state, 1)).toMatchObject({ score: -14, evaluatedAt: "2026-10-03", tags: expect.arrayContaining(["non-positive-score"]) });
   expect(viewOf(state, 2)).toMatchObject({ score: null, evaluatedAt: null });
-  expect(state.answers).toHaveLength(11);
+  expect(state.answers).toHaveLength(14);
 });
 
 it("distinguishes a fund's missing score, zero and both six-question extremes", () => {
@@ -94,8 +94,8 @@ it("removes answers and the evaluation date when an unused asset is deleted", ()
 
 it.each(["QQQ", "VNQ"])("evaluates an international ETF or REIT with stock questions: %s", ticker => {
   let state = run(stocks(), { type: "save-asset", asset: { ticker, assetClass: "international-stocks" } });
-  for (let question = 1; question <= 11; question++) state = run(state, { type: "save-answer", asset: 3, question, value: true });
-  expect(viewOf(state, 3)).toMatchObject({ score: 11, evaluatedAt: TODAY });
+  for (const { id: question } of state.questionnaires[0]!.questions) state = run(state, { type: "save-answer", asset: 3, question, value: true });
+  expect(viewOf(state, 3)).toMatchObject({ score: 14, evaluatedAt: TODAY });
   expect(viewOf(state, 1)).toMatchObject({ score: null, evaluatedAt: null });
 });
 
@@ -123,10 +123,10 @@ it("adding a stock question makes both stock classes pending while funds and eva
   }
   expect(projectPortfolio(state, TODAY).pendingEvaluations).toBe(2);
   expect(viewOf(state, 3)).toEqual(viewOf(original, 3));
-  expect(viewOf(original, 1).score).toBe(9);
+  expect(viewOf(original, 1).score).toBe(12);
   const question = viewOf(state, 1).questionnaire!.questions.at(-1)!.id;
   const completed = run(state, { type: "save-answer", asset: 1, question, value: true }, "2026-10-03");
-  expect(viewOf(completed, 1)).toMatchObject({ score: 10, evaluatedAt: "2026-10-03" });
+  expect(viewOf(completed, 1)).toMatchObject({ score: 13, evaluatedAt: "2026-10-03" });
   expect(projectPortfolio(completed, TODAY).pendingEvaluations).toBe(1);
 });
 
@@ -135,21 +135,21 @@ it("rewrites and reorders stock questions by identity without changing either st
   const questions = [...original.questionnaires[0]!.questions].reverse().map(q => q.id === 1 ? { ...q, text: "  Minha nova redação?  " } : q);
   const state = run(original, { type: "save-questionnaire", id: "stocks", questions }, "2026-10-02");
   for (const asset of [1, 2]) {
-    expect(viewOf(state, asset)).toMatchObject({ score: 9, evaluatedAt: TODAY });
-    expect(viewOf(state, asset).questionnaire?.questions.map(q => q.id)).toEqual([11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+    expect(viewOf(state, asset)).toMatchObject({ score: 12, evaluatedAt: TODAY });
+    expect(viewOf(state, asset).questionnaire?.questions.map(q => q.id)).toEqual([20, 19, 18, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
     expect(viewOf(state, asset).questionnaire?.questions.at(-1)).toEqual({ id: 1, text: "Minha nova redação?", answer: false });
   }
   expect(state.answers).toEqual(original.answers);
   expect(state.questionnaireEvaluations).toEqual(original.questionnaireEvaluations);
   expect(viewOf(state, 3)).toEqual(viewOf(original, 3));
-  expect(original.questionnaires[0]?.questions[0]?.text).toContain("ROE");
+  expect(original.questionnaires[0]?.questions[0]?.text).toContain("Basileia");
 });
 
 it("removes answers for both stock classes and recomputes their scores without changing dates", () => {
   const original = evaluatedClasses();
   const state = run(original, { type: "save-questionnaire", id: "stocks", questions: original.questionnaires[0]!.questions.slice(1) }, "2026-10-02");
   expect(state.answers.some(a => a.question === 1)).toBe(false);
-  for (const asset of [1, 2]) expect(viewOf(state, asset)).toMatchObject({ score: 10, evaluatedAt: TODAY });
+  for (const asset of [1, 2]) expect(viewOf(state, asset)).toMatchObject({ score: 13, evaluatedAt: TODAY });
   expect(viewOf(state, 3)).toEqual(viewOf(original, 3));
   expect(apply(state, { type: "save-answer", asset: 1, question: 1, value: true }, TODAY).ok).toBe(false);
 });
