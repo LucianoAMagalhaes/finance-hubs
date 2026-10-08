@@ -10,7 +10,7 @@ function run(state: PortfolioState, command: PortfolioCommand, today: IsoDate = 
 const viewOf = (state: PortfolioState, id: number) => projectPortfolio(state, TODAY).classes.flatMap(c => c.assets).find(a => a.id === id)!;
 
 describe("questionnaire evaluations through the portfolio", () => {
-  it("starts with the shared fourteen stock questions and six fund questions in research order", () => {
+  it("starts with the shared fourteen stock questions and twelve fund questions in research order", () => {
     let state = emptyPortfolio();
     for (const [ticker, assetClass] of [["PETR4", "domestic-stocks"], ["QQQ", "international-stocks"], ["VNQ", "international-stocks"], ["HGLG11", "real-estate-funds"]] as const) {
       state = run(state, { type: "save-asset", asset: { ticker, assetClass } });
@@ -19,10 +19,10 @@ describe("questionnaire evaluations through the portfolio", () => {
     expect(viewOf(state, 1).questionnaire).toEqual(viewOf(state, 2).questionnaire);
     expect(viewOf(state, 2).questionnaire).toEqual(viewOf(state, 3).questionnaire);
     expect(viewOf(state, 1).questionnaire?.questions).toHaveLength(14);
-    expect(viewOf(state, 4).questionnaire?.questions).toHaveLength(6);
+    expect(viewOf(state, 4).questionnaire?.questions).toHaveLength(12);
     expect(viewOf(state, 1).questionnaire?.questions[0]?.text).toBe("Empresas: Dívida Líquida/EBITDA < 2,5x? Bancos: Índice de Basileia ≥ 14%? (Histórico de 5 anos)");
     expect(viewOf(state, 1)).toMatchObject({ score: null, evaluatedAt: null });
-    expect(new Set(state.questionnaires.flatMap(q => q.questions.map(p => p.id))).size).toBe(20);
+    expect(new Set(state.questionnaires.flatMap(q => q.questions.map(p => p.id))).size).toBe(26);
   });
 });
 
@@ -49,16 +49,16 @@ it("keeps incomplete evaluations without a provisional score, reaches both extre
   expect(state.answers).toHaveLength(14);
 });
 
-it("distinguishes a fund's missing score, zero and both six-question extremes", () => {
+it("distinguishes a fund's missing score, zero and both twelve-question extremes", () => {
   let state = run(emptyPortfolio(), { type: "save-asset", asset: { ticker: "HGLG11", assetClass: "real-estate-funds" } });
   expect(viewOf(state, 1).score).toBeNull();
-  for (let question = 12; question <= 17; question++) state = run(state, { type: "save-answer", asset: 1, question, value: true });
-  expect(viewOf(state, 1).score).toBe(6);
-  for (let question = 12; question <= 14; question++) state = run(state, { type: "save-answer", asset: 1, question, value: false });
+  for (const { id: question } of state.questionnaires[1]!.questions) state = run(state, { type: "save-answer", asset: 1, question, value: true });
+  expect(viewOf(state, 1).score).toBe(12);
+  for (const { id: question } of state.questionnaires[1]!.questions.slice(0, 6)) state = run(state, { type: "save-answer", asset: 1, question, value: false });
   expect(viewOf(state, 1)).toMatchObject({ score: 0, tags: expect.arrayContaining(["non-positive-score"]) });
   expect(viewOf(state, 1).tags).not.toContain("no-score");
-  for (let question = 15; question <= 17; question++) state = run(state, { type: "save-answer", asset: 1, question, value: false });
-  expect(viewOf(state, 1).score).toBe(-6);
+  for (const { id: question } of state.questionnaires[1]!.questions.slice(6)) state = run(state, { type: "save-answer", asset: 1, question, value: false });
+  expect(viewOf(state, 1).score).toBe(-12);
 });
 
 it("refuses incompatible questions, manual-score classes, missing assets and non-boolean answers", () => {
@@ -161,7 +161,7 @@ it("adds and removes fund questions independently and completes pending evaluati
   expect(projectPortfolio(pending, TODAY).pendingEvaluations).toBe(1);
   for (const asset of [1, 2]) expect(viewOf(pending, asset)).toEqual(viewOf(original, asset));
   const completed = run(pending, { type: "save-questionnaire", id: "real-estate-funds", questions: original.questionnaires[1]!.questions }, "2026-10-03");
-  expect(viewOf(completed, 3)).toMatchObject({ score: 6, evaluatedAt: TODAY });
+  expect(viewOf(completed, 3)).toMatchObject({ score: 12, evaluatedAt: TODAY });
   expect(projectPortfolio(completed, TODAY).pendingEvaluations).toBe(0);
 });
 

@@ -66,14 +66,20 @@ export function defaultQuestionnaires(): Questionnaire[] {
   const funds = [
     "Os imóveis desse Fundo Imobiliário estão localizados em regiões nobres?",
     "As propriedades são novas e não consomem manutenção excessiva?",
-    "O fundo imobiliário está negociado abaixo do P/VP 1? (Acima de 1,5, eu descarto o investimento em qualquer hipótese)",
-    "Distribui dividendos a mais de 4 anos consistentemente?",
-    "Não é dependende de um único inquilino ou imóvel?",
-    "O Yield está dentro ou acima da média para fundos imobiliários do mesmo tipo?",
+    "O fundo imobiliário está negociado abaixo do P/VP 1? (Acima de 1,5, eu descarto o investimento em qualquer hipótese.)",
+    "Distribui dividendos há mais de 10 anos consistentemente? (Histórico de 10 anos)",
+    "Não é dependente de um único inquilino ou imóvel?",
+    "O Yield está dentro ou acima da média para fundos imobiliários do mesmo tipo e é superior a 7,5%?",
+    "A vacância física e a vacância financeira são ≤ 5%? (Histórico de 10 anos)",
+    "A maior parte dos contratos é do tipo atípico ou possui WAULT (prazo médio de vencimento dos contratos) superior a 5 anos?",
+    "A liquidez média diária do fundo é superior a R$ 5 milhões/dia?",
+    "A gestora tem bom histórico de mercado, com gestão ativa, e as taxas de administração/performance estão alinhadas com o setor e são < 2%?",
+    "A alavancagem financeira é ≤ 15%?",
+    "DY é maior que FFO, ou seja, o fundo distribui mais que gerou? (Histórico de 10 anos)",
   ];
   return [
     { id: "stocks", questions: stocks.map((text, index) => ({ id: index < 11 ? index + 1 : index + 7, text })) },
-    { id: "real-estate-funds", questions: funds.map((text, index) => ({ id: index + 12, text })) },
+    { id: "real-estate-funds", questions: funds.map((text, index) => ({ id: index < 6 ? index + 12 : index + 15, text })) },
   ];
 }
 
