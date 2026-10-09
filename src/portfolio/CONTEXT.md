@@ -243,6 +243,11 @@ são operações comuns, todas ou nenhuma.
 _Code_: `ContributionSuggestion`
 _Avoid_: Recomendação, rebalanceamento, plano
 
+**Revisão de compras**:
+O rascunho das compras que a pessoa pretende registrar a partir de uma sugestão de aporte. As
+compras revisadas expressam a escolha da pessoa e só se tornam operações quando ela confirma.
+_Code_: `BuyReviewDraft`
+
 **Peso ideal**:
 A fatia de um ativo dentro da sua classe numa sugestão de aporte: a nota dele ÷ a soma das notas dos
 ativos da classe que podem receber. Nunca é digitado.
