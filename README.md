@@ -40,3 +40,27 @@ npm run db:generate  # gera a migration depois de mudar src/persistence/schema.t
 - `src/persistence/`: esquema do Drizzle, carregar e gravar o estado.
 - `src/server/`: inicialização (backup, migrations) e as ações do servidor.
 - `src/ui/`: a tela do mês.
+
+## Revisar compras de um aporte
+
+A sugestão mantém a distribuição pela falta de cada classe e pelos ativos aptos. Ao abrir
+**Revisar compras**, as compras sugeridas ficam no rascunho até uma alteração explícita.
+
+Quando Renda Fixa recebeu uma parcela, a revisão permite escolher um título do Tesouro apto da
+classe, inclusive um título com compra sugerida zero porque sua parcela não comprava 0,01 título.
+A escolha substitui as compras de Renda Fixa usando a parcela original da classe, incluindo o
+valor que ficou sem destino após o arredondamento. As compras e os dados revisados das demais
+classes são preservados. Títulos impedidos continuam indisponíveis, com os motivos à vista.
+
+A tela mostra o preço usado, a quantidade em passos de 0,01 título que cabe na parcela e o valor da
+compra. Frações de centavo são reservadas arredondando para cima, como no cálculo da sugestão, para
+que a compra caiba no valor disponível. O restante não é redistribuído para outros ativos.
+Por exemplo, com aporte de R$ 368,52, parcela original de Renda Fixa de R$ 282,97 e Selic a
+R$ 19.962,99, a escolha compra 0,01 título por R$ 199,63. Mantendo R$ 85,55 de Ações Internacionais,
+o total é R$ 285,18 e ficam R$ 83,34 sem destino.
+
+Quantidade, preço, câmbio, valor e data podem ser corrigidos antes da confirmação. O total e o valor
+sem destino acompanham as edições e remoções; se as compras ultrapassarem o aporte, a tela mostra o
+excedente. Campos incompletos deixam o cálculo pendente. Cancelar descarta o rascunho. Confirmar
+registra as compras em lote, todas ou nenhuma; uma recusa mantém os valores para correção. O valor
+sem destino não cria operação nem saldo na carteira.
