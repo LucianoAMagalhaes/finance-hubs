@@ -153,6 +153,70 @@ it("chooses eligible zero-unit Selic using the original class share and register
   expect(saved.value.trades.slice(state.trades.length)).toMatchObject([{ asset: 3, quantity: decimal(85.55) }, { asset: 1, quantity: decimal(0.01), unitPrice: decimal(19962.99) }]);
 });
 
+it("concentrates the original contribution in Selic without redistributing or recording the remainder", () => {
+  const { state, suggestion } = treasurySuggestion();
+  const original = structuredClone(suggestion);
+  const before = structuredClone(state);
+  const opened = openBuyReview(suggestion, TODAY);
+  const reviewed = editBuyReview(opened, 3, { quantity: "100", exchangeRate: "5" });
+  const chosen = chooseBuyReviewTreasury(reviewed, 1, "whole-contribution");
+  expect(chosen.lines).toEqual([{ asset: 1, ticker: "Selic", shape: "BRL", quantity: "0,01", unitPrice: "19962,99", exchangeRate: "", amount: "" }]);
+  expect(buyReviewTotals(chosen)).toEqual({ total: 19963, unallocated: 16889, excess: 0 });
+  expect(suggestion).toEqual(original);
+  expect(state).toEqual(before); // Cancelling only discards the review.
+  const checked = readBuyReview(chosen);
+  if (!checked.ok) throw new Error(checked.error);
+  const saved = apply(state, checked.value, TODAY);
+  if (!saved.ok) throw new Error(saved.error);
+  expect(saved.value.trades.slice(state.trades.length)).toMatchObject([{ asset: 1, quantity: decimal(0.01), unitPrice: decimal(19962.99) }]);
+  expect(saved.value.trades).toHaveLength(state.trades.length + 1);
+});
+
+it("uses the whole contribution at fraction boundaries even when the class share cannot buy Selic", () => {
+  for (const [contribution, quantity, total, unallocated] of [
+    [19962, 0, 0, 19962], [19963, 0.01, 19963, 0], [39925, 0.01, 19963, 19962], [39926, 0.02, 39926, 0],
+  ]) {
+    const { state, suggestion } = treasurySuggestion(contribution);
+    const opened = openBuyReview(suggestion, TODAY);
+    const chosen = chooseBuyReviewTreasury(opened, 1, "whole-contribution");
+    expect(buyReviewTotals(chosen)).toEqual({ total, unallocated, excess: 0 });
+    const checked = readBuyReview(chosen);
+    if (quantity === 0) {
+      expect(chosen.lines).toEqual([]);
+      expect(checked.ok).toBe(false);
+    } else {
+      expect(chosen.lines.map(l => l.asset)).toEqual([1]);
+      if (!checked.ok) throw new Error(checked.error);
+      const saved = apply(state, checked.value, TODAY);
+      if (!saved.ok) throw new Error(saved.error);
+      expect(saved.value.trades.slice(state.trades.length)).toMatchObject([{ asset: 1, quantity: decimal(quantity!) }]);
+    }
+    if (contribution === 19963) {
+      expect(opened.fixedIncome.options.find(a => a.id === 1)?.quantity).toBe(0);
+      expect(chooseBuyReviewTreasury(opened, 1)).toEqual(opened);
+    }
+  }
+});
+
+it("retains the concentrated choice after refusal and accepts corrected real data without an editing cap", () => {
+  const { state, suggestion } = treasurySuggestion();
+  const chosen = chooseBuyReviewTreasury(openBuyReview(suggestion, TODAY), 1, "whole-contribution");
+  const refused = changeBuyReviewDate(chosen, "2026-09-26");
+  const snapshot = structuredClone(refused);
+  const checked = readBuyReview(refused);
+  if (!checked.ok) throw new Error(checked.error);
+  expect(apply(state, checked.value, TODAY).ok).toBe(false);
+  expect(refused).toEqual(snapshot);
+  const corrected = editBuyReview(changeBuyReviewDate(refused, TODAY), 1, { quantity: "0,02", unitPrice: "20000" });
+  expect(buyReviewTotals(corrected)).toEqual({ total: 40000, unallocated: 0, excess: 3148 });
+  const command = readBuyReview(corrected);
+  if (!command.ok) throw new Error(command.error);
+  const saved = apply(state, command.value, TODAY);
+  if (!saved.ok) throw new Error(saved.error);
+  expect(saved.value.trades.slice(state.trades.length)).toMatchObject([{ asset: 1, quantity: decimal(0.02), unitPrice: decimal(20000) }]);
+  expect(saved.value.trades).toHaveLength(state.trades.length + 1);
+});
+
 it("uses cent budgets at minimum-fraction boundaries without redistributing the remainder", () => {
   const { state } = treasurySuggestion();
   const fixedOnly = runCommands(state, [{ type: "save-targets", targets: { "domestic-stocks": 0, "international-stocks": 0, "fixed-income": 100, "real-estate-funds": 0, crypto: 0 } }]);
@@ -172,6 +236,7 @@ it("uses cent budgets at minimum-fraction boundaries without redistributing the 
   const draft = openBuyReview(contributionFor(zeroShare, 36852), TODAY);
   expect(draft.fixedIncome.options).toEqual([]);
   expect(chooseBuyReviewTreasury(draft, 1)).toEqual(draft);
+  expect(chooseBuyReviewTreasury(draft, 1, "whole-contribution")).toEqual(draft);
 });
 
 it("keeps excluded titles and assets outside fixed-income Treasury unavailable", () => {
@@ -186,7 +251,10 @@ it("keeps excluded titles and assets outside fixed-income Treasury unavailable",
   for (const excluded of states) {
     const draft = openBuyReview(contributionFor(excluded, 36852), TODAY);
     expect(draft.fixedIncome.options.map(a => a.id)).toEqual([2]);
-    for (const id of [1, 3, 4, 99]) expect(chooseBuyReviewTreasury(draft, id)).toEqual(draft);
+    for (const id of [1, 3, 4, 99]) {
+      expect(chooseBuyReviewTreasury(draft, id)).toEqual(draft);
+      expect(chooseBuyReviewTreasury(draft, id, "whole-contribution")).toEqual(draft);
+    }
   }
 });
 

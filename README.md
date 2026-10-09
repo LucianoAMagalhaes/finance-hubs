@@ -52,12 +52,20 @@ A escolha substitui as compras de Renda Fixa usando a parcela original da classe
 valor que ficou sem destino após o arredondamento. As compras e os dados revisados das demais
 classes são preservados. Títulos impedidos continuam indisponíveis, com os motivos à vista.
 
+A opção **Direcionar todo o aporte** usa o valor original do aporte, incluindo o que estava
+destinado a outras classes ou sem destino, e mantém somente a compra do título escolhido no
+rascunho. A opção **Usar somente a parcela de Renda Fixa** continua disponível. Consultar as
+opções não altera as compras; somente a escolha explícita muda o rascunho.
+
 A tela mostra o preço usado, a quantidade em passos de 0,01 título que cabe na parcela e o valor da
 compra. Frações de centavo são reservadas arredondando para cima, como no cálculo da sugestão, para
 que a compra caiba no valor disponível. O restante não é redistribuído para outros ativos.
 Por exemplo, com aporte de R$ 368,52, parcela original de Renda Fixa de R$ 282,97 e Selic a
 R$ 19.962,99, a escolha compra 0,01 título por R$ 199,63. Mantendo R$ 85,55 de Ações Internacionais,
 o total é R$ 285,18 e ficam R$ 83,34 sem destino.
+Direcionando todo esse aporte ao Selic, o rascunho contém somente 0,01 título por R$ 199,63 e
+R$ 168,89 sem destino, sem compras de Prefixado ou Ações Internacionais. Se o aporte não comprar
+uma fração de 0,01 título, fica integralmente sem destino e não há compra para confirmar.
 
 Quantidade, preço, câmbio, valor e data podem ser corrigidos antes da confirmação. O total e o valor
 sem destino acompanham as edições e remoções; se as compras ultrapassarem o aporte, a tela mostra o
