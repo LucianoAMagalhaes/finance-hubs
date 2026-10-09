@@ -71,16 +71,22 @@ export function BuyReviewForm({ suggestion, today, suggestExchangeRate, save, cl
             </label>
             {draft.fixedIncome.budget > 0 && <fieldset className="buy-review-line">
               <legend>Escolher um título do Tesouro para Renda Fixa</legend>
-              <p className="hint">Parcela original da classe: {formatReais(draft.fixedIncome.budget)}, incluindo o valor que ficou sem destino. Escolher substitui as compras de Renda Fixa e mantém as demais compras revisadas.</p>
+              <p className="hint">Parcela original da classe: {formatReais(draft.fixedIncome.budget)}, incluindo o valor que ficou sem destino. Usar somente essa parcela mantém as demais compras revisadas. Direcionar todo o aporte ({formatReais(draft.contribution)}) ao título remove todas as outras compras. O restante fica sem destino.</p>
               {draft.fixedIncome.options.map(option => <div key={option.id}>
                 <strong>{option.ticker}</strong>
                 {option.belowMinimum && <p className="hint">A parcela inicial deste título não comprava a fração mínima de 0,01 título. Ele continua apto a receber aporte.</p>}
-                <p className="hint">Preço usado: {formatReais(option.price!)} · cabe comprar {formatQuantity(option.quantity)} título(s) por {formatReais(option.amount)}.</p>
+                <p className="hint">Preço usado: {formatReais(option.price!)} · com a parcela de Renda Fixa, cabe comprar {formatQuantity(option.quantity)} título(s) por {formatReais(option.amount)}.</p>
                 {option.quantity === 0 && <p className="hint">A parcela da classe também não compra uma fração mínima deste título.</p>}
                 <button type="button" className="btn" disabled={option.quantity === 0} onClick={() => {
                   clearRefusal();
                   setDraft(d => chooseBuyReviewTreasury(d, option.id));
-                }}>Escolher {option.ticker}</button>
+                }}>Usar somente a parcela de Renda Fixa em {option.ticker}</button>
+                <p className="hint">Com todo o aporte, cabe comprar {formatQuantity(option.wholeContribution.quantity)} título(s) por {formatReais(option.wholeContribution.amount)}. Sem destino: {formatReais(draft.contribution - option.wholeContribution.amount)}.</p>
+                {option.wholeContribution.quantity === 0 && <p className="hint">O aporte inteiro não compra 0,01 título. Direcioná-lo deixa o valor integral sem destino e nenhuma compra para registrar.</p>}
+                <button type="button" className="btn" onClick={() => {
+                  clearRefusal();
+                  setDraft(d => chooseBuyReviewTreasury(d, option.id, "whole-contribution"));
+                }}>Direcionar todo o aporte a {option.ticker}</button>
               </div>)}
               {fixedIncome?.assets.filter(a => a.bondKind === "treasury-bond" && a.exclusions.length > 0).map(a => <div key={a.id}>
                 <strong>{a.ticker}</strong>

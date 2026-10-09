@@ -23,6 +23,7 @@ export type BuyReviewDraft = {
 export type TreasuryReviewOption = Pick<ContributionAsset, "id" | "ticker" | "price"> & {
   quantity: Decimal;
   amount: number;
+  wholeContribution: { quantity: Decimal; amount: number };
   belowMinimum: boolean;
 };
 
@@ -35,17 +36,22 @@ function purchaseCents(quantity: Decimal, unitPrice: Decimal, rate = 10000): num
   return Number((numerator + CENTS_DENOMINATOR - 1n) / CENTS_DENOMINATOR);
 }
 
+function treasuryPurchase(budget: number, unitPrice: Decimal): { quantity: Decimal; amount: number } {
+  const step = decimal(0.01);
+  const units = BigInt(budget) * UNIT_SCALE * UNIT_SCALE / (BigInt(unitPrice) * BigInt(step) * 100n);
+  const capacity = BigInt(Math.floor(Number.MAX_SAFE_INTEGER / step));
+  const quantity = Number(units < capacity ? units : capacity) * step;
+  return { quantity, amount: purchaseCents(quantity, unitPrice) };
+}
+
 /** The suggestion is copied once. Opening, editing and cancelling never write operations. */
 export function openBuyReview(suggestion: ContributionSuggestion, today: IsoDate): BuyReviewDraft {
   const fixedIncome = suggestion.classes.find(c => c.key === "fixed-income");
   const budget = fixedIncome ? fixedIncome.amount + fixedIncome.unallocated : 0;
   const options = budget > 0 ? fixedIncome!.assets.filter(a => a.bondKind === "treasury-bond" && a.exclusions.length === 0).map(a => {
     const unitPrice = decimal(a.price! / 100);
-    const step = decimal(0.01);
-    const units = BigInt(budget) * UNIT_SCALE * UNIT_SCALE / (BigInt(unitPrice) * BigInt(step) * 100n);
-    const capacity = BigInt(Math.floor(Number.MAX_SAFE_INTEGER / step));
-    const quantity = Number(units < capacity ? units : capacity) * step;
-    return { id: a.id, ticker: a.ticker, price: a.price, quantity, amount: purchaseCents(quantity, unitPrice),
+    return { id: a.id, ticker: a.ticker, price: a.price, ...treasuryPurchase(budget, unitPrice),
+      wholeContribution: treasuryPurchase(suggestion.contribution, unitPrice),
       belowMinimum: a.quantity === 0 && a.shortfall > 0 && !a.quantityLimited };
   }) : [];
   return {
@@ -98,13 +104,15 @@ export function fillBuyReviewPtax(draft: BuyReviewDraft, date: string, ptax: Pta
   return { ...draft, lines: draft.lines.map(line => line.shape === "USD" && line.exchangeRate === "" ? { ...line, exchangeRate: exchangeRateToField(ptax.rate) } : line) };
 }
 
-/** An explicit choice replaces only fixed income; leftover cents never buy another asset. */
-export function chooseBuyReviewTreasury(draft: BuyReviewDraft, asset: number): BuyReviewDraft {
+/** An explicit choice uses the original budget; leftover cents never buy another asset. */
+export function chooseBuyReviewTreasury(draft: BuyReviewDraft, asset: number, scope: "fixed-income" | "whole-contribution" = "fixed-income"): BuyReviewDraft {
   const option = draft.fixedIncome.options.find(a => a.id === asset);
-  if (!option || option.quantity === 0) return draft;
+  if (!option) return draft;
+  const purchase = scope === "whole-contribution" ? option.wholeContribution : option;
+  if (purchase.quantity === 0) return scope === "whole-contribution" ? { ...draft, lines: [] } : draft;
   return { ...draft, lines: [
-    ...draft.lines.filter(line => !draft.fixedIncome.assetIds.includes(line.asset)),
-    { asset: option.id, ticker: option.ticker, shape: "BRL", quantity: decimalToField(option.quantity),
+    ...(scope === "whole-contribution" ? [] : draft.lines.filter(line => !draft.fixedIncome.assetIds.includes(line.asset))),
+    { asset: option.id, ticker: option.ticker, shape: "BRL", quantity: decimalToField(purchase.quantity),
       unitPrice: decimalToField(decimal(option.price! / 100)), exchangeRate: "", amount: "" },
   ] };
 }
