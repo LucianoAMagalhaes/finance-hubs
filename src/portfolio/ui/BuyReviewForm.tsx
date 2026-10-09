@@ -3,11 +3,12 @@
 import { startTransition, useEffect, useState, type FormEvent } from "react";
 import { exchangeRateToField, formatDate, formatReais, type ContributionSuggestion, type IsoDate, type PortfolioCommand } from "@/portfolio/domain";
 import type { Ptax } from "@/portfolio/sources";
+import { formatQuantity, Tags } from "./parts";
 import { isValidDate } from "@/shared";
 import { Sheet } from "@/ui/Sheet";
 import { Refusal } from "@/ui/Refusal";
 import { useAction } from "@/ui/useAction";
-import { changeBuyReviewDate, editBuyReview, fillBuyReviewPtax, openBuyReview, readBuyReview, removeBuyReviewLine, type BuyReviewLine } from "./buyReviewDraft";
+import { buyReviewTotals, chooseBuyReviewTreasury, changeBuyReviewDate, editBuyReview, fillBuyReviewPtax, openBuyReview, readBuyReview, removeBuyReviewLine, type BuyReviewLine } from "./buyReviewDraft";
 
 type Props = {
   suggestion: ContributionSuggestion;
@@ -49,6 +50,8 @@ export function BuyReviewForm({ suggestion, today, suggestExchangeRate, save, cl
     await run(() => save(checked.value).catch(() => "Não foi possível registrar as compras. Os valores foram mantidos; tente novamente."));
   }
 
+  const totals = buyReviewTotals(draft);
+  const fixedIncome = suggestion.classes.find(c => c.key === "fixed-income");
   const currentPtax = ptax?.date === draft.date ? ptax : null;
   return (
     <Sheet labelledBy="buy-review-title" className="buy-review" close={close} closingDisabled={running}>
@@ -66,6 +69,24 @@ export function BuyReviewForm({ suggestion, today, suggestExchangeRate, save, cl
                 setDraft(d => changeBuyReviewDate(d, e.target.value));
               }} />
             </label>
+            {draft.fixedIncome.budget > 0 && <fieldset className="buy-review-line">
+              <legend>Escolher um título do Tesouro para Renda Fixa</legend>
+              <p className="hint">Parcela original da classe: {formatReais(draft.fixedIncome.budget)}, incluindo o valor que ficou sem destino. Escolher substitui as compras de Renda Fixa e mantém as demais compras revisadas.</p>
+              {draft.fixedIncome.options.map(option => <div key={option.id}>
+                <strong>{option.ticker}</strong>
+                {option.belowMinimum && <p className="hint">A parcela inicial deste título não comprava a fração mínima de 0,01 título. Ele continua apto a receber aporte.</p>}
+                <p className="hint">Preço usado: {formatReais(option.price!)} · cabe comprar {formatQuantity(option.quantity)} título(s) por {formatReais(option.amount)}.</p>
+                {option.quantity === 0 && <p className="hint">A parcela da classe também não compra uma fração mínima deste título.</p>}
+                <button type="button" className="btn" disabled={option.quantity === 0} onClick={() => {
+                  clearRefusal();
+                  setDraft(d => chooseBuyReviewTreasury(d, option.id));
+                }}>Escolher {option.ticker}</button>
+              </div>)}
+              {fixedIncome?.assets.filter(a => a.bondKind === "treasury-bond" && a.exclusions.length > 0).map(a => <div key={a.id}>
+                <strong>{a.ticker}</strong>
+                <p className="hint">Impedido de receber aporte:</p><Tags tags={a.exclusions} />
+              </div>)}
+            </fieldset>}
             {dollar && <p className="hint" aria-live="polite">
               {!isValidDate(draft.date) || draft.date > today ? "Escolha uma data válida até hoje para consultar a PTAX."
                 : currentPtax === null ? "Buscando a PTAX de venda…"
@@ -92,7 +113,14 @@ export function BuyReviewForm({ suggestion, today, suggestExchangeRate, save, cl
             ))}
           </fieldset>
           {draft.lines.length === 0 && <p className="hint">Nenhuma compra restante. Cancele para voltar à sugestão.</p>}
-          <p className="hint">Sem destino na sugestão: {formatReais(draft.unallocated)}. É apenas um aviso; não cria operação nem saldo na carteira. Editar compras não redistribui este valor.</p>
+          <div aria-live="polite">
+            {totals === null ? <p className="hint">Preencha quantidade, preço, valor e câmbio das compras para calcular o total e o valor sem destino.</p> : <dl className="contribution-totals">
+              <div><dt>Aporte</dt><dd className="num">{formatReais(draft.contribution)}</dd></div>
+              <div><dt>Total das compras</dt><dd className="num">{formatReais(totals.total)}</dd></div>
+              <div><dt>{totals.excess > 0 ? "Excedente ao aporte" : "Sem destino"}</dt><dd className="num">{formatReais(totals.excess > 0 ? totals.excess : totals.unallocated)}</dd></div>
+            </dl>}
+          </div>
+          <p className="hint">O valor sem destino não gera outras compras, operação ou saldo na carteira. Você pode revisar os dados reais antes de confirmar.</p>
           <Refusal refusal={refusal} />
         </div>
         <footer>
