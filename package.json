@@ -7,9 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "start": "next build && next start",
-    "dev": "next dev",
-    "build": "next build",
+    "start": "npm run build && next start",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
