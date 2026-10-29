@@ -36,6 +36,10 @@ npm run typecheck
 npm run db:generate  # gera a migration depois de mudar src/persistence/schema.ts
 ```
 
+Os comandos de desenvolvimento e compilação usam Webpack. O Turbopack do Next.js 16.3.5
+falha ao compilar a fonte Inter de `next/font/google`, com o erro
+`next/font/google queries have exactly one entry`.
+
 - `src/domain/`: o domínio, puro (sem I/O, sem DOM). Projeção do mês e comandos.
 - `src/persistence/`: esquema do Drizzle, carregar e gravar o estado.
 - `src/server/`: inicialização (backup, migrations) e as ações do servidor.
